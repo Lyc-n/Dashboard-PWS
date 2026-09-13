@@ -10,43 +10,124 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AboutRouteImport } from './routes/about'
+import { Route as ChecklistRouteImport } from './routes/checklist'
+import { Route as KegiatanRouteImport } from './routes/kegiatan'
+import { Route as KelolaRouteImport } from './routes/kelola'
+import { Route as LaporanRouteImport } from './routes/laporan'
+import { Route as SasaranRouteImport } from './routes/sasaran'
+import { Route as SasaranIndexRouteImport } from './routes/sasaran.index'
+import { Route as SasaranIdRouteImport } from './routes/sasaran.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
+const ChecklistRoute = ChecklistRouteImport.update({
+  id: '/checklist',
+  path: '/checklist',
   getParentRoute: () => rootRouteImport,
+} as any)
+const KegiatanRoute = KegiatanRouteImport.update({
+  id: '/kegiatan',
+  path: '/kegiatan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KelolaRoute = KelolaRouteImport.update({
+  id: '/kelola',
+  path: '/kelola',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LaporanRoute = LaporanRouteImport.update({
+  id: '/laporan',
+  path: '/laporan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SasaranRoute = SasaranRouteImport.update({
+  id: '/sasaran',
+  path: '/sasaran',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SasaranIndexRoute = SasaranIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SasaranRoute,
+} as any)
+const SasaranIdRoute = SasaranIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => SasaranRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
+  '/checklist': typeof ChecklistRoute
+  '/kegiatan': typeof KegiatanRoute
+  '/kelola': typeof KelolaRoute
+  '/laporan': typeof LaporanRoute
+  '/sasaran': typeof SasaranRouteWithChildren
+  '/sasaran/$id': typeof SasaranIdRoute
+  '/sasaran/': typeof SasaranIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
+  '/checklist': typeof ChecklistRoute
+  '/kegiatan': typeof KegiatanRoute
+  '/kelola': typeof KelolaRoute
+  '/laporan': typeof LaporanRoute
+  '/sasaran/$id': typeof SasaranIdRoute
+  '/sasaran': typeof SasaranIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
+  '/checklist': typeof ChecklistRoute
+  '/kegiatan': typeof KegiatanRoute
+  '/kelola': typeof KelolaRoute
+  '/laporan': typeof LaporanRoute
+  '/sasaran': typeof SasaranRouteWithChildren
+  '/sasaran/$id': typeof SasaranIdRoute
+  '/sasaran/': typeof SasaranIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about'
+  fullPaths:
+    | '/'
+    | '/checklist'
+    | '/kegiatan'
+    | '/kelola'
+    | '/laporan'
+    | '/sasaran'
+    | '/sasaran/$id'
+    | '/sasaran/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about'
-  id: '__root__' | '/' | '/about'
+  to:
+    | '/'
+    | '/checklist'
+    | '/kegiatan'
+    | '/kelola'
+    | '/laporan'
+    | '/sasaran/$id'
+    | '/sasaran'
+  id:
+    | '__root__'
+    | '/'
+    | '/checklist'
+    | '/kegiatan'
+    | '/kelola'
+    | '/laporan'
+    | '/sasaran'
+    | '/sasaran/$id'
+    | '/sasaran/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AboutRoute: typeof AboutRoute
+  ChecklistRoute: typeof ChecklistRoute
+  KegiatanRoute: typeof KegiatanRoute
+  KelolaRoute: typeof KelolaRoute
+  LaporanRoute: typeof LaporanRoute
+  SasaranRoute: typeof SasaranRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -58,20 +139,88 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
+    '/checklist': {
+      id: '/checklist'
+      path: '/checklist'
+      fullPath: '/checklist'
+      preLoaderRoute: typeof ChecklistRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/kegiatan': {
+      id: '/kegiatan'
+      path: '/kegiatan'
+      fullPath: '/kegiatan'
+      preLoaderRoute: typeof KegiatanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kelola': {
+      id: '/kelola'
+      path: '/kelola'
+      fullPath: '/kelola'
+      preLoaderRoute: typeof KelolaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/laporan': {
+      id: '/laporan'
+      path: '/laporan'
+      fullPath: '/laporan'
+      preLoaderRoute: typeof LaporanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sasaran': {
+      id: '/sasaran'
+      path: '/sasaran'
+      fullPath: '/sasaran'
+      preLoaderRoute: typeof SasaranRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sasaran/': {
+      id: '/sasaran/'
+      path: '/'
+      fullPath: '/sasaran/'
+      preLoaderRoute: typeof SasaranIndexRouteImport
+      parentRoute: typeof SasaranRoute
+    }
+    '/sasaran/$id': {
+      id: '/sasaran/$id'
+      path: '/$id'
+      fullPath: '/sasaran/$id'
+      preLoaderRoute: typeof SasaranIdRouteImport
+      parentRoute: typeof SasaranRoute
     }
   }
 }
 
+interface SasaranRouteChildren {
+  SasaranIdRoute: typeof SasaranIdRoute
+  SasaranIndexRoute: typeof SasaranIndexRoute
+}
+
+const SasaranRouteChildren: SasaranRouteChildren = {
+  SasaranIdRoute: SasaranIdRoute,
+  SasaranIndexRoute: SasaranIndexRoute,
+}
+
+const SasaranRouteWithChildren =
+  SasaranRoute._addFileChildren(SasaranRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AboutRoute: AboutRoute,
+  ChecklistRoute: ChecklistRoute,
+  KegiatanRoute: KegiatanRoute,
+  KelolaRoute: KelolaRoute,
+  LaporanRoute: LaporanRoute,
+  SasaranRoute: SasaranRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

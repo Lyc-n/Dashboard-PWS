@@ -5,6 +5,85 @@
 
 @theme {
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+
+  --color-canvas: #f4f6f7;
+  --color-surface: #ffffff;
+  --color-surface-warm: #f8fafb;
+  --color-surface-2: #f1f5f9;
+  --color-line: #e2e8f0;
+  --color-line-2: #e6ebef;
+  --color-ink: #1e2a3a;
+  --color-ink-2: #334155;
+  --color-ink-strong: #0f172a;
+  --color-muted: #64748b;
+  --color-muted-soft: #94a3b8;
+  --color-brand: #0f2b33;
+  --color-accent: #0f766e;
+  --color-accent-hover: #0d5e57;
+  --color-accent-light: #e0f2f1;
+  --color-accent-border: #99d5cf;
+  --color-chart: #2563eb;
+  --color-danger: #b91c1c;
+  --color-danger-soft: #fef2f2;
+  --color-danger-border: #fca5a5;
+  --color-warn: #92400e;
+
+  --color-chip-prio-odgj-text: #0f766e;
+  --color-chip-prio-odgj-bg: #f0fdfa;
+  --color-chip-prio-odgj-border: #99f6e4;
+  --color-chip-prio-bumil-text: #be123c;
+  --color-chip-prio-bumil-bg: #fef2f2;
+  --color-chip-prio-bumil-border: #fecdd3;
+  --color-chip-prio-balita-text: #15803d;
+  --color-chip-prio-balita-bg: #f0fdf4;
+  --color-chip-prio-balita-border: #bbf7d0;
+  --color-chip-prio-tb-text: #92400e;
+  --color-chip-prio-tb-bg: #fffbeb;
+  --color-chip-prio-tb-border: #fde68a;
+  --color-chip-prio-stunt-text: #9d174d;
+  --color-chip-prio-stunt-bg: #fdf2f8;
+  --color-chip-prio-stunt-border: #fbcfe8;
+
+  --color-status-done-text: #065f46;
+  --color-status-done-bg: #ecfdf5;
+  --color-status-done-border: #a7f3d0;
+  --color-status-process-text: #92400e;
+  --color-status-process-bg: #fffbeb;
+  --color-status-process-border: #fde68a;
+  --color-status-pending-text: #64748b;
+  --color-status-pending-bg: #f8fafb;
+  --color-status-pending-border: #e2e8f0;
+  --color-status-belum-text: #991b1b;
+  --color-status-belum-bg: #fef2f2;
+  --color-status-belum-border: #fecaca;
+  --color-status-jadwal-text: #92400e;
+  --color-status-jadwal-bg: #fffbeb;
+  --color-status-jadwal-border: #fde68a;
+  --color-status-tindak-text: #991b1b;
+  --color-status-tindak-bg: #fef2f2;
+  --color-status-tindak-border: #fecaca;
+  --color-status-on-text: #065f46;
+  --color-status-on-bg: #ecfdf5;
+  --color-status-on-border: #a7f3d0;
+  --color-status-off-text: #64748b;
+  --color-status-off-bg: #f1f5f9;
+  --color-status-off-border: #e2e8f0;
+  --color-status-hadir-text: #065f46;
+  --color-status-hadir-bg: #ecfdf5;
+  --color-status-hadir-border: #a7f3d0;
+  --color-status-izin-text: #92400e;
+  --color-status-izin-bg: #fffbeb;
+  --color-status-izin-border: #fde68a;
+
+  --color-badge-ok-text: #065f46;
+  --color-badge-ok-bg: #ecfdf5;
+  --color-badge-ok-border: #a7f3d0;
+  --color-badge-hadir-text: #065f46;
+  --color-badge-hadir-bg: #ecfdf5;
+  --color-badge-hadir-border: #a7f3d0;
+  --color-badge-izin-text: #92400e;
+  --color-badge-izin-bg: #fffbeb;
+  --color-badge-izin-border: #fde68a;
 }
 
 :root {
@@ -75,6 +154,165 @@
   }
 }
 
+:root[data-theme="dark"],
+:root.dark {
+  --color-canvas: #0a1418;
+  --color-surface: #101d22;
+  --color-surface-warm: #0f1a1e;
+  --color-surface-2: #1a2831;
+  --color-line: #263940;
+  --color-line-2: #1a2831;
+  --color-ink: #d7ece8;
+  --color-ink-2: #b8cdc9;
+  --color-ink-strong: #e6f1ee;
+  --color-muted: #8aa7a2;
+  --color-muted-soft: #6f8d88;
+  --color-brand: #162a30;
+  --color-accent: #4fd6cd;
+  --color-accent-hover: #7de3da;
+  --color-accent-light: rgba(79, 214, 205, 0.14);
+  --color-accent-border: rgba(79, 214, 205, 0.35);
+  --color-chart: #60a5fa;
+  --color-danger: #f87171;
+  --color-danger-soft: rgba(248, 113, 113, 0.12);
+  --color-danger-border: rgba(248, 113, 113, 0.4);
+  --color-warn: #fbbf24;
+  --color-chip-prio-odgj-text: #5eead4;
+  --color-chip-prio-odgj-bg: rgba(94, 234, 212, 0.1);
+  --color-chip-prio-odgj-border: rgba(94, 234, 212, 0.35);
+  --color-chip-prio-bumil-text: #fda4af;
+  --color-chip-prio-bumil-bg: rgba(253, 164, 175, 0.1);
+  --color-chip-prio-bumil-border: rgba(253, 164, 175, 0.35);
+  --color-chip-prio-balita-text: #86efac;
+  --color-chip-prio-balita-bg: rgba(134, 239, 172, 0.1);
+  --color-chip-prio-balita-border: rgba(134, 239, 172, 0.35);
+  --color-chip-prio-tb-text: #fcd34d;
+  --color-chip-prio-tb-bg: rgba(252, 211, 77, 0.1);
+  --color-chip-prio-tb-border: rgba(252, 211, 77, 0.35);
+  --color-chip-prio-stunt-text: #f0abfc;
+  --color-chip-prio-stunt-bg: rgba(240, 171, 252, 0.1);
+  --color-chip-prio-stunt-border: rgba(240, 171, 252, 0.35);
+  --color-status-done-text: #5eead4;
+  --color-status-done-bg: rgba(94, 234, 212, 0.1);
+  --color-status-done-border: rgba(94, 234, 212, 0.35);
+  --color-status-process-text: #fcd34d;
+  --color-status-process-bg: rgba(252, 211, 77, 0.1);
+  --color-status-process-border: rgba(252, 211, 77, 0.35);
+  --color-status-pending-text: #94a3b8;
+  --color-status-pending-bg: #1a2831;
+  --color-status-pending-border: #263940;
+  --color-status-belum-text: #fda4af;
+  --color-status-belum-bg: rgba(253, 164, 175, 0.1);
+  --color-status-belum-border: rgba(253, 164, 175, 0.35);
+  --color-status-jadwal-text: #fcd34d;
+  --color-status-jadwal-bg: rgba(252, 211, 77, 0.1);
+  --color-status-jadwal-border: rgba(252, 211, 77, 0.35);
+  --color-status-tindak-text: #fda4af;
+  --color-status-tindak-bg: rgba(253, 164, 175, 0.1);
+  --color-status-tindak-border: rgba(253, 164, 175, 0.35);
+  --color-status-on-text: #5eead4;
+  --color-status-on-bg: rgba(94, 234, 212, 0.1);
+  --color-status-on-border: rgba(94, 234, 212, 0.35);
+  --color-status-off-text: #94a3b8;
+  --color-status-off-bg: #1a2831;
+  --color-status-off-border: #263940;
+  --color-status-hadir-text: #5eead4;
+  --color-status-hadir-bg: rgba(94, 234, 212, 0.1);
+  --color-status-hadir-border: rgba(94, 234, 212, 0.35);
+  --color-status-izin-text: #fcd34d;
+  --color-status-izin-bg: rgba(252, 211, 77, 0.1);
+  --color-status-izin-border: rgba(252, 211, 77, 0.35);
+  --color-badge-ok-text: #5eead4;
+  --color-badge-ok-bg: rgba(94, 234, 212, 0.1);
+  --color-badge-ok-border: rgba(94, 234, 212, 0.35);
+  --color-badge-hadir-text: #5eead4;
+  --color-badge-hadir-bg: rgba(94, 234, 212, 0.1);
+  --color-badge-hadir-border: rgba(94, 234, 212, 0.35);
+  --color-badge-izin-text: #fcd34d;
+  --color-badge-izin-bg: rgba(252, 211, 77, 0.1);
+  --color-badge-izin-border: rgba(252, 211, 77, 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-canvas: #0a1418;
+    --color-surface: #101d22;
+    --color-surface-warm: #0f1a1e;
+    --color-surface-2: #1a2831;
+    --color-line: #263940;
+    --color-line-2: #1a2831;
+    --color-ink: #d7ece8;
+    --color-ink-2: #b8cdc9;
+    --color-ink-strong: #e6f1ee;
+    --color-muted: #8aa7a2;
+    --color-muted-soft: #6f8d88;
+    --color-brand: #162a30;
+    --color-accent: #4fd6cd;
+    --color-accent-hover: #7de3da;
+    --color-accent-light: rgba(79, 214, 205, 0.14);
+    --color-accent-border: rgba(79, 214, 205, 0.35);
+    --color-chart: #60a5fa;
+    --color-danger: #f87171;
+    --color-danger-soft: rgba(248, 113, 113, 0.12);
+    --color-danger-border: rgba(248, 113, 113, 0.4);
+    --color-warn: #fbbf24;
+    --color-chip-prio-odgj-text: #5eead4;
+    --color-chip-prio-odgj-bg: rgba(94, 234, 212, 0.1);
+    --color-chip-prio-odgj-border: rgba(94, 234, 212, 0.35);
+    --color-chip-prio-bumil-text: #fda4af;
+    --color-chip-prio-bumil-bg: rgba(253, 164, 175, 0.1);
+    --color-chip-prio-bumil-border: rgba(253, 164, 175, 0.35);
+    --color-chip-prio-balita-text: #86efac;
+    --color-chip-prio-balita-bg: rgba(134, 239, 172, 0.1);
+    --color-chip-prio-balita-border: rgba(134, 239, 172, 0.35);
+    --color-chip-prio-tb-text: #fcd34d;
+    --color-chip-prio-tb-bg: rgba(252, 211, 77, 0.1);
+    --color-chip-prio-tb-border: rgba(252, 211, 77, 0.35);
+    --color-chip-prio-stunt-text: #f0abfc;
+    --color-chip-prio-stunt-bg: rgba(240, 171, 252, 0.1);
+    --color-chip-prio-stunt-border: rgba(240, 171, 252, 0.35);
+    --color-status-done-text: #5eead4;
+    --color-status-done-bg: rgba(94, 234, 212, 0.1);
+    --color-status-done-border: rgba(94, 234, 212, 0.35);
+    --color-status-process-text: #fcd34d;
+    --color-status-process-bg: rgba(252, 211, 77, 0.1);
+    --color-status-process-border: rgba(252, 211, 77, 0.35);
+    --color-status-pending-text: #94a3b8;
+    --color-status-pending-bg: #1a2831;
+    --color-status-pending-border: #263940;
+    --color-status-belum-text: #fda4af;
+    --color-status-belum-bg: rgba(253, 164, 175, 0.1);
+    --color-status-belum-border: rgba(253, 164, 175, 0.35);
+    --color-status-jadwal-text: #fcd34d;
+    --color-status-jadwal-bg: rgba(252, 211, 77, 0.1);
+    --color-status-jadwal-border: rgba(252, 211, 77, 0.35);
+    --color-status-tindak-text: #fda4af;
+    --color-status-tindak-bg: rgba(253, 164, 175, 0.1);
+    --color-status-tindak-border: rgba(253, 164, 175, 0.35);
+    --color-status-on-text: #5eead4;
+    --color-status-on-bg: rgba(94, 234, 212, 0.1);
+    --color-status-on-border: rgba(94, 234, 212, 0.35);
+    --color-status-off-text: #94a3b8;
+    --color-status-off-bg: #1a2831;
+    --color-status-off-border: #263940;
+    --color-status-hadir-text: #5eead4;
+    --color-status-hadir-bg: rgba(94, 234, 212, 0.1);
+    --color-status-hadir-border: rgba(94, 234, 212, 0.35);
+    --color-status-izin-text: #fcd34d;
+    --color-status-izin-bg: rgba(252, 211, 77, 0.1);
+    --color-status-izin-border: rgba(252, 211, 77, 0.35);
+    --color-badge-ok-text: #5eead4;
+    --color-badge-ok-bg: rgba(94, 234, 212, 0.1);
+    --color-badge-ok-border: rgba(94, 234, 212, 0.35);
+    --color-badge-hadir-text: #5eead4;
+    --color-badge-hadir-bg: rgba(94, 234, 212, 0.1);
+    --color-badge-hadir-border: rgba(94, 234, 212, 0.35);
+    --color-badge-izin-text: #fcd34d;
+    --color-badge-izin-bg: rgba(252, 211, 77, 0.1);
+    --color-badge-izin-border: rgba(252, 211, 77, 0.35);
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -87,9 +325,9 @@ body,
 
 body {
   margin: 0;
-  color: var(--sea-ink);
+  color: var(--color-ink);
   font-family: var(--font-sans);
-  background-color: var(--bg-base);
+  background-color: var(--color-canvas);
   background:
     radial-gradient(1100px 620px at -8% -10%, var(--hero-a), transparent 58%),
     radial-gradient(1050px 620px at 112% -12%, var(--hero-b), transparent 62%),
@@ -127,11 +365,13 @@ body::after {
   mask-image: radial-gradient(circle at 50% 30%, black, transparent 78%);
 }
 
-a {
-  color: var(--lagoon-deep);
-  text-decoration-color: rgba(50, 143, 151, 0.4);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
+@layer base {
+  a {
+    color: var(--lagoon-deep);
+    text-decoration-color: rgba(50, 143, 151, 0.4);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
 }
 
 a:hover {
@@ -459,6 +699,19 @@ a {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media print {
+  body {
+    background: #fff !important;
+  }
+  body::before,
+  body::after {
+    display: none !important;
+  }
+  .no-print {
+    display: none !important;
   }
 }
 
