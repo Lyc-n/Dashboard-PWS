@@ -94,7 +94,6 @@ function Dashboard() {
         ]}
         activeTab={tab}
         onTabChange={(k) => setTab(k as "kelurahan" | "prioritas")}
-        onExport={() => window.print()}
       >
       </FilterBar>
 
@@ -179,6 +178,26 @@ function Dashboard() {
               </Link>
             </td>
           </tr>
+        )}
+        renderMobileRow={(row, i) => (
+          <div key={i} className="border-b border-surface-2 last:border-none px-3.5 py-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-semibold text-ink">{row.nama}</div>
+                <div className="text-[11px] text-muted">Kel. {row.kel} · {row.posy}</div>
+              </div>
+              <StatusBadge value={row.status} />
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <Tag priority={row.prior} />
+              <span className="text-[11px] text-muted">{fmtDate(row.tgl)}</span>
+              <span className="text-[11px] text-muted">· {row.sumber}</span>
+            </div>
+            <div className="mt-1.5 text-[11px] text-muted">{row.hasil}</div>
+            <Link to="/sasaran" className="mt-2 inline-flex text-[11px] font-semibold text-accent hover:text-accent-hover">
+              Lihat Detail
+            </Link>
+          </div>
         )}
         sortKey={sortKey}
         sortDir={sortDir}

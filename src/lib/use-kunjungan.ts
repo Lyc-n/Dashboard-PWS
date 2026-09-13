@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
-import { sasaranDef } from "@/lib/kr-form";
-import type { SasaranKey } from "@/lib/kr-form";
 import { HASIL_KUNJUNGAN } from "@/lib/constants";
+import type { SasaranKey } from "@/lib/kr-form";
+import { sasaranDef } from "@/lib/kr-form";
+import type { KrTemplates } from "@/lib/kr-templates";
+import { seedKrTemplates } from "@/lib/kr-templates";
 
 export interface AnggotaKeluarga {
   id: string;
@@ -13,6 +15,7 @@ export interface AnggotaKeluarga {
   statusKawin: string;
   pendidikan: string;
   pekerjaan: string;
+  [key: string]: string;
 }
 
 export interface PenilaianForm {
@@ -33,6 +36,7 @@ export interface MasalahTindak {
   telepon: string;
   masalah: string;
   tindakLanjut: string;
+  [key: string]: string;
 }
 
 export interface KeluargaInfo {
@@ -47,6 +51,7 @@ export interface KeluargaInfo {
   pustu: string;
   posyandu: string;
   namaKK: string;
+  [key: string]: string;
 }
 
 export interface Sanitasi {
@@ -60,6 +65,7 @@ export interface Sanitasi {
   tbc: boolean;
   hipertensi: boolean;
   dm: boolean;
+  [key: string]: boolean | string;
 }
 
 export interface KunjunganRecord {
@@ -129,19 +135,21 @@ export const INFO_FIELDS: { key: keyof KeluargaInfo; label: string; kind: "text"
   { key: "namaKK", label: "Nama kepala keluarga", kind: "text" },
 ];
 
-function emptyPenilaian(anggotaId: string, sasaran: SasaranKey): PenilaianForm {
-  const def = sasaranDef(sasaran);
+function emptyPenilaian(anggotaId: string, sasaran: SasaranKey, templates?: KrTemplates): PenilaianForm {
+  const fallback = sasaranDef(sasaran);
+  const prioritas = templates ? (templates.sasaran[sasaran]?.prioritasDefault ?? fallback.prioritasDefault) : fallback.prioritasDefault;
   return {
     id: uid(),
     anggotaId,
     sasaran,
     values: {},
     checks: {},
-    prioritas: [...def.prioritasDefault],
+    prioritas: [...prioritas],
   };
 }
 
-export function useKunjungan() {
+export function useKunjungan(templatesInput?: KrTemplates) {
+  const templates = templatesInput ?? seedKrTemplates();
   const [info, setInfo] = useState<KeluargaInfo>({ ...EMPTY_INFO });
   const [sanitasi, setSanitasi] = useState<Sanitasi>({ ...EMPTY_SANITASI });
   const [anggota, setAnggota] = useState<AnggotaKeluarga[]>([]);
@@ -176,9 +184,12 @@ export function useKunjungan() {
     setPenilaian((p) => p.filter((n) => n.anggotaId !== id));
   }, []);
 
-  const addPenilaian = useCallback((anggotaId: string, sasaran: SasaranKey) => {
-    setPenilaian((p) => [...p, emptyPenilaian(anggotaId, sasaran)]);
-  }, []);
+  const addPenilaian = useCallback(
+    (anggotaId: string, sasaran: SasaranKey) => {
+      setPenilaian((p) => [...p, emptyPenilaian(anggotaId, sasaran, templates)]);
+    },
+    [templates],
+  );
 
   const removePenilaian = useCallback((id: string) => {
     setPenilaian((p) => p.filter((n) => n.id !== id));
@@ -226,17 +237,61 @@ export function useKunjungan() {
   );
 
   const fillPercent = useMemo(() => {
-    const total = 8;
-    let fill = 0;
-    if (info.tglPengumpulan.trim() && info.posyandu.trim()) fill++;
-    if (info.namaKK.trim()) fill++;
-    if (anggota.length > 0) fill++;
-    if (penilaian.length > 0) fill++;
-    if (masalah.length > 0) fill++;
-    if (hasil) fill++;
-    if (ttd.trim()) fill++;
-    return Math.round((fill / total) * 100);
-  }, [info, anggota, penilaian, masalah, hasil, ttd]);
+    // dynamic: count required active fields filled
+    const reqKeluarga = templates.keluargaInfo.filter((f) => f.active && f.required);
+    const reqAnggota = templates.anggota.filter((f) => f.active && f.required);
+    const reqMasalah = templates.masalah.filter((f) => f.active && f.required);
+    let totalReq = reqKeluarga.length + reqMasalah.length + 2; // + hasil + ttd
+    let filledReq = 0;
+    for (const f of reqKeluarga) {
+      const v = (info as Record<string, string>)[f.id] ?? "";
+      if (String(v).trim()) filledReq++;
+    }
+    if (anggota.length > 0) {
+      // each required anggota field must be filled for at least one anggota? count per member
+      // For fillPercent we consider: if any anggota exists, count required per first member
+      // More precise: totalReq includes per-member required * anggota count
+      if (reqAnggota.length > 0 && anggota.length > 0) {
+        totalReq += reqAnggota.length;
+        const first = anggota[0] as Record<string, string>;
+        for (const f of reqAnggota) {
+          if (String(first[f.id] ?? "").trim()) filledReq++;
+        }
+      }
+    } else if (reqAnggota.length > 0) {
+      totalReq += reqAnggota.length;
+    }
+    // penilaian required per sasaran
+    for (const p of penilaian) {
+      const tpls = templates.sasaran[p.sasaran]?.fields.filter((f) => f.active && f.required) ?? [];
+      totalReq += tpls.length;
+      for (const f of tpls) {
+        if (f.kind === "checkbox") {
+          if (p.checks[f.id]) filledReq++;
+        } else {
+          const v = p.values[f.id] ?? "";
+          if (String(v).trim()) filledReq++;
+        }
+      }
+    }
+    if (penilaian.length === 0) {
+      // at least one sasaran required
+      totalReq += 1;
+    }
+    for (const f of reqMasalah) {
+      if (masalah.length > 0) {
+        const first = masalah[0] as Record<string, string>;
+        if (String(first[f.id] ?? "").trim()) filledReq++;
+      }
+    }
+    if (hasil.trim()) filledReq++;
+    if (ttd.trim()) filledReq++;
+    // baseline progress like old: ensure minimal count
+    if (totalReq === 0) return 100;
+    const base = Math.round((filledReq / totalReq) * 100);
+    // also ensure at least fallback 0-100
+    return Math.max(0, Math.min(100, base));
+  }, [info, anggota, penilaian, masalah, hasil, ttd, templates]);
 
   const stepState = useMemo((): ("done" | "now" | "todo")[] => {
     const n = ttd.trim() ? 4 : penilaian.length > 0 ? 3 : anggota.length > 0 ? 2 : 1;
@@ -246,13 +301,29 @@ export function useKunjungan() {
   const validate = useCallback((): boolean => {
     const nextInvalid: Record<string, boolean> = {};
     let ok = true;
+    // keluargaInfo required dynamic
+    for (const f of templates.keluargaInfo.filter((x) => x.active && x.required)) {
+      const v = (info as Record<string, string>)[f.id] ?? "";
+      if (!String(v).trim()) {
+        nextInvalid[f.id] = true;
+        // keep legacy keys for UI compat
+        if (f.id === "tglPengumpulan") nextInvalid.tgl = true;
+        if (f.id === "posyandu") nextInvalid.posyandu = true;
+        ok = false;
+      }
+    }
+    // fallback legacy required if template has no required
     if (!info.tglPengumpulan) {
-      nextInvalid.tgl = true;
-      ok = false;
+      if (!nextInvalid.tgl) {
+        nextInvalid.tgl = true;
+        ok = false;
+      }
     }
     if (!info.posyandu.trim()) {
-      nextInvalid.posyandu = true;
-      ok = false;
+      if (!nextInvalid.posyandu) {
+        nextInvalid.posyandu = true;
+        ok = false;
+      }
     }
     if (anggota.length === 0) {
       nextInvalid.anggota = true;
@@ -260,28 +331,98 @@ export function useKunjungan() {
     }
     const seen = new Set<string>();
     anggota.forEach((m) => {
+      const rec = m as unknown as Record<string, string>;
+      for (const f of templates.anggota.filter((x) => x.active && x.required)) {
+        const v = rec[f.id] ?? "";
+        if (!String(v).trim()) {
+          nextInvalid[`${f.id}:${m.id}`] = true;
+          ok = false;
+        }
+        // legacy nik 16 digit check
+        if (f.id === "nik") {
+          if (!/^\d{16}$/.test(rec.nik ?? "")) {
+            nextInvalid[`nik:${m.id}`] = true;
+            ok = false;
+          } else if (seen.has(rec.nik)) {
+            nextInvalid[`nik:${m.id}`] = true;
+            ok = false;
+          }
+        }
+      }
+      // keep legacy nik duplicate check even if not required template
+      if (!templates.anggota.find((f) => f.id === "nik" && f.required)) {
+        if (!/^\d{16}$/.test(m.nik)) {
+          nextInvalid[`nik:${m.id}`] = true;
+          ok = false;
+        } else if (seen.has(m.nik)) {
+          nextInvalid[`nik:${m.id}`] = true;
+          ok = false;
+        }
+      }
+      if (seen.has(m.nik) === false) seen.add(m.nik);
+      // legacy nama/tglLahir fallback if not covered
       if (!m.nama.trim()) {
-        nextInvalid[`nama:${m.id}`] = true;
-        ok = false;
+        if (!nextInvalid[`nama:${m.id}`]) {
+          // only if not already marked via template
+          const hasNamaReq = templates.anggota.some((f) => f.id === "nama" && f.required);
+          if (!hasNamaReq) {
+            nextInvalid[`nama:${m.id}`] = true;
+            ok = false;
+          }
+        }
       }
-      if (!/^\d{16}$/.test(m.nik)) {
-        nextInvalid[`nik:${m.id}`] = true;
-        ok = false;
-      } else if (seen.has(m.nik)) {
-        nextInvalid[`nik:${m.id}`] = true;
-        ok = false;
-      }
-      seen.add(m.nik);
       if (!m.tglLahir) {
-        nextInvalid[`tglLahir:${m.id}`] = true;
-        ok = false;
+        const hasReq = templates.anggota.some((f) => f.id === "tglLahir" && f.required);
+        if (!hasReq) {
+          nextInvalid[`tglLahir:${m.id}`] = true;
+          ok = false;
+        }
       }
     });
     if (penilaian.length === 0) {
       nextInvalid.penilaian = true;
       ok = false;
+    } else {
+      for (const p of penilaian) {
+        const fields = templates.sasaran[p.sasaran]?.fields.filter((f) => f.active && f.required) ?? [];
+        for (const f of fields) {
+          if (f.kind === "checkbox") {
+            // checkbox required means must be checked
+            if (!p.checks[f.id]) {
+              nextInvalid[`${p.id}:${f.id}`] = true;
+              ok = false;
+            }
+          } else {
+            const v = p.values[f.id] ?? "";
+            if (!String(v).trim()) {
+              nextInvalid[`${p.id}:${f.id}`] = true;
+              ok = false;
+            }
+          }
+        }
+      }
     }
-    if (hasil === HASIL_KUNJUNGAN[1] && !jadwal) {
+    // masalah required per field
+    if (templates.masalah.some((f) => f.active && f.required) && masalah.length === 0) {
+      nextInvalid.masalahRequired = true;
+      ok = false;
+    }
+    for (const mm of masalah) {
+      const rec = mm as unknown as Record<string, string>;
+      for (const f of templates.masalah.filter((x) => x.active && x.required)) {
+        if (!String(rec[f.id] ?? "").trim()) {
+          nextInvalid[`masalah:${mm.id}:${f.id}`] = true;
+          ok = false;
+        }
+      }
+    }
+    const hasilOpsi = templates.hasilOpsi ?? HASIL_KUNJUNGAN;
+    if (hasilOpsi.length > 0 && !hasilOpsi.includes(hasil)) {
+      // if hasil not in opsi, invalid
+      nextInvalid.hasil = true;
+      ok = false;
+    }
+    if (hasil === hasilOpsi[1] && !jadwal) {
       nextInvalid.jadwal = true;
       ok = false;
     }
@@ -291,7 +432,7 @@ export function useKunjungan() {
     }
     setInvalid(nextInvalid);
     return ok;
-  }, [info, anggota, penilaian.length, hasil, jadwal, ttd]);
+  }, [info, anggota, penilaian, masalah, hasil, jadwal, ttd, templates]);
 
   const submit = useCallback((): KunjunganRecord | null => {
     if (!validate()) return null;

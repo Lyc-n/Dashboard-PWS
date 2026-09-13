@@ -9,6 +9,7 @@ export const SearchInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTML
       className={cn(
         "w-55 rounded-lg bg-surface-2 px-3.5 py-1.5 text-[13px] text-ink outline-none",
         "placeholder:text-muted-soft",
+        "max-md:w-full max-md:flex-1 max-md:min-w-0",
         className,
         "border border-muted-soft/30"
       )}

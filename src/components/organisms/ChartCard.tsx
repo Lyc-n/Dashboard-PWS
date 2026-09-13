@@ -28,7 +28,7 @@ export function ChartCard({
         {note ? <div className="text-[10px] text-muted">{note}</div> : null}
       </div>
       <PwsChart data={data} labels={labels} renderTooltip={renderTooltip} />
-      {children ? <div className="mt-3 grid grid-cols-3 gap-3 max-md:grid-cols-1">{children}</div> : null}
+      {children ? <div className="mt-3 grid grid-cols-3 gap-3 max-md:grid-cols-1 max-sm:gap-2">{children}</div> : null}
     </div>
   );
 }

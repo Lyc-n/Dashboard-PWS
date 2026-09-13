@@ -15,6 +15,7 @@ export interface DataTableProps<T> {
   columns: DataTableColumn[];
   rows: T[];
   renderRow: (row: T, index: number) => ReactNode;
+  renderMobileRow?: (row: T, index: number) => ReactNode;
   sortKey?: string | null;
   sortDir?: "asc" | "desc";
   onSort?: (key: string) => void;
@@ -34,6 +35,7 @@ export function DataTable<T>({
   columns,
   rows,
   renderRow,
+  renderMobileRow,
   sortKey,
   sortDir = "asc",
   onSort,
@@ -51,54 +53,116 @@ export function DataTable<T>({
   return (
     <div className={cn("mt-3.5 overflow-hidden rounded-[10px] border border-[var(--color-line-2)] bg-surface", className)}>
       {toolbar ? <div className="border-b border-[var(--color-line-2)] px-3.5 py-3">{toolbar}</div> : null}
-      <div className="overflow-auto">
-        <table className="w-full border-collapse text-xs">
-          <thead>
-            <tr>
-              {columns.map((col) => {
-                const active = sortKey === col.key;
-                return (
-                  <th
-                    key={col.key}
-                    onClick={col.sortable && onSort ? () => onSort(col.key) : undefined}
-                    className={cn(
-                      "whitespace-nowrap border-b border-[var(--color-line-2)] bg-surface-2 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted",
-                      col.sortable && onSort && "cursor-pointer select-none",
-                      col.headerClassName,
-                    )}
-                  >
-                    <span className={cn("inline-flex items-center gap-1", active && "text-ink")}>
-                      {col.label}
-                      {col.sortable && onSort ? (
-                        active ? (
-                          sortDir === "asc" ? (
-                            <ArrowUp size={12} />
-                          ) : (
-                            <ArrowDown size={12} />
-                          )
-                        ) : (
-                          <ArrowUpDown size={12} className="opacity-50" />
-                        )
-                      ) : null}
-                    </span>
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
+      {renderMobileRow ? (
+        <>
+          <div className="overflow-auto">
+            <table className="w-full border-collapse text-xs max-md:hidden">
+              <thead>
+                <tr>
+                  {columns.map((col) => {
+                    const active = sortKey === col.key;
+                    return (
+                      <th
+                        key={col.key}
+                        onClick={col.sortable && onSort ? () => onSort(col.key) : undefined}
+                        className={cn(
+                          "whitespace-nowrap border-b border-[var(--color-line-2)] bg-surface-2 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted",
+                          col.sortable && onSort && "cursor-pointer select-none",
+                          col.headerClassName,
+                        )}
+                      >
+                        <span className={cn("inline-flex items-center gap-1", active && "text-ink")}>
+                          {col.label}
+                          {col.sortable && onSort ? (
+                            active ? (
+                              sortDir === "asc" ? (
+                                <ArrowUp size={12} />
+                              ) : (
+                                <ArrowDown size={12} />
+                              )
+                            ) : (
+                              <ArrowUpDown size={12} className="opacity-50" />
+                            )
+                          ) : null}
+                        </span>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length > 0 ? (
+                  rows.map((row, i) => renderRow(row, i))
+                ) : (
+                  <tr>
+                    <td colSpan={columns.length} className="px-3 py-5 text-center text-muted">
+                      {emptyMessage ?? "Tidak ada data"}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="md:hidden">
             {rows.length > 0 ? (
-              rows.map((row, i) => renderRow(row, i))
+              rows.map((row, i) => renderMobileRow(row, i))
             ) : (
-              <tr>
-                <td colSpan={columns.length} className="px-3 py-5 text-center text-muted">
-                  {emptyMessage ?? "Tidak ada data"}
-                </td>
-              </tr>
+              <div className="px-3 py-5 text-center text-muted text-xs">
+                {emptyMessage ?? "Tidak ada data"}
+              </div>
             )}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        </>
+      ) : (
+        <div className="overflow-auto">
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr>
+                {columns.map((col) => {
+                  const active = sortKey === col.key;
+                  return (
+                    <th
+                      key={col.key}
+                      onClick={col.sortable && onSort ? () => onSort(col.key) : undefined}
+                      className={cn(
+                        "whitespace-nowrap border-b border-[var(--color-line-2)] bg-surface-2 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted",
+                        col.sortable && onSort && "cursor-pointer select-none",
+                        col.headerClassName,
+                      )}
+                    >
+                      <span className={cn("inline-flex items-center gap-1", active && "text-ink")}>
+                        {col.label}
+                        {col.sortable && onSort ? (
+                          active ? (
+                            sortDir === "asc" ? (
+                              <ArrowUp size={12} />
+                            ) : (
+                              <ArrowDown size={12} />
+                            )
+                          ) : (
+                            <ArrowUpDown size={12} className="opacity-50" />
+                          )
+                        ) : null}
+                      </span>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length > 0 ? (
+                rows.map((row, i) => renderRow(row, i))
+              ) : (
+                <tr>
+                  <td colSpan={columns.length} className="px-3 py-5 text-center text-muted">
+                    {emptyMessage ?? "Tidak ada data"}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
       {hasPagination ? (
         <Pagination info={info} canPrev={canPrev} canNext={canNext} onPrev={onPrev} onNext={onNext} />
       ) : null}

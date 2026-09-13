@@ -81,4 +81,5 @@ export const STORAGE_KEYS = {
   adminItems: "pws-admin-items",
   adminPrios: "pws-admin-prios",
   adminStaff: "pws-admin-staff",
+  krTemplates: "pws-kr-templates",
 } as const;

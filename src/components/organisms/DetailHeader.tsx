@@ -16,18 +16,18 @@ export function DetailHeader({ breadcrumb, onBack, title, meta, actions }: Detai
   return (
     <div className="rounded-lg border-t-[3px] border-t-accent bg-surface-warm px-3.5 py-3">
       {breadcrumb?.length ? <Breadcrumb items={breadcrumb} className="mb-2.5" /> : null}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 max-md:gap-2">
         {onBack ? (
           <Button aria-label="Kembali" className="size-9 px-0" onClick={onBack}>
             <ArrowLeft size={18} />
           </Button>
         ) : null}
-        <div className="min-w-0">
-          <h1 className="text-base font-bold text-ink">{title}</h1>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-base font-bold text-ink max-sm:text-[15px]">{title}</h1>
         </div>
-        {actions ? <div className="ml-auto flex flex-wrap items-center gap-2">{actions}</div> : null}
+        {actions ? <div className="ml-auto flex flex-wrap items-center gap-2 max-md:w-full max-md:justify-end">{actions}</div> : null}
       </div>
-      {meta ? <div className="mt-2.5 text-[11.5px] text-muted">{meta}</div> : null}
+      {meta ? <div className="mt-2.5 text-[11.5px] text-muted max-md:mt-2">{meta}</div> : null}
     </div>
   );
 }

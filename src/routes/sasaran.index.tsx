@@ -96,7 +96,7 @@ function Sasaran() {
             }}
             placeholder="Cari nama atau NIK…"
             aria-label="Cari sasaran"
-            className="max-w-60"
+            className="max-w-60 max-md:max-w-none"
           />
           <Select
             value={status}
@@ -105,7 +105,7 @@ function Sasaran() {
               setPage(1);
             }}
             aria-label="Filter status"
-            className="max-w-45"
+            className="max-w-45 max-md:max-w-none"
           >
             <option value="all">Semua status</option>
             <option>Sudah</option>
@@ -119,7 +119,7 @@ function Sasaran() {
               setPage(1);
             }}
             aria-label="Filter prioritas"
-            className="max-w-45"
+            className="max-w-45 max-md:max-w-none"
           >
             <option value="all">Semua prioritas</option>
             {PRIOS.map((p) => (
@@ -133,7 +133,7 @@ function Sasaran() {
               setPage(1);
             }}
             aria-label="Filter kelurahan"
-            className="max-w-45"
+            className="max-w-45 max-md:max-w-none"
           >
             <option value="all">Semua kelurahan</option>
             {KELS.map((k) => (
@@ -147,7 +147,7 @@ function Sasaran() {
               setPage(1);
             }}
             aria-label="Filter posyandu"
-            className="max-w-45"
+            className="max-w-45 max-md:max-w-none"
           >
             <option value="all">Semua posyandu</option>
             {POSY.map((p) => (
@@ -218,6 +218,35 @@ function Sasaran() {
                 </Link>
               </td>
             </tr>
+          )}
+          renderMobileRow={({ row, idx }, i) => (
+            <div key={i} className="border-b border-surface-2 last:border-none px-3.5 py-3">
+              <div className="flex items-start justify-between gap-2">
+                <Link
+                  to="/sasaran/$id"
+                  params={{ id: String(idx) }}
+                  className="font-semibold text-accent hover:text-accent-hover"
+                >
+                  {row.nama}
+                </Link>
+                <StatusBadge value={row.status} />
+              </div>
+              <div className="text-[11px] text-muted">NIK {row.nik}</div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                <Tag priority={row.prior} />
+                <span className="text-[11px] text-muted">Kel. {row.kel} · {row.posy}</span>
+              </div>
+              <div className="mt-1.5 flex items-center justify-between gap-2">
+                <span className="text-[11px] text-muted">{fmtDate(row.tgl)} · {row.lokasi}</span>
+                <Link
+                  to="/sasaran/$id"
+                  params={{ id: String(idx) }}
+                  className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs font-bold text-ink hover:border-accent"
+                >
+                  Detail
+                </Link>
+              </div>
+            </div>
           )}
           info={`Hal ${pageClamped} · ${(pageClamped - 1) * PAGE_SIZE + 1}–${Math.min(pageClamped * PAGE_SIZE, filtered.length)} dari ${filtered.length}`}
           page={pageClamped}

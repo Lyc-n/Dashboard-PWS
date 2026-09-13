@@ -1,4 +1,4 @@
-import { MoonIcon, SunIcon } from 'lucide-react'
+import { MoonIcon, SunIcon, SunMoon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 type ThemeMode = 'light' | 'dark' | 'auto'
@@ -32,7 +32,7 @@ function applyThemeMode(mode: ThemeMode) {
   document.documentElement.style.colorScheme = resolved
 }
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ plain = false }: { plain?: boolean }) {
   const [mode, setMode] = useState<ThemeMode>('auto')
 
   useEffect(() => {
@@ -74,9 +74,13 @@ export default function ThemeToggle() {
       onClick={toggleMode}
       aria-label={label}
       title={label}
-      className="rounded-full border border-chip-line/20 bg-chip-bg px-3 py-1.5 text-sm font-semibold text-sea-ink transition hover:-translate-y-0.5"
+      className={
+        plain
+          ? 'text-[13px] m-1 font-medium text-ink hover:bg-surface-2 transition cursor-pointer'
+          : 'rounded-full border border-chip-line/20 bg-chip-bg px-3 py-1.5 text-sm font-semibold text-sea-ink transition hover:-translate-y-0.5'
+      }
     >
-      {mode === 'auto' ? 'A' : mode === 'dark' ? <MoonIcon size={16} /> : <SunIcon size={16} />}
+      {mode === 'auto' ? <SunMoon size={16} /> : mode === 'dark' ? <MoonIcon size={16} /> : <SunIcon size={16} />}
     </button>
   )
 }
