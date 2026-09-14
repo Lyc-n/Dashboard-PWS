@@ -55,7 +55,7 @@ type FieldDlgState = {
 
 const TABS = [
   { key: "formkr", label: "Form KR" },
-  { key: "checklist", label: "Checklist (Legacy)" },
+  // { key: "checklist", label: "Checklist (Legacy)" },
   { key: "prioritas", label: "Prioritas" },
   { key: "staff", label: "Staff" },
 ] as const;
@@ -692,7 +692,7 @@ function Kelola() {
         </>
       ) : null}
 
-      {tab === "checklist" ? (
+      {/* {tab === "checklist" ? (
         <SectionCard title="Template checklist per prioritas (Legacy)" sub="Pilih prioritas, lalu tambah, ubah, nonaktifkan, atau hapus butir. Tidak sinkron ke Form KR baru.">
           <ChipGroup
             options={prios.map((p) => ({ value: p.nama, label: p.nama + (p.on ? "" : " (nonaktif)") }))}
@@ -728,7 +728,7 @@ function Kelola() {
             )}
           </div>
         </SectionCard>
-      ) : null}
+      ) : null} */}
 
       {tab === "prioritas" ? (
         <SectionCard title="Daftar prioritas" sub="Nama unik, warna tag, dan status aktif. Prioritas nonaktif disembunyikan dari form.">

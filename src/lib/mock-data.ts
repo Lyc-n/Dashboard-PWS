@@ -91,9 +91,9 @@ export const PRIO_ADJUST: Record<string, number> = {
 };
 
 export const TINDAK_CANDIDATES: TindakCandidate[] = [
-  { kel: "Pesisir", issue: "Cakupan tertinggal 12% — 38 balita belum KR ulang.", color: "var(--color-accent)", icon: "!" },
+  { kel: "Ngemplakrejo", issue: "Cakupan tertinggal 12% — 38 balita belum KR ulang.", color: "var(--color-accent)", icon: "!" },
   { kel: "Tambaan", issue: "Kunjungan mangkir — sweeping kader minggu ini.", color: "var(--color-warn)", icon: "↗" },
-  { kel: "Trajeng", issue: "Stabil, 14 KK belum terverifikasi.", color: "var(--color-ink-2)", icon: "✓" },
+  { kel: "Trajeng", issue: "Terdapat 80% Penderita Hipertensi", color: "var(--color-ink-2)", icon: "✓" },
 ];
 
 const DASHBOARD_ROWS: ReportRow[] = [
