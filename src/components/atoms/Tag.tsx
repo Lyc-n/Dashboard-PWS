@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from "react";
-import { cn, priorityTagVariant, TAG_STYLES } from "@/lib/utils";
-import type { TagVariant } from "@/lib/utils";
+import { cn, priorityTagVariant, TAG_STYLES  } from "@/lib/utils";
+import type {TagVariant} from "@/lib/utils";
 
 export interface TagProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: TagVariant;

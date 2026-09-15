@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from "react";
-import { cn, statusVariantFrom, STATUS_STYLES } from "@/lib/utils";
-import type { StatusVariant } from "@/lib/utils";
+import { cn, statusVariantFrom, STATUS_STYLES  } from "@/lib/utils";
+import type {StatusVariant} from "@/lib/utils";
 
 export interface StatusBadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: StatusVariant;

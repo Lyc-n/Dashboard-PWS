@@ -1,8 +1,8 @@
 import { useCallback } from "react";
 import { STORAGE_KEYS } from "@/lib/constants";
-import { seedKrTemplates, validateKrTemplates } from "@/lib/kr-templates";
-import type { KrTemplates } from "@/lib/kr-templates";
-import { useLocalStorage } from "@/lib/use-local-storage";
+import { seedKrTemplates, validateKrTemplates  } from "@/lib/kr-templates";
+import type {KrTemplates} from "@/lib/kr-templates";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import { triggerDownload } from "@/lib/utils";
 
 export function useKrTemplates() {

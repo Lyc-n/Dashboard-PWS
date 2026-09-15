@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { Chip } from "@/components/atoms/Chip";
-import type { ChipProps } from "@/components/atoms/Chip";
+import { Chip  } from "@/components/atoms/Chip";
+import type {ChipProps} from "@/components/atoms/Chip";
 
 export interface ChipOption {
   value: string;

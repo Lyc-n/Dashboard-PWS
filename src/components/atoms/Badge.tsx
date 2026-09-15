@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from "react";
-import { cn, BADGE_STYLES } from "@/lib/utils";
-import type { BadgeVariant } from "@/lib/utils";
+import { cn, BADGE_STYLES  } from "@/lib/utils";
+import type {BadgeVariant} from "@/lib/utils";
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { KELS } from "@/lib/constants";
-import type { Peserta } from "@/lib/use-kegiatan";
+import type { Peserta } from "@/hooks/use-kegiatan";
 import { Button } from "@/components/atoms/Button";
 import { Checkbox } from "@/components/atoms/Checkbox";
 import { Select } from "@/components/atoms/Select";

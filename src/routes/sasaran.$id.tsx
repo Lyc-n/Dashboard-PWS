@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { sasaranRows } from "@/lib/mock-data";
 import { fmtDate, initialsOf } from "@/lib/utils";
-import { useToast } from "@/lib/toast";
+import { useToast } from "@/providers/toast";
 import { DetailHeader } from "@/components/organisms/DetailHeader";
 import { InfoPanel } from "@/components/organisms/InfoPanel";
 import { SectionCard } from "@/components/molecules/SectionCard";

@@ -3,7 +3,7 @@ import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
 import appCss from '../styles.css?url'
-import { ToastProvider } from '@/lib/toast'
+import { ToastProvider } from '@/providers/toast'
 import { THEME_INIT_SCRIPT } from '@/lib/theme'
 import icon from '@/assets/brandIcon.png'
 

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { BOTTOM_NAV_ITEMS } from "@/lib/constants";
+import { BOTTOM_NAV_ITEMS } from "@/lib/nav";
 
 export function BottomNav() {
   return (

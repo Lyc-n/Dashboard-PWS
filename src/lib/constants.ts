@@ -1,5 +1,3 @@
-import { ClipboardCheck, FileText, LayoutDashboard, PersonStanding, ScrollText, Settings } from "lucide-react";
-
 export const KELS = ["Trajeng", "Ngemplakrejo", "Tambaan", "Mayangan"] as const;
 
 export const PRIOS = ["ODGJ", "Bumil Risti", "Balita Risti", "TB", "Stunting"] as const;
@@ -36,23 +34,6 @@ export const MONTHS = [
   "Okt",
   "Nov",
   "Des",
-] as const;
-
-export const NAV_ITEMS = [
-  { label: "Dashboard", to: "/", Icon: LayoutDashboard },
-  { label: "Data Sasaran", to: "/sasaran", Icon: FileText },
-  { label: "Input Checklist", to: "/checklist", Icon: ClipboardCheck },
-  { label: "Laporan", to: "/laporan", Icon: ScrollText },
-  { label: "Kegiatan", to: "/kegiatan", Icon: PersonStanding },
-  { label: "Kelola", to: "/kelola", Icon: Settings },
-] as const;
-
-export const BOTTOM_NAV_ITEMS = [
-  NAV_ITEMS[0],
-  NAV_ITEMS[1],
-  NAV_ITEMS[2],
-  NAV_ITEMS[3],
-  NAV_ITEMS[4],
 ] as const;
 
 export const APP_BRAND = {

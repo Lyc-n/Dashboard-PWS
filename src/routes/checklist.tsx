@@ -1,21 +1,21 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { X } from "lucide-react";
-import { useKunjungan } from "@/lib/use-kunjungan";
-import { useKrTemplates } from "@/lib/use-kr-templates";
-import { useLocalStorage } from "@/lib/use-local-storage";
+import { useKunjungan } from "@/hooks/use-kunjungan";
+import { useKrTemplates } from "@/hooks/use-kr-templates";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import { PRIOS, STORAGE_KEYS } from "@/lib/constants";
 import type { SasaranKey } from "@/lib/kr-form";
 import type { KrTemplateField } from "@/lib/kr-templates";
 import { fmtDate } from "@/lib/utils";
-import { useToast } from "@/lib/toast";
+import { useToast } from "@/providers/toast";
 import { AppShell } from "@/components/organisms/AppShell";
 import { DetailHeader } from "@/components/organisms/DetailHeader";
 import { HistoryPanel } from "@/components/organisms/HistoryPanel";
 import { SuccessPanel } from "@/components/organisms/SuccessPanel";
 import { SectionCard } from "@/components/molecules/SectionCard";
-import { Stepper } from "@/components/molecules/Stepper";
-import type { Step } from "@/components/molecules/Stepper";
+import { Stepper  } from "@/components/molecules/Stepper";
+import type {Step} from "@/components/molecules/Stepper";
 import { FillBar } from "@/components/molecules/FillBar";
 import { HistoryRow } from "@/components/molecules/HistoryRow";
 import { FormField } from "@/components/molecules/FormField";
@@ -509,7 +509,7 @@ function SasaranForm({
                 <Checkbox
                   checked={p.checks[b.id] ?? false}
                   onChange={(e) => k.setCheck(p.id, b.id, e.target.checked)}
-                  className={p.checks[b.id] ? "!border-[var(--color-danger-border)]" : ""}
+                  className={p.checks[b.id] ? "!border-danger-border" : ""}
                 />
                 {b.label}
                 {b.required ? <span className="text-danger">*</span> : null}
@@ -575,8 +575,8 @@ const PLACEHOLDER: Partial<Record<string, string>> = {
 
 const SASARAN_LABEL_SHORT: Partial<Record<SasaranKey, string>> = {
   "bersalin-nifas": "Bersalin & Nifas",
-  balita: "Balita 6–71",
-  remaja: "Remaja 6–18",
+  balita: "Balita 6–71 bulan",
+  remaja: "Remaja 6–18 tahun",
   dewasa: "Dewasa",
   lansia: "Lansia",
 };

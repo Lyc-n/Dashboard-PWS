@@ -1,8 +1,8 @@
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/atoms/Button";
-import { Breadcrumb } from "@/components/molecules/Breadcrumb";
-import type { BreadcrumbItem } from "@/components/molecules/Breadcrumb";
+import { Breadcrumb  } from "@/components/molecules/Breadcrumb";
+import type {BreadcrumbItem} from "@/components/molecules/Breadcrumb";
 
 export interface DetailHeaderProps {
   breadcrumb?: BreadcrumbItem[];

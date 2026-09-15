@@ -1,5 +1,5 @@
-import { Fragment } from "react";
-import type { ReactNode } from "react";
+import { Fragment  } from "react";
+import type {ReactNode} from "react";
 import { EmptyState } from "@/components/atoms/EmptyState";
 
 export interface HistoryPanelProps {

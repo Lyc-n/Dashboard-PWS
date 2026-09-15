@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { APP_BRAND, NAV_ITEMS } from "@/lib/constants";
+import { APP_BRAND } from "@/lib/constants";
+import { NAV_ITEMS } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import brandIcon from "@/assets/brandIcon.png" 
 

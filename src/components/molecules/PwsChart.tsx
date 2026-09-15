@@ -1,5 +1,5 @@
-import { Fragment, useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import { Fragment, useMemo, useState  } from "react";
+import type {ReactNode} from "react";
 
 export interface PwsChartProps {
   data: number[];

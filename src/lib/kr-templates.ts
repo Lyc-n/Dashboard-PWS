@@ -1,6 +1,6 @@
 import { HASIL_KUNJUNGAN } from "@/lib/constants";
-import { SASARAN_DEFS } from "@/lib/kr-form";
-import type { SasaranKey } from "@/lib/kr-form";
+import { SASARAN_DEFS  } from "@/lib/kr-form";
+import type {SasaranKey} from "@/lib/kr-form";
 
 // ── Types ──
 export type KrFieldKind = "text" | "number" | "date" | "select" | "checkbox";
@@ -90,9 +90,9 @@ export function seedKrTemplates(): KrTemplates {
     order: i,
   }));
 
-  const anggotaDefs: { id: string; label: string; kind: KrFieldKind; required: boolean; options?: string[] }[] = [
+  const anggotaDefs: { id: string; label: string; kind: KrFieldKind; required: boolean; options?: string[]; hint?: string }[] = [
     { id: "nama", label: "Nama lengkap", kind: "text", required: true },
-    { id: "nik", label: "NIK", kind: "text", required: true, hint: "16 digit, tanpa spasi." } as any,
+    { id: "nik", label: "NIK", kind: "text", required: true, hint: "16 digit, tanpa spasi." },
     { id: "tglLahir", label: "Tanggal lahir", kind: "date", required: true },
     { id: "jk", label: "Jenis kelamin", kind: "select", required: false, options: ["L", "P"] },
     { id: "hubKK", label: "Hubungan dengan KK", kind: "select", required: false, options: ["Kepala Keluarga","Istri","Anak","Menantu","Cucu","Orang tua","Mertua","Famili lain","Lainnya"] },
@@ -109,7 +109,7 @@ export function seedKrTemplates(): KrTemplates {
     active: true,
     order: i,
     options: d.options,
-    hint: (d as any).hint,
+    hint: d.hint,
   }));
 
   const sanitasiDefs: { id: string; label: string; kind: KrFieldKind; options?: string[] }[] = [

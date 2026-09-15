@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Foto } from "@/lib/use-kegiatan";
+import type { Foto } from "@/hooks/use-kegiatan";
 import { DocCard } from "@/components/molecules/DocCard";
 import { DropZone } from "@/components/molecules/DropZone";
 

@@ -2,11 +2,11 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Download, Printer } from "lucide-react";
 import { laporanRows } from "@/lib/mock-data";
-import type { KegiatanRecord } from "@/lib/use-kegiatan";
+import type { KegiatanRecord } from "@/hooks/use-kegiatan";
 import { APP_BRAND, JENIS_KEGIATAN, KELS, POSY, PRIOS, STORAGE_KEYS, SUMBER_PERIKSA, STATUS_DEFAULT } from "@/lib/constants";
-import { downloadCsv as downloadCsvFile, fmtDate } from "@/lib/utils";
-import { useToast } from "@/lib/toast";
-import { useLocalStorage } from "@/lib/use-local-storage";
+import { downloadCsv, fmtDate } from "@/lib/utils";
+import { useToast } from "@/providers/toast";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import { AppShell } from "@/components/organisms/AppShell";
 import { DataTable } from "@/components/organisms/DataTable";
 import { SectionCard } from "@/components/molecules/SectionCard";
@@ -122,10 +122,10 @@ function Laporan() {
   const gPageRows = filteredKegiatan.slice((gPageClamped - 1) * PAGE_SIZE, gPageClamped * PAGE_SIZE);
   const gKopRows = filteredKegiatan.slice(0, 60);
 
-  const downloadCsv = () => {
+  const downloadCsvKunjungan = () => {
     const head = ["No", "Tanggal", "Nama", "Prioritas", "Kelurahan", "Posyandu", "Sumber", "Hasil", "Status"];
     const csvRows = filtered.map((r, i) => [i + 1, r.tgl, r.nama, r.prior, r.kel, r.posy, r.sumber, r.hasil, r.status]);
-    downloadCsvFile("laporan-kunjungan.csv", head, csvRows);
+    downloadCsv("laporan-kunjungan.csv", head, csvRows);
     toast("Laporan kunjungan CSV diunduh.");
   };
 
@@ -134,7 +134,7 @@ function Laporan() {
     const csvRows = filteredKegiatan.map((r, i) =>
       [i + 1, r.tgl, r.jam, r.nama, r.jenis, r.kel, r.posy, r.lokasi, r.pj, r.target, r.hadir, r.total, r.foto, r.deskripsi],
     );
-    downloadCsvFile("laporan-kegiatan.csv", head, csvRows);
+    downloadCsv("laporan-kegiatan.csv", head, csvRows);
     toast("Laporan kegiatan CSV diunduh.");
   };
 
@@ -249,7 +249,7 @@ function Laporan() {
             </div>
             <Toolbar className="mt-3">
               <span className="text-xs text-muted">{filtered.length} baris · 1–{Math.min(kopRows.length, 60)} ditampilkan di kop.</span>
-              <Button variant="export" onClick={downloadCsv} className="ml-auto">
+              <Button variant="export" onClick={downloadCsvKunjungan} className="ml-auto">
                 <Download size={14} />
                 Unduh CSV
               </Button>
