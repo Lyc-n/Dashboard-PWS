@@ -1,5 +1,3 @@
-import { PRIOS } from "@/lib/constants";
-
 export type SasaranKey =
   | "ibu-hamil"
   | "bersalin-nifas"
@@ -43,52 +41,6 @@ export interface SasaranDef {
   prioritasDefault: string[];
 }
 
-export const HUB_KK = [
-  "Kepala Keluarga",
-  "Istri",
-  "Anak",
-  "Menantu",
-  "Cucu",
-  "Orang tua",
-  "Mertua",
-  "Famili lain",
-  "Lainnya",
-] as const;
-
-export const STATUS_KAWIN = ["Kawin", "Belum kawin", "Cerai hidup", "Cerai mati"] as const;
-
-export const PENDIDIKAN = [
-  "Tidak sekolah",
-  "SD",
-  "SMP",
-  "SMA",
-  "D1/D3",
-  "S1",
-  "S2/S3",
-] as const;
-
-export const PEKERJAAN = [
-  "Petani",
-  "Buruh",
-  "Nelayan",
-  "PNS",
-  "Pedagang",
-  "Swasta",
-  "IRT",
-  "Pelajar/Mahasiswa",
-  "Tidak bekerja",
-  "Lainnya",
-] as const;
-
-export const JENIS_AIR = [
-  "Sumur terlindung",
-  "Ledeng/PDAM",
-  "Sumur pompa",
-  "Mata air",
-  "Tidak terlindung",
-  "Lainnya",
-] as const;
-
 export const PENOLONG_PERSALINAN = ["Bidan", "Dokter umum", "SpOG", "Lainnya"] as const;
 
 export const TEMPAT_PERSALINAN = [
@@ -107,24 +59,6 @@ export const MEROKOK = ["Aktif", "Pasif", "Tidak"] as const;
 export const YA_OR_NOT = ["Ya", "Tidak"] as const;
 
 export const HASIL_BB = ["Naik", "Tetap", "Turun"] as const;
-
-export const WAKTU_IMUNISASI_BAYI = [
-  { key: "hb0", label: "HB0 (0–24 jam)" },
-  { key: "bcg", label: "BCG" },
-  { key: "polio", label: "Polio" },
-  { key: "dpt", label: "DPT-HB-Hib" },
-  { key: "pcv", label: "PCV" },
-  { key: "rv", label: "RV" },
-  { key: "ipv", label: "IPV" },
-] as const;
-
-export const WAKTU_IMUNISASI_BALITA = [
-  { key: "dptLanjut", label: "DPT lanjutan" },
-  { key: "campakRubella", label: "Campak-Rubella" },
-  { key: "ipvLanjut", label: "IPV" },
-  { key: "je", label: "JE" },
-  { key: "pcvLanjut", label: "PCV" },
-] as const;
 
 export const SASARAN_DEFS: SasaranDef[] = [
   {
@@ -449,8 +383,4 @@ export const SASARAN_DEF_BY_KEY = Object.fromEntries(
 
 export function sasaranDef(key: SasaranKey): SasaranDef {
   return SASARAN_DEF_BY_KEY[key];
-}
-
-export function isPrioritas(p: string): p is (typeof PRIOS)[number] {
-  return (PRIOS as readonly string[]).includes(p);
 }

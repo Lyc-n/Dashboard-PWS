@@ -1,8 +1,5 @@
-import { clsx } from "clsx";
-import type { ClassValue } from "clsx"; 
-
-export function cn(...inputs: ClassValue[]) {
-  return clsx(inputs);
+export function cn(...inputs: (string | false | null | undefined)[]) {
+  return inputs.filter(Boolean).join(" ");
 }
 
 export const TAG_STYLES = {
@@ -79,13 +76,27 @@ export function fmtDate(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
-export function sum(values: number[]): number {
-  return values.reduce((a, b) => a + b, 0);
+export function triggerDownload(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function downloadCsv(filename: string, head: string[], rows: (string | number)[][]) {
+  const esc = (v: string | number) => {
+    const s = String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const content = "\uFEFF" + [head, ...rows].map((r) => r.map(esc).join(",")).join("\n");
+  triggerDownload(filename, new Blob([content], { type: "text/csv;charset=utf-8" }));
 }
 
 export function average(values: number[]): number {
   if (values.length === 0) return 0;
-  return Math.round(sum(values) / values.length);
+  return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
 }
 
 export function initialsOf(name: string): string {

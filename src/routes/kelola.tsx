@@ -15,7 +15,6 @@ import { SASARAN_KEYS } from "@/lib/kr-form";
 import { AppShell } from "@/components/organisms/AppShell";
 import { DataTable } from "@/components/organisms/DataTable";
 import { SectionCard } from "@/components/molecules/SectionCard";
-import { ManageItemRow } from "@/components/molecules/ManageItemRow";
 import { ChipGroup } from "@/components/molecules/ChipGroup";
 import { StatCard } from "@/components/molecules/StatCard";
 import { Toolbar } from "@/components/molecules/Toolbar";
@@ -34,12 +33,12 @@ export const Route = createFileRoute("/kelola")({
   component: Kelola,
 });
 
-type DlgKind = "item" | "prio" | "staff";
+type DlgKind = "prio" | "staff";
 
 interface DlgState {
   kind: DlgKind;
   title: string;
-  edit?: AdminItem | Priority | Staff;
+  edit?: Priority | Staff;
   form: Record<string, string>;
   errs: Record<string, string>;
 }
@@ -114,7 +113,6 @@ function Modal({ title, onClose, onSave, children }: { title: string; onClose: (
 
 function Kelola() {
   const toast = useToast();
-  const uid = useRef(Date.now());
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [items, setItems] = useLocalStorage<AdminItem[]>(STORAGE_KEYS.adminItems, seedAdminItems());
@@ -138,9 +136,6 @@ function Kelola() {
   const prioOn = prios.filter((p) => p.on).length;
   const staffOn = staff.filter((s) => s.on).length;
 
-  const curItems = items.filter((i) => i.prio === curPrio);
-  const curOn = curItems.filter((i) => i.on).length;
-
   const filteredStaff = useMemo(
     () =>
       staff.filter(
@@ -156,20 +151,7 @@ function Kelola() {
 
   const saveDlg = () => {
     if (!dlg) return;
-    if (dlg.kind === "item") {
-      const judul = (dlg.form.judul).trim();
-      if (!judul) {
-        setDlg((d) => ({ ...d!, errs: { ...d!.errs, judul: "Wajib isi judul butir." } }));
-        return;
-      }
-      const desk = dlg.form.desk;
-      if (dlg.edit) {
-        setItems((prev) => prev.map((x) => (x.id === (dlg.edit as AdminItem).id ? { ...x, judul, desk } : x)));
-      } else {
-        setItems((prev) => [...prev, { id: `it-${uid.current++}`, prio: curPrio, judul, desk, on: true }]);
-      }
-      toast("Butir tersimpan.");
-    } else if (dlg.kind === "prio") {
+    if (dlg.kind === "prio") {
       const nama = (dlg.form.nama).trim();
       const errs: Record<string, string> = {};
       if (!nama) errs.nama = "Wajib isi nama prioritas.";
@@ -207,8 +189,6 @@ function Kelola() {
     setDlg(null);
   };
 
-  const openItemDlg = (edit?: AdminItem) =>
-    setDlg({ kind: "item", title: edit ? "Ubah butir" : `Tambah butir — ${curPrio}`, edit, form: { judul: edit?.judul ?? "", desk: edit?.desk ?? "" }, errs: {} });
   const openPrioDlg = (edit?: Priority) =>
     setDlg({ kind: "prio", title: edit ? "Ubah prioritas" : "Tambah prioritas", edit, form: { nama: edit?.nama ?? "", desk: edit?.desk ?? "", warna: toVariant(edit?.warna) }, errs: {} });
   const openStaffDlg = (edit?: Staff) =>
@@ -220,11 +200,6 @@ function Kelola() {
       errs: {},
     });
 
-  const deleteItem = (it: AdminItem) => {
-    if (!window.confirm(`Hapus butir "${it.judul}"?`)) return;
-    setItems((prev) => prev.filter((x) => x.id !== it.id));
-    toast("Butir dihapus.");
-  };
   const togglePrio = (p: Priority) => {
     if (p.on && !window.confirm(`Nonaktifkan prioritas "${p.nama}"? Disembunyikan dari form.`)) return;
     setPrios((prev) => prev.map((x) => (x.nama === p.nama ? { ...x, on: !x.on } : x)));
@@ -242,7 +217,7 @@ function Kelola() {
     if (formSub === "anggota") return templates.anggota;
     if (formSub === "sanitasi") return templates.sanitasi;
     if (formSub === "masalah") return templates.masalah;
-    if (formSub === "sasaran") return templates.sasaran[curSasaran]?.fields ?? [];
+    if (formSub === "sasaran") return templates.sasaran[curSasaran].fields;
     return [];
   };
 
@@ -302,7 +277,7 @@ function Kelola() {
           active: edit?.active ?? true,
           options: (edit?.options ?? []).join(", "),
           hint: edit?.hint ?? "",
-          sasaranSection: (edit?.section as string) ?? "sasaran:identitas",
+          sasaranSection: edit?.section ?? "sasaran:identitas",
         },
         errs: {},
       });
@@ -455,7 +430,7 @@ function Kelola() {
             <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
             <div className="mt-3 flex flex-wrap gap-2">
               {FORM_SUB_TABS.map((s) => (
-                <Tab key={s.key} active={formSub === s.key} onClick={() => setFormSub(s.key as never)} role="tab" aria-selected={formSub === s.key}>
+                <Tab key={s.key} active={formSub === s.key} onClick={() => setFormSub(s.key)} role="tab" aria-selected={formSub === s.key}>
                   {s.label}
                 </Tab>
               ))}
@@ -464,14 +439,14 @@ function Kelola() {
             {formSub === "sasaran" ? (
               <div className="mt-3">
                 <ChipGroup
-                  options={SASARAN_KEYS.map((k) => ({ value: k, label: templates.sasaran[k]?.label ?? k }))}
+                  options={SASARAN_KEYS.map((k) => ({ value: k, label: templates.sasaran[k].label }))}
                   selected={curSasaran}
                   onToggle={(v) => setCurSasaran(v as SasaranKey)}
                 />
                 <div className="mt-3 rounded-lg border border-line bg-surface-2 p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <Input
-                      value={templates.sasaran[curSasaran]?.label ?? ""}
+                      value={templates.sasaran[curSasaran].label}
                       onChange={(e) => {
                         const v = e.target.value;
                         setTemplates((t) => ({ ...t, sasaran: { ...t.sasaran, [curSasaran]: { ...t.sasaran[curSasaran], label: v } } }));
@@ -479,13 +454,13 @@ function Kelola() {
                       className="max-w-[260px]"
                       placeholder="Label sasaran"
                     />
-                    <span className="text-xs text-muted">{templates.sasaran[curSasaran]?.fields.length ?? 0} field</span>
+                    <span className="text-xs text-muted">{templates.sasaran[curSasaran].fields.length} field</span>
                   </div>
                   <div className="mt-2 text-[11px] text-muted">Prioritas default untuk {curSasaran}:</div>
                   <ChipGroup
                     className="mt-1"
                     options={PRIOS.map((p) => ({ value: p, label: p }))}
-                    selected={templates.sasaran[curSasaran]?.prioritasDefault ?? []}
+                    selected={templates.sasaran[curSasaran].prioritasDefault}
                     onToggle={(v) => {
                       setTemplates((t) => {
                         const cur = t.sasaran[curSasaran].prioritasDefault;
@@ -692,44 +667,6 @@ function Kelola() {
         </>
       ) : null}
 
-      {/* {tab === "checklist" ? (
-        <SectionCard title="Template checklist per prioritas (Legacy)" sub="Pilih prioritas, lalu tambah, ubah, nonaktifkan, atau hapus butir. Tidak sinkron ke Form KR baru.">
-          <ChipGroup
-            options={prios.map((p) => ({ value: p.nama, label: p.nama + (p.on ? "" : " (nonaktif)") }))}
-            selected={curPrio}
-            onToggle={setCurPrio}
-          />
-          <Toolbar className="mt-3">
-            <Button size="sm" variant="primary" onClick={() => openItemDlg()}>
-              + Tambah butir
-            </Button>
-            <span className="ml-auto text-xs text-muted">
-              {curOn} aktif dari {curItems.length} butir · {curPrio}
-            </span>
-          </Toolbar>
-          <div className="mt-3 grid gap-2">
-            {curItems.length === 0 ? (
-              <EmptyState>Belum ada butir untuk {curPrio} — klik Tambah butir.</EmptyState>
-            ) : (
-              curItems.map((it) => (
-                <ManageItemRow
-                  key={it.id}
-                  title={it.judul}
-                  description={it.desk || "—"}
-                  active={it.on}
-                  onToggle={(v) => {
-                    setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, on: v } : x)));
-                    toast(`Butir ${v ? "diaktifkan" : "dinonaktifkan"}.`);
-                  }}
-                  onEdit={() => openItemDlg(it)}
-                  onDelete={() => deleteItem(it)}
-                />
-              ))
-            )}
-          </div>
-        </SectionCard>
-      ) : null} */}
-
       {tab === "prioritas" ? (
         <SectionCard title="Daftar prioritas" sub="Nama unik, warna tag, dan status aktif. Prioritas nonaktif disembunyikan dari form.">
           <Toolbar>
@@ -859,16 +796,6 @@ function Kelola() {
 
       {dlg ? (
         <Modal title={dlg.title} onClose={() => setDlg(null)} onSave={saveDlg}>
-          {dlg.kind === "item" ? (
-            <>
-              <CtlField label="Judul butir" required error={dlg.errs.judul}>
-                <Input value={dlg.form.judul} onChange={(e) => setForm("judul", e.target.value)} invalid={!!dlg.errs.judul} placeholder="cth. Minum obat rutin" />
-              </CtlField>
-              <CtlField label="Penjelasan">
-                <Textarea value={dlg.form.desk} onChange={(e) => setForm("desk", e.target.value)} placeholder="cth. Obat diminum sesuai jadwal…" />
-              </CtlField>
-            </>
-          ) : null}
           {dlg.kind === "prio" ? (
             <>
               <CtlField label="Nama prioritas" required error={dlg.errs.nama}>

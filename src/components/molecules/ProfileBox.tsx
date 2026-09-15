@@ -12,7 +12,6 @@ export interface ProfileBoxProps {
 export function ProfileBox({ name = "A. Jubaidi", avatarSrc = "https://i.pravatar.cc/100?img=12" }: ProfileBoxProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const themeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -42,15 +41,10 @@ export function ProfileBox({ name = "A. Jubaidi", avatarSrc = "https://i.pravata
           <div className="flex items-center gap-2.5 px-4 py-3 border-b border-line">
             <span className="text-sm font-semibold text-ink">{name}</span>
           </div>
-          <button
-            type="button"
-            ref={themeRef}
-            onClick={() => themeRef.current?.querySelector("button")?.click()}
-            className="flex items-center w-full px-4 py-2.5 text-[13px] font-medium text-ink hover:bg-surface-2 gap-2 cursor-pointer"
-          >
+          <div className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-ink hover:bg-surface-2 cursor-pointer">
             <ThemeToggle plain />
             Theme
-          </button>
+          </div>
           <Link
             to="/kelola"
             onClick={() => setOpen(false)}
@@ -64,5 +58,3 @@ export function ProfileBox({ name = "A. Jubaidi", avatarSrc = "https://i.pravata
     </div>
   );
 }
-
-export default ProfileBox;

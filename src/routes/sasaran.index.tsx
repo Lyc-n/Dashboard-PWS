@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { sasaranRows } from "@/lib/mock-data";
 import { KELS, PRIOS, POSY } from "@/lib/constants";
-import { fmtDate } from "@/lib/utils";
+import { downloadCsv, fmtDate } from "@/lib/utils";
 import { DataTable } from "@/components/organisms/DataTable";
 import { FilterCard } from "@/components/organisms/FilterCard";
 import { SectionCard } from "@/components/molecules/SectionCard";
@@ -64,19 +64,8 @@ function Sasaran() {
 
   const exportCsv = () => {
     const head = ["No", "Tanggal", "Nama", "NIK", "Kelurahan", "Posyandu", "Prioritas", "Status"];
-    const lines = filtered.map(
-      (r, i) =>
-        [i + 1, r.tgl, r.nama, r.nik, r.kel, r.posy, r.prior, r.status].join(","),
-    );
-    const blob = new Blob(["\uFEFF" + [head.join(","), ...lines].join("\n")], {
-      type: "text/csv;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "data-sasaran.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    const csvRows = filtered.map((r, i) => [i + 1, r.tgl, r.nama, r.nik, r.kel, r.posy, r.prior, r.status]);
+    downloadCsv("data-sasaran.csv", head, csvRows);
   };
 
   return (

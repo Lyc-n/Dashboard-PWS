@@ -6,7 +6,6 @@ import { useKrTemplates } from "@/lib/use-kr-templates";
 import { useLocalStorage } from "@/lib/use-local-storage";
 import { PRIOS, STORAGE_KEYS } from "@/lib/constants";
 import type { SasaranKey } from "@/lib/kr-form";
-import { sasaranDef } from "@/lib/kr-form";
 import type { KrTemplateField } from "@/lib/kr-templates";
 import { fmtDate } from "@/lib/utils";
 import { useToast } from "@/lib/toast";
@@ -100,9 +99,9 @@ function Checklist() {
             return (
               <FormField key={f.id} label={f.label} required={f.required} invalid={invalid} error={f.required ? "Wajib diisi." : undefined} hint={f.hint}>
                 {f.kind === "date" ? (
-                  <Input type="date" value={val} onChange={(e) => k.setField(f.id as never, e.target.value as never)} invalid={invalid} />
+                  <Input type="date" value={val} onChange={(e) => k.setField(f.id as never, e.target.value)} invalid={invalid} />
                 ) : f.kind === "select" ? (
-                  <Select value={val} onChange={(e) => k.setField(f.id as never, e.target.value as never)}>
+                  <Select value={val} onChange={(e) => k.setField(f.id as never, e.target.value)}>
                     <option value="">— Pilih —</option>
                     {(f.options ?? []).map((o) => (
                       <option key={o}>{o}</option>
@@ -111,7 +110,7 @@ function Checklist() {
                 ) : (
                   <Input
                     value={val}
-                    onChange={(e) => k.setField(f.id as never, e.target.value as never)}
+                    onChange={(e) => k.setField(f.id as never, e.target.value)}
                     placeholder={PLACEHOLDER[f.id] ?? ""}
                     invalid={invalid}
                   />
@@ -151,7 +150,7 @@ function Checklist() {
                         <FormField key={f.id} label={f.label} required={f.required} hint={f.hint ?? "16 digit, tanpa spasi."} invalid={invalid} error={f.required ? "Wajib 16 digit & unik." : undefined}>
                           <Input
                             value={val}
-                            onChange={(e) => k.updateAnggota(m.id, f.id as never, e.target.value.replace(/\D/g, "").slice(0, 16) as never)}
+                            onChange={(e) => k.updateAnggota(m.id, f.id as never, e.target.value.replace(/\D/g, "").slice(0, 16))}
                             inputMode="numeric"
                             placeholder="3579…………"
                             invalid={invalid}
@@ -162,7 +161,7 @@ function Checklist() {
                     if (f.kind === "select") {
                       return (
                         <FormField key={f.id} label={f.label} required={f.required} invalid={invalid} error="Wajib diisi." hint={f.hint}>
-                          <Select value={val} onChange={(e) => k.updateAnggota(m.id, f.id as never, e.target.value as never)}>
+                          <Select value={val} onChange={(e) => k.updateAnggota(m.id, f.id as never, e.target.value)}>
                             <option value="">— Pilih —</option>
                             {(f.options ?? []).map((o) => (
                               <option key={o}>{o}</option>
@@ -174,13 +173,13 @@ function Checklist() {
                     if (f.kind === "date") {
                       return (
                         <FormField key={f.id} label={f.label} required={f.required} invalid={invalid} error="Wajib diisi." hint={f.hint}>
-                          <Input type="date" value={val} onChange={(e) => k.updateAnggota(m.id, f.id as never, e.target.value as never)} invalid={invalid} />
+                          <Input type="date" value={val} onChange={(e) => k.updateAnggota(m.id, f.id as never, e.target.value)} invalid={invalid} />
                         </FormField>
                       );
                     }
                     return (
                       <FormField key={f.id} label={f.label} required={f.required} invalid={invalid} error="Wajib diisi." hint={f.hint}>
-                        <Input value={val} onChange={(e) => k.updateAnggota(m.id, f.id as never, e.target.value as never)} placeholder={f.id === "nama" ? "cth. Budi Setiawan" : ""} invalid={invalid} />
+                        <Input value={val} onChange={(e) => k.updateAnggota(m.id, f.id as never, e.target.value)} placeholder={f.id === "nama" ? "cth. Budi Setiawan" : ""} invalid={invalid} />
                       </FormField>
                     );
                   })}
@@ -197,7 +196,7 @@ function Checklist() {
               <label key={f.id} className="flex cursor-pointer items-center gap-2 text-[13px]">
                 <Checkbox
                   checked={Boolean((k.sanitasi as Record<string, unknown>)[f.id])}
-                  onChange={(e) => k.setSanField(f.id as never, e.target.checked as never)}
+                  onChange={(e) => k.setSanField(f.id as never, e.target.checked)}
                 />
                 {f.label}
                 {f.required ? <span className="text-danger">*</span> : null}
@@ -208,7 +207,7 @@ function Checklist() {
                 <span className="text-muted">{f.label}</span>
                 <Select
                   value={String((k.sanitasi as Record<string, unknown>)[f.id] ?? "")}
-                  onChange={(e) => k.setSanField(f.id as never, e.target.value as never)}
+                  onChange={(e) => k.setSanField(f.id as never, e.target.value)}
                   className="max-w-44 py-1 text-xs"
                 >
                   <option value="">— Pilih —</option>
@@ -280,7 +279,7 @@ function Checklist() {
           <div className="grid gap-3">
             {k.penilaian.map((p) => {
               const anggota = k.anggota.find((a) => a.id === p.anggotaId);
-              const label = templates.sasaran[p.sasaran]?.label ?? sasaranDef(p.sasaran).label;
+              const label = templates.sasaran[p.sasaran].label;
               return (
                 <div key={p.id} className="rounded-[10px] border border-line bg-surface p-3">
                   <div className="mb-2 text-xs font-semibold text-ink">
@@ -321,9 +320,9 @@ function Checklist() {
                     return (
                       <FormField key={f.id} label={f.label} required={f.required} invalid={invalid} error="Wajib diisi." hint={f.hint} className={f.id === "masalah" || f.id === "tindakLanjut" ? "col-span-2" : ""}>
                         {f.kind === "date" ? (
-                          <Input type="date" value={val} onChange={(e) => k.updateMasalah(m.id, f.id as never, e.target.value as never)} invalid={invalid} />
+                          <Input type="date" value={val} onChange={(e) => k.updateMasalah(m.id, f.id as never, e.target.value)} invalid={invalid} />
                         ) : f.kind === "select" ? (
-                          <Select value={val} onChange={(e) => k.updateMasalah(m.id, f.id as never, e.target.value as never)}>
+                          <Select value={val} onChange={(e) => k.updateMasalah(m.id, f.id as never, e.target.value)}>
                             <option value="">— Pilih —</option>
                             {(f.options ?? []).map((o) => (
                               <option key={o}>{o}</option>
@@ -332,7 +331,7 @@ function Checklist() {
                         ) : (
                           <Input
                             value={val}
-                            onChange={(e) => k.updateMasalah(m.id, f.id as never, e.target.value as never)}
+                            onChange={(e) => k.updateMasalah(m.id, f.id as never, e.target.value)}
                             placeholder={f.id === "masalah" ? "cth. Hipertensi tidak patuh berobat" : f.id === "tindakLanjut" ? "cth. Edukasi & jadwal kontrol" : ""}
                             invalid={invalid}
                           />
@@ -404,7 +403,7 @@ function Checklist() {
               <div className="flex flex-wrap items-center gap-2">
                 <b>{r.info.namaKK || "Tanpa nama KK"}</b>
                 {r.penilaian.map((p) => (
-                  <Tag key={p.id}>{templates.sasaran[p.sasaran]?.label ?? sasaranDef(p.sasaran).label}</Tag>
+                  <Tag key={p.id}>{templates.sasaran[p.sasaran].label}</Tag>
                 ))}
                 {r.penilaian.flatMap((p) => p.prioritas).map((prio, j) => (
                   <Tag key={`${prio}-${j}`} priority={prio} />
@@ -435,9 +434,9 @@ function SasaranForm({
   templates: ReturnType<typeof useKrTemplates>["templates"];
 }) {
   const tpl = templates.sasaran[p.sasaran];
-  const label = tpl?.label ?? sasaranDef(p.sasaran).label;
+  const label = tpl.label;
   const anggota = k.anggota.find((a) => a.id === p.anggotaId);
-  const fields = (tpl?.fields ?? []).filter((f) => f.active).sort((a, b) => a.order - b.order);
+  const fields = tpl.fields.filter((f) => f.active).sort((a, b) => a.order - b.order);
   const identitas = fields.filter((f) => f.section === "sasaran:identitas");
   const kolom = fields.filter((f) => f.section === "sasaran:kolom");
   const bools = fields.filter((f) => f.section === "sasaran:bools");

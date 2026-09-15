@@ -21,7 +21,6 @@ export interface DataTableProps<T> {
   onSort?: (key: string) => void;
   toolbar?: ReactNode;
   info?: ReactNode;
-  collapsibleMobile?: boolean;
   emptyMessage?: ReactNode;
   page?: number;
   canPrev?: boolean;

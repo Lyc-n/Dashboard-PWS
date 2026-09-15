@@ -100,11 +100,3 @@ export function seedAdminStaff(): Staff[] {
     { nama: "Agus Wijaya", peran: "Kader", kel: "Mayangan", posy: "Flamboyan", hp: "0812-0000-06", on: false },
   ];
 }
-
-export const TAG_CLASS_BY_PRIO: Record<string, string> = {
-  ODGJ: "tag-odgj",
-  "Bumil Risti": "tag-bumil",
-  "Balita Risti": "tag-balita",
-  TB: "tag-tb",
-  Stunting: "tag-stunt",
-};

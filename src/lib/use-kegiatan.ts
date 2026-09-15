@@ -98,13 +98,6 @@ export function useKegiatan() {
     });
   }, []);
 
-  const refreshFotoUrls = useCallback(() => {
-    setFotos((f) => {
-      f.forEach((x) => URL.revokeObjectURL(x.url));
-      return f;
-    });
-  }, []);
-
   const hadirCount = useMemo(() => peserta.filter((p) => p.hadir).length, [peserta]);
 
   const fillPercent = useMemo(() => {
@@ -181,7 +174,6 @@ export function useKegiatan() {
     addFiles,
     setCaption,
     removeFoto,
-    refreshFotoUrls,
     invalid,
     pesertaEmpty,
     fillPercent,

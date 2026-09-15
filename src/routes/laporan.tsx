@@ -4,7 +4,7 @@ import { Download, Printer } from "lucide-react";
 import { laporanRows } from "@/lib/mock-data";
 import type { KegiatanRecord } from "@/lib/use-kegiatan";
 import { APP_BRAND, JENIS_KEGIATAN, KELS, POSY, PRIOS, STORAGE_KEYS, SUMBER_PERIKSA, STATUS_DEFAULT } from "@/lib/constants";
-import { fmtDate } from "@/lib/utils";
+import { downloadCsv as downloadCsvFile, fmtDate } from "@/lib/utils";
 import { useToast } from "@/lib/toast";
 import { useLocalStorage } from "@/lib/use-local-storage";
 import { AppShell } from "@/components/organisms/AppShell";
@@ -124,34 +124,17 @@ function Laporan() {
 
   const downloadCsv = () => {
     const head = ["No", "Tanggal", "Nama", "Prioritas", "Kelurahan", "Posyandu", "Sumber", "Hasil", "Status"];
-    const lines = filtered.map(
-      (r, i) => [i + 1, r.tgl, r.nama, r.prior, r.kel, r.posy, r.sumber, r.hasil, r.status].join(","),
-    );
-    const blob = new Blob(["\uFEFF" + [head.join(","), ...lines].join("\n")], {
-      type: "text/csv;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "laporan-kunjungan.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    const csvRows = filtered.map((r, i) => [i + 1, r.tgl, r.nama, r.prior, r.kel, r.posy, r.sumber, r.hasil, r.status]);
+    downloadCsvFile("laporan-kunjungan.csv", head, csvRows);
     toast("Laporan kunjungan CSV diunduh.");
   };
 
   const downloadKegiatanCsv = () => {
     const head = ["No", "Tanggal", "Jam", "Nama", "Jenis", "Kelurahan", "Posyandu", "Lokasi", "PJ", "Target", "Hadir", "Total", "Foto", "Deskripsi"];
-    const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
-    const lines = filteredKegiatan.map((r, i) =>
-      [i + 1, r.tgl, r.jam, esc(r.nama), esc(r.jenis), esc(r.kel), esc(r.posy), esc(r.lokasi), esc(r.pj), esc(r.target), r.hadir, r.total, r.foto, esc(r.deskripsi)].join(","),
+    const csvRows = filteredKegiatan.map((r, i) =>
+      [i + 1, r.tgl, r.jam, r.nama, r.jenis, r.kel, r.posy, r.lokasi, r.pj, r.target, r.hadir, r.total, r.foto, r.deskripsi],
     );
-    const blob = new Blob(["\uFEFF" + [head.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "laporan-kegiatan.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCsvFile("laporan-kegiatan.csv", head, csvRows);
     toast("Laporan kegiatan CSV diunduh.");
   };
 

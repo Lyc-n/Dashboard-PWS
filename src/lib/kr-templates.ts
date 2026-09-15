@@ -162,7 +162,7 @@ export function seedKrTemplates(): KrTemplates {
       fields.push({
         id: f.key,
         label: f.label,
-        kind: f.kind as KrFieldKind,
+        kind: f.kind,
         section: "sasaran:identitas",
         sasaranKey: def.key,
         required: false,
@@ -175,7 +175,7 @@ export function seedKrTemplates(): KrTemplates {
       fields.push({
         id: f.key,
         label: f.label,
-        kind: f.kind as KrFieldKind,
+        kind: f.kind,
         section: "sasaran:kolom",
         sasaranKey: def.key,
         required: false,

@@ -3,13 +3,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   BASE_MONTHLY,
   KELURAHAN_DATA,
-  PRIO_ADJUST,
   PRIORITAS_DATA,
   POSYANDU_CONTRIB,
   TINDAK_CANDIDATES,
   dashboardRows,
 } from "@/lib/mock-data";
-import { KELS, MONTHS, PRIOS } from "@/lib/constants";
+import { MONTHS } from "@/lib/constants";
 import { average, fmtDate } from "@/lib/utils";
 import { AppShell } from "@/components/organisms/AppShell";
 import { ChartCard } from "@/components/organisms/ChartCard";
@@ -35,25 +34,13 @@ function Dashboard() {
   const rows = useMemo(() => dashboardRows(), []);
 
   const [tab, setTab] = useState<"kelurahan" | "prioritas">("kelurahan");
-  const [prioSel] = useState<string[]>([...PRIOS]);
-  const [kelSel] = useState<string[]>([...KELS]);
   const [statusF, setStatusF] = useState("all");
   const [sourceF, setSourceF] = useState("all");
   const [sortKey, setSortKey] = useState<string | null>("tgl");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
 
-  const prioAll = prioSel.length === PRIOS.length;
-  const isSubset = prioSel.length > 0 && !prioAll;
-
-  const chartData = useMemo(() => {
-    if (!isSubset) return BASE_MONTHLY;
-    const ratio =
-      prioSel.reduce((acc, p) => acc * (PRIO_ADJUST[p] ?? 1), 1) ** (1 / Math.max(1, prioSel.length));
-    return BASE_MONTHLY.map((v) => Math.round(v * ratio));
-  }, [isSubset, prioSel]);
-
-  const avgVal = average(chartData);
+  const avgVal = average(BASE_MONTHLY);
 
   const filtered = useMemo(() => {
     const list = rows.filter(
@@ -98,20 +85,20 @@ function Dashboard() {
       </FilterBar>
 
       {tab === "kelurahan" ? (
-        <KelurahanSection items={KELURAHAN_DATA.filter((d) => kelSel.includes(d.name))} />
+        <KelurahanSection items={KELURAHAN_DATA} />
       ) : (
-        <PrioritasSection items={PRIORITAS_DATA.filter((d) => prioSel.includes(d.name))} />
+        <PrioritasSection items={PRIORITAS_DATA} />
       )}
 
       <ChartCard
         title="Tren Kunjungan Lapangan PWS 2026"
         note="per bulan"
-        data={chartData}
+        data={BASE_MONTHLY}
         labels={[...MONTHS]}
         renderTooltip={(i) => (
           <div className="grid gap-1">
             <b>
-              {MONTHS[i]} · {chartData[i]} kunjungan
+              {MONTHS[i]} · {BASE_MONTHLY[i]} kunjungan
             </b>
             {POSYANDU_CONTRIB[i].map((x) => (
               <div key={x.n} className="flex items-center justify-between gap-4">
@@ -125,7 +112,7 @@ function Dashboard() {
         {[
           { label: "Kunjungan rata-rata / bulan", val: avgVal },
           { label: "Rujukan RS / PKM (estimasi)", val: Math.round((avgVal * 18) / 100) },
-          { label: "Total Jiwa Dikunjungi", val: Math.round(5430) },
+          { label: "Total Jiwa Dikunjungi", val: 5430 },
         ].map((s) => (
           <div key={s.label} className="rounded-[10px] border border-line bg-surface p-3">
             <div className="text-[18px] font-extrabold text-ink">{s.val}</div>

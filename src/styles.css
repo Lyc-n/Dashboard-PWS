@@ -1,10 +1,9 @@
-
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap");
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
 
   --color-canvas: #f4f6f7;
   --color-surface: #ffffff;
@@ -91,7 +90,6 @@
   --sea-ink-soft: #416166;
   --lagoon: #4fb8b2;
   --lagoon-deep: #328f97;
-  --palm: #2f6a4a;
   --sand: #e7f0e8;
   --foam: #f3faf5;
   --surface: rgba(255, 255, 255, 0.74);
@@ -103,17 +101,16 @@
   --header-bg: rgba(251, 255, 248, 0.84);
   --chip-bg: rgba(255, 255, 255, 0.8);
   --chip-line: rgba(47, 106, 74, 0.18);
-  --link-bg-hover: rgba(255, 255, 255, 0.9);
   --hero-a: rgba(79, 184, 178, 0.36);
   --hero-b: rgba(47, 106, 74, 0.2);
 }
 
-:root[data-theme="dark"] {
+:root[data-theme='dark'],
+:root.dark {
   --sea-ink: #d7ece8;
   --sea-ink-soft: #afcdc8;
   --lagoon: #60d7cf;
   --lagoon-deep: #8de5db;
-  --palm: #6ec89a;
   --sand: #0f1a1e;
   --foam: #101d22;
   --surface: rgba(16, 30, 34, 0.8);
@@ -125,37 +122,9 @@
   --header-bg: rgba(10, 20, 24, 0.8);
   --chip-bg: rgba(13, 28, 32, 0.9);
   --chip-line: rgba(141, 229, 219, 0.24);
-  --link-bg-hover: rgba(24, 44, 49, 0.8);
   --hero-a: rgba(96, 215, 207, 0.18);
   --hero-b: rgba(110, 200, 154, 0.12);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --sea-ink: #d7ece8;
-    --sea-ink-soft: #afcdc8;
-    --lagoon: #60d7cf;
-    --lagoon-deep: #8de5db;
-    --palm: #6ec89a;
-    --sand: #0f1a1e;
-    --foam: #101d22;
-    --surface: rgba(16, 30, 34, 0.8);
-    --surface-strong: rgba(15, 27, 31, 0.92);
-    --line: rgba(141, 229, 219, 0.18);
-    --inset-glint: rgba(194, 247, 238, 0.14);
-    --kicker: #b8efe5;
-    --bg-base: #0a1418;
-    --header-bg: rgba(10, 20, 24, 0.8);
-    --chip-bg: rgba(13, 28, 32, 0.9);
-    --chip-line: rgba(141, 229, 219, 0.24);
-    --link-bg-hover: rgba(24, 44, 49, 0.8);
-    --hero-a: rgba(96, 215, 207, 0.18);
-    --hero-b: rgba(110, 200, 154, 0.12);
-  }
-}
-
-:root[data-theme="dark"],
-:root.dark {
   --color-canvas: #0a1418;
   --color-surface: #101d22;
   --color-surface-warm: #0f1a1e;
@@ -233,86 +202,6 @@
   --color-badge-izin-border: rgba(252, 211, 77, 0.35);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --color-canvas: #0a1418;
-    --color-surface: #101d22;
-    --color-surface-warm: #0f1a1e;
-    --color-surface-2: #1a2831;
-    --color-line: #263940;
-    --color-line-2: #1a2831;
-    --color-ink: #d7ece8;
-    --color-ink-2: #b8cdc9;
-    --color-ink-strong: #e6f1ee;
-    --color-muted: #8aa7a2;
-    --color-muted-soft: #6f8d88;
-    --color-brand: #162a30;
-    --color-accent: #4fd6cd;
-    --color-accent-hover: #7de3da;
-    --color-accent-light: rgba(79, 214, 205, 0.14);
-    --color-accent-border: rgba(79, 214, 205, 0.35);
-    --color-chart: #60a5fa;
-    --color-danger: #f87171;
-    --color-danger-soft: rgba(248, 113, 113, 0.12);
-    --color-danger-border: rgba(248, 113, 113, 0.4);
-    --color-warn: #fbbf24;
-    --color-chip-prio-odgj-text: #5eead4;
-    --color-chip-prio-odgj-bg: rgba(94, 234, 212, 0.1);
-    --color-chip-prio-odgj-border: rgba(94, 234, 212, 0.35);
-    --color-chip-prio-bumil-text: #fda4af;
-    --color-chip-prio-bumil-bg: rgba(253, 164, 175, 0.1);
-    --color-chip-prio-bumil-border: rgba(253, 164, 175, 0.35);
-    --color-chip-prio-balita-text: #86efac;
-    --color-chip-prio-balita-bg: rgba(134, 239, 172, 0.1);
-    --color-chip-prio-balita-border: rgba(134, 239, 172, 0.35);
-    --color-chip-prio-tb-text: #fcd34d;
-    --color-chip-prio-tb-bg: rgba(252, 211, 77, 0.1);
-    --color-chip-prio-tb-border: rgba(252, 211, 77, 0.35);
-    --color-chip-prio-stunt-text: #f0abfc;
-    --color-chip-prio-stunt-bg: rgba(240, 171, 252, 0.1);
-    --color-chip-prio-stunt-border: rgba(240, 171, 252, 0.35);
-    --color-status-done-text: #5eead4;
-    --color-status-done-bg: rgba(94, 234, 212, 0.1);
-    --color-status-done-border: rgba(94, 234, 212, 0.35);
-    --color-status-process-text: #fcd34d;
-    --color-status-process-bg: rgba(252, 211, 77, 0.1);
-    --color-status-process-border: rgba(252, 211, 77, 0.35);
-    --color-status-pending-text: #94a3b8;
-    --color-status-pending-bg: #1a2831;
-    --color-status-pending-border: #263940;
-    --color-status-belum-text: #fda4af;
-    --color-status-belum-bg: rgba(253, 164, 175, 0.1);
-    --color-status-belum-border: rgba(253, 164, 175, 0.35);
-    --color-status-jadwal-text: #fcd34d;
-    --color-status-jadwal-bg: rgba(252, 211, 77, 0.1);
-    --color-status-jadwal-border: rgba(252, 211, 77, 0.35);
-    --color-status-tindak-text: #fda4af;
-    --color-status-tindak-bg: rgba(253, 164, 175, 0.1);
-    --color-status-tindak-border: rgba(253, 164, 175, 0.35);
-    --color-status-on-text: #5eead4;
-    --color-status-on-bg: rgba(94, 234, 212, 0.1);
-    --color-status-on-border: rgba(94, 234, 212, 0.35);
-    --color-status-off-text: #94a3b8;
-    --color-status-off-bg: #1a2831;
-    --color-status-off-border: #263940;
-    --color-status-hadir-text: #5eead4;
-    --color-status-hadir-bg: rgba(94, 234, 212, 0.1);
-    --color-status-hadir-border: rgba(94, 234, 212, 0.35);
-    --color-status-izin-text: #fcd34d;
-    --color-status-izin-bg: rgba(252, 211, 77, 0.1);
-    --color-status-izin-border: rgba(252, 211, 77, 0.35);
-    --color-badge-ok-text: #5eead4;
-    --color-badge-ok-bg: rgba(94, 234, 212, 0.1);
-    --color-badge-ok-border: rgba(94, 234, 212, 0.35);
-    --color-badge-hadir-text: #5eead4;
-    --color-badge-hadir-bg: rgba(94, 234, 212, 0.1);
-    --color-badge-hadir-border: rgba(94, 234, 212, 0.35);
-    --color-badge-izin-text: #fcd34d;
-    --color-badge-izin-bg: rgba(252, 211, 77, 0.1);
-    --color-badge-izin-border: rgba(252, 211, 77, 0.35);
-  }
-}
-
 * {
   box-sizing: border-box;
 }
@@ -331,28 +220,45 @@ body {
   background:
     radial-gradient(1100px 620px at -8% -10%, var(--hero-a), transparent 58%),
     radial-gradient(1050px 620px at 112% -12%, var(--hero-b), transparent 62%),
-    radial-gradient(720px 380px at 50% 115%, rgba(79, 184, 178, 0.1), transparent 68%),
-    linear-gradient(180deg, color-mix(in oklab, var(--sand) 68%, white) 0%, var(--foam) 44%, var(--bg-base) 100%);
+    radial-gradient(
+      720px 380px at 50% 115%,
+      rgba(79, 184, 178, 0.1),
+      transparent 68%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--sand) 68%, white) 0%,
+      var(--foam) 44%,
+      var(--bg-base) 100%
+    );
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 body::before {
-  content: "";
+  content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: -1;
   opacity: 0.28;
   background:
-    radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.8), transparent 34%),
-    radial-gradient(circle at 78% 26%, rgba(79, 184, 178, 0.2), transparent 42%),
+    radial-gradient(
+      circle at 20% 15%,
+      rgba(255, 255, 255, 0.8),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 78% 26%,
+      rgba(79, 184, 178, 0.2),
+      transparent 42%
+    ),
     radial-gradient(circle at 42% 82%, rgba(47, 106, 74, 0.14), transparent 36%);
 }
 
 body::after {
-  content: "";
+  content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
@@ -401,7 +307,7 @@ pre code {
 }
 
 .display-title {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: 'Fraunces', Georgia, serif;
 }
 
 .island-shell {
@@ -415,7 +321,11 @@ pre code {
 }
 
 .feature-card {
-  background: linear-gradient(165deg, color-mix(in oklab, var(--surface-strong) 93%, white 7%), var(--surface));
+  background: linear-gradient(
+    165deg,
+    color-mix(in oklab, var(--surface-strong) 93%, white 7%),
+    var(--surface)
+  );
   box-shadow:
     0 1px 0 var(--inset-glint) inset,
     0 18px 34px rgba(30, 90, 72, 0.1),
@@ -495,7 +405,10 @@ pre code {
   background: color-mix(in oklab, var(--surface-strong) 88%, white 12%);
   color: var(--sea-ink);
   outline: none;
-  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
 }
 
 .demo-input,
@@ -633,7 +546,10 @@ pre code {
 button,
 .island-shell,
 a {
-  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease,
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
     transform 180ms ease;
 }
 
@@ -654,7 +570,7 @@ a {
 }
 
 .nav-link::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   bottom: -6px;
@@ -714,4 +630,3 @@ a {
     display: none !important;
   }
 }
-

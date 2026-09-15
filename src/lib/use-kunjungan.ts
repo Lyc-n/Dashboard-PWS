@@ -82,7 +82,7 @@ export interface KunjunganRecord {
 
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
-export const EMPTY_INFO: KeluargaInfo = {
+const EMPTY_INFO: KeluargaInfo = {
   tglPengumpulan: "2026-02-14",
   alamat: "",
   kelurahan: "",
@@ -96,7 +96,7 @@ export const EMPTY_INFO: KeluargaInfo = {
   namaKK: "",
 };
 
-export const EMPTY_SANITASI: Sanitasi = {
+const EMPTY_SANITASI: Sanitasi = {
   jkn: false,
   airBersih: false,
   jenisAir: "",
@@ -121,23 +121,9 @@ const EMPTY_ANGGOTA: AnggotaKeluarga = {
   pekerjaan: "",
 };
 
-export const INFO_FIELDS: { key: keyof KeluargaInfo; label: string; kind: "text" | "date" }[] = [
-  { key: "tglPengumpulan", label: "Tanggal pengumpulan data", kind: "date" },
-  { key: "alamat", label: "Alamat", kind: "text" },
-  { key: "kelurahan", label: "Desa/Kelurahan", kind: "text" },
-  { key: "kecamatan", label: "Kecamatan", kind: "text" },
-  { key: "kabKota", label: "Kabupaten/Kota", kind: "text" },
-  { key: "provinsi", label: "Provinsi", kind: "text" },
-  { key: "hpKK", label: "No. HP KK/anggota", kind: "text" },
-  { key: "puskesmas", label: "Puskesmas", kind: "text" },
-  { key: "pustu", label: "Pustu / posyandu prima", kind: "text" },
-  { key: "posyandu", label: "Posyandu", kind: "text" },
-  { key: "namaKK", label: "Nama kepala keluarga", kind: "text" },
-];
-
 function emptyPenilaian(anggotaId: string, sasaran: SasaranKey, templates?: KrTemplates): PenilaianForm {
   const fallback = sasaranDef(sasaran);
-  const prioritas = templates ? (templates.sasaran[sasaran]?.prioritasDefault ?? fallback.prioritasDefault) : fallback.prioritasDefault;
+  const prioritas = templates ? templates.sasaran[sasaran].prioritasDefault : fallback.prioritasDefault;
   return {
     id: uid(),
     anggotaId,
@@ -263,7 +249,7 @@ export function useKunjungan(templatesInput?: KrTemplates) {
     }
     // penilaian required per sasaran
     for (const p of penilaian) {
-      const tpls = templates.sasaran[p.sasaran]?.fields.filter((f) => f.active && f.required) ?? [];
+      const tpls = templates.sasaran[p.sasaran].fields.filter((f) => f.active && f.required);
       totalReq += tpls.length;
       for (const f of tpls) {
         if (f.kind === "checkbox") {
@@ -340,7 +326,7 @@ export function useKunjungan(templatesInput?: KrTemplates) {
         }
         // legacy nik 16 digit check
         if (f.id === "nik") {
-          if (!/^\d{16}$/.test(rec.nik ?? "")) {
+          if (!/^\d{16}$/.test(rec.nik)) {
             nextInvalid[`nik:${m.id}`] = true;
             ok = false;
           } else if (seen.has(rec.nik)) {
@@ -384,7 +370,7 @@ export function useKunjungan(templatesInput?: KrTemplates) {
       ok = false;
     } else {
       for (const p of penilaian) {
-        const fields = templates.sasaran[p.sasaran]?.fields.filter((f) => f.active && f.required) ?? [];
+        const fields = templates.sasaran[p.sasaran].fields.filter((f) => f.active && f.required);
         for (const f of fields) {
           if (f.kind === "checkbox") {
             // checkbox required means must be checked
@@ -416,7 +402,7 @@ export function useKunjungan(templatesInput?: KrTemplates) {
         }
       }
     }
-    const hasilOpsi = templates.hasilOpsi ?? HASIL_KUNJUNGAN;
+    const hasilOpsi = templates.hasilOpsi;
     if (hasilOpsi.length > 0 && !hasilOpsi.includes(hasil)) {
       // if hasil not in opsi, invalid
       nextInvalid.hasil = true;

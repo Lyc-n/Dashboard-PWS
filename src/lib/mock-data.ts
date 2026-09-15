@@ -72,16 +72,6 @@ export const POSYANDU_CONTRIB: { n: string; v: number }[][] = [
   [{ n: "Melati 1", v: 50 }, { n: "Kenanga", v: 46 }, { n: "Mawar 2", v: 38 }, { n: "Flamboyan", v: 34 }],
 ];
 
-export const KEL_ADJUST: Record<string, number> = {
-  Trajeng: 1.08,
-  Ngemplakrejo: 1.02,
-  Tambaan: 0.95,
-  Mayangan: 0.9,
-  Demangan: 1.02,
-  Pesisir: 0.88,
-  Balongpanggang: 0.9,
-};
-
 export const PRIO_ADJUST: Record<string, number> = {
   ODGJ: 0.82,
   "Bumil Risti": 1.08,

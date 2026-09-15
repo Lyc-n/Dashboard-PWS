@@ -1,5 +1,4 @@
 import { ClipboardCheck, FileText, LayoutDashboard, PersonStanding, ScrollText, Settings } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 
 export const KELS = ["Trajeng", "Ngemplakrejo", "Tambaan", "Mayangan"] as const;
 
@@ -38,20 +37,6 @@ export const MONTHS = [
   "Nov",
   "Des",
 ] as const;
-
-export const KATEGORI_CHECKLIST = [
-  "Kelompok A",
-  "Kelompok B",
-  "Kelompok C",
-  "Kelompok D",
-  "Kelompok E",
-] as const;
-
-export interface NavItem {
-  label: string;
-  to: string;
-  Icon: LucideIcon;
-}
 
 export const NAV_ITEMS = [
   { label: "Dashboard", to: "/", Icon: LayoutDashboard },
