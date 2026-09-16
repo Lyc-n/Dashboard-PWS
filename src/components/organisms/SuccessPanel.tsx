@@ -23,5 +23,3 @@ export function SuccessPanel({
     </div>
   );
 }
-
-export default SuccessPanel;

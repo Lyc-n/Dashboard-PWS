@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { SummaryCardData } from "@/lib/mock-data";
 import { EmptyState } from "@/components/atoms/EmptyState";
-import { SummaryCard } from "@/components/molecules/SummaryCard";
+import { StatCard } from "@/components/molecules/StatCard";
 
 export interface KelurahanSectionProps {
   items: SummaryCardData[];
@@ -22,11 +22,9 @@ export function KelurahanSection({ items, emptyMessage }: KelurahanSectionProps)
     <section className="mt-5">
       <div className="grid grid-cols-4 gap-3.5 max-[1100px]:grid-cols-2 max-[600px]:grid-cols-1">
         {items.map((d) => (
-          <SummaryCard key={d.name} data={d} />
+          <StatCard key={d.name} caption={d.title} value={`${d.pct}%`} sub={d.sub} progress={d.pct} barColor={d.barColor} />
         ))}
       </div>
     </section>
   );
 }
-
-export default KelurahanSection;

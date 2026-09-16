@@ -39,5 +39,3 @@ export function Stepper({ steps, className }: StepperProps) {
     </div>
   );
 }
-
-export default Stepper;

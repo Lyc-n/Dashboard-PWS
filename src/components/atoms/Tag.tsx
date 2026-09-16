@@ -1,8 +1,10 @@
 import type { HTMLAttributes } from "react";
-import { cn, priorityTagVariant, TAG_STYLES  } from "@/lib/utils";
+import { Pill  } from "@/components/atoms/Pill";
+import type {PillProps} from "@/components/atoms/Pill";
+import { priorityTagVariant  } from "@/lib/utils";
 import type {TagVariant} from "@/lib/utils";
 
-export interface TagProps extends HTMLAttributes<HTMLSpanElement> {
+export interface TagProps extends Omit<PillProps, "variant">, HTMLAttributes<HTMLSpanElement> {
   variant?: TagVariant;
   priority?: string;
 }
@@ -10,15 +12,8 @@ export interface TagProps extends HTMLAttributes<HTMLSpanElement> {
 export function Tag({ variant, priority, className, children, ...props }: TagProps) {
   const resolved = variant ?? priorityTagVariant(priority);
   return (
-    <span
-      className={cn(
-        "inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold",
-        TAG_STYLES[resolved],
-        className,
-      )}
-      {...props}
-    >
+    <Pill variant={resolved} shape="pill" size="md" className={className} {...props}>
       {children ?? priority}
-    </span>
+    </Pill>
   );
 }

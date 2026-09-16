@@ -29,5 +29,3 @@ export function FilterBar({ tabs, activeTab, onTabChange, children }: FilterBarP
     </div>
   );
 }
-
-export default FilterBar;

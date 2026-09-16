@@ -40,5 +40,3 @@ export function FormField({
     </label>
   );
 }
-
-export default FormField;

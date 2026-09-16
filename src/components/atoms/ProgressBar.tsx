@@ -25,5 +25,3 @@ export function ProgressBar({ value, size = "sm", barClassName, barColor, classN
     </div>
   );
 }
-
-export default ProgressBar;

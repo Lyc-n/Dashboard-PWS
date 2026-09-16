@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { InfoRow } from "@/components/molecules/InfoRow";
 
 export interface InfoPanelField {
   label: ReactNode;
@@ -13,6 +12,15 @@ export interface InfoPanelProps {
   className?: string;
 }
 
+function FieldRow({ label, value }: InfoPanelField) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-[var(--color-surface-2)] py-2 text-xs last:border-none">
+      <span className="text-muted">{label}</span>
+      <b className="text-right font-semibold text-ink">{value}</b>
+    </div>
+  );
+}
+
 export function InfoPanel({ fields, columns = 1, className }: InfoPanelProps) {
   return (
     <div
@@ -23,10 +31,8 @@ export function InfoPanel({ fields, columns = 1, className }: InfoPanelProps) {
       )}
     >
       {fields.map((f, i) => (
-        <InfoRow key={i} label={f.label} value={f.value} />
+        <FieldRow key={i} label={f.label} value={f.value} />
       ))}
     </div>
   );
 }
-
-export default InfoPanel;

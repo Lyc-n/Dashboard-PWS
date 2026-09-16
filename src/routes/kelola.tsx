@@ -4,7 +4,6 @@ import { seedAdminItems, seedAdminPrios, seedAdminStaff    } from "@/lib/seeds";
 import type {AdminItem, Priority, Staff} from "@/lib/seeds";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { KELS, PERAN, POSY, PRIOS, STORAGE_KEYS } from "@/lib/constants";
-import { cn  } from "@/lib/utils";
 import type {TagVariant} from "@/lib/utils";
 import { useToast } from "@/providers/toast";
 import { useKrTemplates } from "@/hooks/use-kr-templates";
@@ -16,6 +15,7 @@ import { AppShell } from "@/components/organisms/AppShell";
 import { DataTable } from "@/components/organisms/DataTable";
 import { SectionCard } from "@/components/molecules/SectionCard";
 import { ChipGroup } from "@/components/molecules/ChipGroup";
+import { FormField } from "@/components/molecules/FormField";
 import { StatCard } from "@/components/molecules/StatCard";
 import { Toolbar } from "@/components/molecules/Toolbar";
 import { PageHeader } from "@/components/molecules/PageHeader";
@@ -24,12 +24,14 @@ import { Select } from "@/components/atoms/Select";
 import { Textarea } from "@/components/atoms/Textarea";
 import { Button } from "@/components/atoms/Button";
 import { Tab } from "@/components/atoms/Tab";
+import { requireAuth } from "@/lib/auth";
 import { Tag } from "@/components/atoms/Tag";
 import { StatusBadge } from "@/components/atoms/StatusBadge";
 import { EmptyState } from "@/components/atoms/EmptyState";
 import { Checkbox } from "@/components/atoms/Checkbox";
 
 export const Route = createFileRoute("/kelola")({
+  beforeLoad: requireAuth,
   component: Kelola,
 });
 
@@ -54,7 +56,6 @@ type FieldDlgState = {
 
 const TABS = [
   { key: "formkr", label: "Form KR" },
-  // { key: "checklist", label: "Checklist (Legacy)" },
   { key: "prioritas", label: "Prioritas" },
   { key: "staff", label: "Staff" },
 ] as const;
@@ -78,19 +79,6 @@ const SASARAN_SECTION_OPTS: { value: KrSection; label: string }[] = [
 function toVariant(w: string | undefined): TagVariant {
   const v = w?.startsWith("tag-") ? w.slice(4) : w;
   return (["odgj", "bumil", "balita", "tb", "stunt"] as const).includes(v as TagVariant) ? (v as TagVariant) : "odgj";
-}
-
-function CtlField({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
-  return (
-    <label className="grid gap-1.5 text-xs font-semibold text-ink">
-      <span>
-        {label}
-        {required ? <span className="text-danger"> *</span> : null}
-      </span>
-      {children}
-      <span className={cn("text-[11px] font-semibold text-danger", !error && "hidden")}>{error || "Wajib diisi."}</span>
-    </label>
-  );
 }
 
 function Modal({ title, onClose, onSave, children }: { title: string; onClose: () => void; onSave: () => void; children: React.ReactNode }) {
@@ -619,11 +607,11 @@ function Kelola() {
 
           {fieldDlg ? (
             <Modal title={fieldDlg.mode === "add" ? "Tambah field" : "Ubah field"} onClose={() => setFieldDlg(null)} onSave={saveFieldDlg}>
-              <CtlField label="Label field" required error={fieldDlg.errs.label}>
+              <FormField label="Label field" required error={fieldDlg.errs.label || "Wajib diisi."} invalid={!!fieldDlg.errs.label}>
                 <Input value={fieldDlg.form.label} onChange={(e) => setFieldDlg((d) => ({ ...d!, form: { ...d!.form, label: e.target.value }, errs: { ...d!.errs, label: "" } }))} placeholder="cth. Suhu tubuh (°C)" />
-              </CtlField>
+              </FormField>
               {formSub === "sasaran" ? (
-                <CtlField label="Section sasaran">
+                <FormField label="Section sasaran">
                   <Select value={fieldDlg.form.sasaranSection} onChange={(e) => setFieldDlg((d) => ({ ...d!, form: { ...d!.form, sasaranSection: e.target.value } }))}>
                     {SASARAN_SECTION_OPTS.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -631,9 +619,9 @@ function Kelola() {
                       </option>
                     ))}
                   </Select>
-                </CtlField>
+                </FormField>
               ) : null}
-              <CtlField label="Jenis input">
+              <FormField label="Jenis input">
                 <Select value={fieldDlg.form.kind} onChange={(e) => setFieldDlg((d) => ({ ...d!, form: { ...d!.form, kind: e.target.value } }))}>
                   <option value="text">Teks</option>
                   <option value="number">Angka</option>
@@ -641,19 +629,19 @@ function Kelola() {
                   <option value="select">Pilihan (select)</option>
                   <option value="checkbox">Checkbox</option>
                 </Select>
-              </CtlField>
+              </FormField>
               {fieldDlg.form.kind === "select" ? (
-                <CtlField label="Opsi (pisah koma)" required error={fieldDlg.errs.options}>
+                <FormField label="Opsi (pisah koma)" required error={fieldDlg.errs.options || "Wajib diisi."} invalid={!!fieldDlg.errs.options}>
                   <Textarea
                     value={fieldDlg.form.options}
                     onChange={(e) => setFieldDlg((d) => ({ ...d!, form: { ...d!.form, options: e.target.value }, errs: { ...d!.errs, options: "" } }))}
                     placeholder="cth. Ya, Tidak atau L, P"
                   />
-                </CtlField>
+                </FormField>
               ) : null}
-              <CtlField label="Hint / placeholder (opsional)">
+              <FormField label="Hint / placeholder (opsional)">
                 <Input value={fieldDlg.form.hint} onChange={(e) => setFieldDlg((d) => ({ ...d!, form: { ...d!.form, hint: e.target.value } }))} placeholder="cth. 16 digit, tanpa spasi." />
-              </CtlField>
+              </FormField>
               <label className="flex items-center gap-2 text-xs font-semibold text-ink">
                 <Checkbox checked={fieldDlg.form.required} onChange={(e) => setFieldDlg((d) => ({ ...d!, form: { ...d!.form, required: e.target.checked } }))} />
                 Wajib diisi
@@ -798,13 +786,13 @@ function Kelola() {
         <Modal title={dlg.title} onClose={() => setDlg(null)} onSave={saveDlg}>
           {dlg.kind === "prio" ? (
             <>
-              <CtlField label="Nama prioritas" required error={dlg.errs.nama}>
+              <FormField label="Nama prioritas" required error={dlg.errs.nama || "Wajib diisi."} invalid={!!dlg.errs.nama}>
                 <Input value={dlg.form.nama} onChange={(e) => setForm("nama", e.target.value)} invalid={!!dlg.errs.nama} placeholder="cth. Lansia Risti" />
-              </CtlField>
-              <CtlField label="Deskripsi">
+              </FormField>
+              <FormField label="Deskripsi">
                 <Textarea onChange={(e) => setForm("desk", e.target.value)} value={dlg.form.desk} placeholder="cth. Kelompok berisiko…" />
-              </CtlField>
-              <CtlField label="Warna tag">
+              </FormField>
+              <FormField label="Warna tag">
                 <Select value={dlg.form.warna} onChange={(e) => setForm("warna", e.target.value)}>
                   <option value="odgj">Hijau (ODGJ)</option>
                   <option value="bumil">Merah muda (Bumil Risti)</option>
@@ -812,39 +800,39 @@ function Kelola() {
                   <option value="tb">Kuning (TB)</option>
                   <option value="stunt">Merah (Stunting)</option>
                 </Select>
-              </CtlField>
+              </FormField>
             </>
           ) : null}
           {dlg.kind === "staff" ? (
             <>
-              <CtlField label="Nama lengkap" required error={dlg.errs.nama}>
+              <FormField label="Nama lengkap" required error={dlg.errs.nama || "Wajib diisi."} invalid={!!dlg.errs.nama}>
                 <Input value={dlg.form.nama} onChange={(e) => setForm("nama", e.target.value)} invalid={!!dlg.errs.nama} placeholder="cth. Ibu Warsini" />
-              </CtlField>
-              <CtlField label="Peran">
+              </FormField>
+              <FormField label="Peran">
                 <Select value={dlg.form.peran} onChange={(e) => setForm("peran", e.target.value)}>
                   {PERAN.map((p) => (
                     <option key={p}>{p}</option>
                   ))}
                 </Select>
-              </CtlField>
-              <CtlField label="Kelurahan tugas">
+              </FormField>
+              <FormField label="Kelurahan tugas">
                 <Select value={dlg.form.kel} onChange={(e) => setForm("kel", e.target.value)}>
                   {KELS.map((k) => (
                     <option key={k}>{k}</option>
                   ))}
                 </Select>
-              </CtlField>
-              <CtlField label="Posyandu">
+              </FormField>
+              <FormField label="Posyandu">
                 <Select value={dlg.form.posy} onChange={(e) => setForm("posy", e.target.value)}>
                   <option>—</option>
                   {POSY.map((p) => (
                     <option key={p}>{p}</option>
                   ))}
                 </Select>
-              </CtlField>
-              <CtlField label="No. HP">
+              </FormField>
+              <FormField label="No. HP">
                 <Input value={dlg.form.hp} onChange={(e) => setForm("hp", e.target.value)} placeholder="cth. 0812xxxx" type="tel" />
-              </CtlField>
+              </FormField>
             </>
           ) : null}
         </Modal>

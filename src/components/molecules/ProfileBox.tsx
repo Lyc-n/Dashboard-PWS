@@ -2,14 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Avatar } from "@/components/atoms/Avatar";
 import ThemeToggle from "@/components/ThemeToggle";
-import { Settings } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 
 export interface ProfileBoxProps {
   name?: string;
   avatarSrc?: string;
+  onLogout?: () => void;
 }
 
-export function ProfileBox({ name = "A. Jubaidi", avatarSrc = "https://i.pravatar.cc/100?img=12" }: ProfileBoxProps) {
+export function ProfileBox({ name = "A. Jubaidi", avatarSrc = "https://i.pravatar.cc/100?img=12", onLogout }: ProfileBoxProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -53,6 +54,16 @@ export function ProfileBox({ name = "A. Jubaidi", avatarSrc = "https://i.pravata
             <Settings size={16} strokeWidth={1.5} className="m-1"/>
             Kelola
           </Link>
+          {onLogout ? (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-danger hover:bg-surface-2 cursor-pointer"
+            >
+              <LogOut size={15} strokeWidth={1.6} className="m-1" />
+              Keluar
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

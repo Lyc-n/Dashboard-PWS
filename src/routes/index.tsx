@@ -10,6 +10,7 @@ import {
 } from "@/lib/mock-data";
 import { MONTHS } from "@/lib/constants";
 import { average, fmtDate } from "@/lib/utils";
+import { requireAuth } from "@/lib/auth";
 import { AppShell } from "@/components/organisms/AppShell";
 import { ChartCard } from "@/components/organisms/ChartCard";
 import { DataTable } from "@/components/organisms/DataTable";
@@ -25,6 +26,7 @@ import { PageHeader } from "@/components/molecules/PageHeader";
 import { Toolbar } from "@/components/molecules/Toolbar";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: requireAuth,
   component: Dashboard,
 })
 

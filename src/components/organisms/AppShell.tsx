@@ -26,4 +26,3 @@ export function AppShell({ children }: AppShellProps) {
   );
 }
 
-export default AppShell;

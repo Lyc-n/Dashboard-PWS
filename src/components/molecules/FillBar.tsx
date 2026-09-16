@@ -16,5 +16,3 @@ export function FillBar({ label = "Kelengkapan form", pct }: FillBarProps) {
     </div>
   );
 }
-
-export default FillBar;

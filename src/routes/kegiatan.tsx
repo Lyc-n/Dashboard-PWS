@@ -25,8 +25,10 @@ import { Select } from "@/components/atoms/Select";
 import { Textarea } from "@/components/atoms/Textarea";
 import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
+import { requireAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/kegiatan")({
+  beforeLoad: requireAuth,
   component: Kegiatan,
 })
 

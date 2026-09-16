@@ -18,5 +18,3 @@ export function Toolbar({ children, left, right, className }: ToolbarProps) {
     </div>
   );
 }
-
-export default Toolbar;

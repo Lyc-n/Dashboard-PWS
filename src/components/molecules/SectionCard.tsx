@@ -20,5 +20,3 @@ export function SectionCard({ title, sub, actions, className, bodyClassName, chi
     </Card>
   );
 }
-
-export default SectionCard;

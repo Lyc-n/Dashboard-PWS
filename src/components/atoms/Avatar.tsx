@@ -34,5 +34,3 @@ export function Avatar({ src, alt, initial, size = "sm", className }: AvatarProp
     </span>
   );
 }
-
-export default Avatar;

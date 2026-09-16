@@ -17,5 +17,3 @@ export function HistoryPanel({ items, emptyMessage = "Belum ada riwayat." }: His
     </section>
   );
 }
-
-export default HistoryPanel;

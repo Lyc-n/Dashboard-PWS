@@ -32,5 +32,3 @@ export function ChartCard({
     </div>
   );
 }
-
-export default ChartCard;

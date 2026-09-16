@@ -26,5 +26,3 @@ export function Timeline({ title = "Riwayat", items }: TimelineProps) {
     </section>
   );
 }
-
-export default Timeline;

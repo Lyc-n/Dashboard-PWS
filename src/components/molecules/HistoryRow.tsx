@@ -19,5 +19,3 @@ export function HistoryRow({ layout = "row", className, children, ...props }: Hi
     </div>
   );
 }
-
-export default HistoryRow;

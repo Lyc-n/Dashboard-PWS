@@ -18,5 +18,3 @@ export function LogoEmblem({ children, className }: LogoEmblemProps) {
     </span>
   );
 }
-
-export default LogoEmblem;

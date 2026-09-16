@@ -20,5 +20,3 @@ export function EmptyState({ title, children, className, ...props }: EmptyStateP
     </div>
   );
 }
-
-export default EmptyState;

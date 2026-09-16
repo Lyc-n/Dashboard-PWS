@@ -39,5 +39,3 @@ export function DokumentasiPanel({
     </div>
   );
 }
-
-export default DokumentasiPanel;

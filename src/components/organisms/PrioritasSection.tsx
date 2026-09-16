@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import type { SummaryCardData } from "@/lib/mock-data";
 import { EmptyState } from "@/components/atoms/EmptyState";
-// import { Badge } from "@/components/atoms/Badge";
-import { SummaryCard } from "@/components/molecules/SummaryCard";
+import { StatCard } from "@/components/molecules/StatCard";
 
 export interface PrioritasSectionProps {
   items: SummaryCardData[];
@@ -21,15 +20,9 @@ export function PrioritasSection({ items, emptyMessage }: PrioritasSectionProps)
     <section className="mt-5">
       <div className="grid grid-cols-3 gap-3.5 max-[900px]:grid-cols-2 max-[600px]:grid-cols-1">
         {items.map((d) => (
-          <SummaryCard
-            key={d.name}
-            data={d}
-            // badge={<Badge variant={d.pct >= 75 ? "ok" : "izin"}>{d.pct >= 75 ? "On track" : "Waspada"}</Badge>}
-          />
+          <StatCard key={d.name} caption={d.title} value={`${d.pct}%`} sub={d.sub} progress={d.pct} barColor={d.barColor} />
         ))}
       </div>
     </section>
   );
 }
-
-export default PrioritasSection;

@@ -19,5 +19,3 @@ export function CardHeader({ title, sub, actions, className }: CardHeaderProps) 
     </div>
   );
 }
-
-export default CardHeader;

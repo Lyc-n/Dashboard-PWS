@@ -31,5 +31,3 @@ export function DropZone({ onFiles, title = "Klik untuk pilih foto", hint = "JPG
     </>
   );
 }
-
-export default DropZone;

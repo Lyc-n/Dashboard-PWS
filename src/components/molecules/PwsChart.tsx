@@ -93,5 +93,3 @@ export function PwsChart({ data, labels, renderTooltip, scale = 25, max = 6000 }
     </div>
   );
 }
-
-export default PwsChart;

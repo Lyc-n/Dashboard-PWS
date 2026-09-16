@@ -36,5 +36,3 @@ export function ChipGroup({ options, selected, onToggle, dark, className, chipPr
     </div>
   );
 }
-
-export default ChipGroup;

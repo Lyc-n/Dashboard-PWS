@@ -4,6 +4,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 
 import appCss from '../styles.css?url'
 import { ToastProvider } from '@/providers/toast'
+import { AuthProvider } from '@/providers/auth'
 import { THEME_INIT_SCRIPT } from '@/lib/theme'
 import icon from '@/assets/brandIcon.png'
 
@@ -44,7 +45,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="font-sans antialiased wrap-anywhere">
-        <ToastProvider>{children}</ToastProvider>
+        <AuthProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </AuthProvider>
         <TanStackDevtools
           config={{
             position: 'bottom-right',

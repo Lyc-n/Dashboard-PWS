@@ -23,5 +23,3 @@ export function TindakCard({ icon, color, title, issue }: TindakCardProps) {
     </div>
   );
 }
-
-export default TindakCard;

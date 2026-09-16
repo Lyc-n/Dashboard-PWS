@@ -72,14 +72,6 @@ export const POSYANDU_CONTRIB: { n: string; v: number }[][] = [
   [{ n: "Melati 1", v: 50 }, { n: "Kenanga", v: 46 }, { n: "Mawar 2", v: 38 }, { n: "Flamboyan", v: 34 }],
 ];
 
-export const PRIO_ADJUST: Record<string, number> = {
-  ODGJ: 0.82,
-  "Bumil Risti": 1.08,
-  "Balita Risti": 1.02,
-  TB: 0.92,
-  Stunting: 0.78,
-};
-
 export const TINDAK_CANDIDATES: TindakCandidate[] = [
   { kel: "Ngemplakrejo", issue: "Cakupan tertinggal 12% — 38 balita belum KR ulang.", color: "var(--color-accent)", icon: "!" },
   { kel: "Tambaan", issue: "Kunjungan mangkir — sweeping kader minggu ini.", color: "var(--color-warn)", icon: "↗" },

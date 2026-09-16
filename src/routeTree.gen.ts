@@ -14,6 +14,7 @@ import { Route as ChecklistRouteImport } from './routes/checklist'
 import { Route as KegiatanRouteImport } from './routes/kegiatan'
 import { Route as KelolaRouteImport } from './routes/kelola'
 import { Route as LaporanRouteImport } from './routes/laporan'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as SasaranRouteImport } from './routes/sasaran'
 import { Route as SasaranIndexRouteImport } from './routes/sasaran.index'
 import { Route as SasaranIdRouteImport } from './routes/sasaran.$id'
@@ -43,6 +44,11 @@ const LaporanRoute = LaporanRouteImport.update({
   path: '/laporan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SasaranRoute = SasaranRouteImport.update({
   id: '/sasaran',
   path: '/sasaran',
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
   '/laporan': typeof LaporanRoute
+  '/login': typeof LoginRoute
   '/sasaran': typeof SasaranRouteWithChildren
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran/': typeof SasaranIndexRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
   '/laporan': typeof LaporanRoute
+  '/login': typeof LoginRoute
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran': typeof SasaranIndexRoute
 }
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
   '/laporan': typeof LaporanRoute
+  '/login': typeof LoginRoute
   '/sasaran': typeof SasaranRouteWithChildren
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran/': typeof SasaranIndexRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/kegiatan'
     | '/kelola'
     | '/laporan'
+    | '/login'
     | '/sasaran'
     | '/sasaran/$id'
     | '/sasaran/'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/kegiatan'
     | '/kelola'
     | '/laporan'
+    | '/login'
     | '/sasaran/$id'
     | '/sasaran'
   id:
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/kegiatan'
     | '/kelola'
     | '/laporan'
+    | '/login'
     | '/sasaran'
     | '/sasaran/$id'
     | '/sasaran/'
@@ -127,6 +139,7 @@ export interface RootRouteChildren {
   KegiatanRoute: typeof KegiatanRoute
   KelolaRoute: typeof KelolaRoute
   LaporanRoute: typeof LaporanRoute
+  LoginRoute: typeof LoginRoute
   SasaranRoute: typeof SasaranRouteWithChildren
 }
 
@@ -165,6 +178,13 @@ declare module '@tanstack/react-router' {
       path: '/laporan'
       fullPath: '/laporan'
       preLoaderRoute: typeof LaporanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sasaran': {
@@ -210,6 +230,7 @@ const rootRouteChildren: RootRouteChildren = {
   KegiatanRoute: KegiatanRoute,
   KelolaRoute: KelolaRoute,
   LaporanRoute: LaporanRoute,
+  LoginRoute: LoginRoute,
   SasaranRoute: SasaranRouteWithChildren,
 }
 export const routeTree = rootRouteImport

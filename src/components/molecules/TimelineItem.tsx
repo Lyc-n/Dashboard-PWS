@@ -32,5 +32,3 @@ export function TimelineItem({ date, title, description, done = true, last }: Ti
     </div>
   );
 }
-
-export default TimelineItem;

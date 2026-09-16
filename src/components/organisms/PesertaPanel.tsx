@@ -89,5 +89,3 @@ export function PesertaPanel({ participants, onAdd, onToggle, onRemove }: Pesert
     </div>
   );
 }
-
-export default PesertaPanel;

@@ -19,5 +19,3 @@ export function Card({ padded = true, bordered = true, className, ...props }: Ca
     />
   );
 }
-
-export default Card;

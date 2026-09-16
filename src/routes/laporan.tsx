@@ -21,9 +21,10 @@ import { StatusBadge } from "@/components/atoms/StatusBadge";
 import { Tag } from "@/components/atoms/Tag";
 import { LogoEmblem } from "@/components/atoms/LogoEmblem";
 import { Tab } from "@/components/atoms/Tab";
-
+import { requireAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/laporan")({
+  beforeLoad: requireAuth,
   component: Laporan,
 })
 

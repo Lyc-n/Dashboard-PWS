@@ -15,5 +15,3 @@ export function PageHeader({ title, description }: PageHeaderProps) {
     </div>
   );
 }
-
-export default PageHeader;

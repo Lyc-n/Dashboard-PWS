@@ -20,5 +20,3 @@ export function FilterCard({ title, sub, children, footer, className }: FilterCa
     </Card>
   );
 }
-
-export default FilterCard;

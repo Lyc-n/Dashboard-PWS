@@ -31,5 +31,3 @@ export function DetailHeader({ breadcrumb, onBack, title, meta, actions }: Detai
     </div>
   );
 }
-
-export default DetailHeader;

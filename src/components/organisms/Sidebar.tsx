@@ -65,4 +65,3 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
   );
 }
 
-export default Sidebar;

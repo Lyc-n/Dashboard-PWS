@@ -32,5 +32,3 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
     </nav>
   );
 }
-
-export default Breadcrumb;

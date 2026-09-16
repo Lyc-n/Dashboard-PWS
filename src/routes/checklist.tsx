@@ -28,10 +28,12 @@ import { Checkbox } from "@/components/atoms/Checkbox";
 import { RadioCard } from "@/components/atoms/RadioCard";
 import { Button } from "@/components/atoms/Button";
 import { Tag } from "@/components/atoms/Tag";
+import { requireAuth } from "@/lib/auth";
 
 type KunjunganRecord = NonNullable<ReturnType<ReturnType<typeof useKunjungan>["submit"]>>;
 
 export const Route = createFileRoute("/checklist")({
+  beforeLoad: requireAuth,
   component: Checklist,
 });
 
@@ -581,4 +583,3 @@ const SASARAN_LABEL_SHORT: Partial<Record<SasaranKey, string>> = {
   lansia: "Lansia",
 };
 
-export default Checklist;
