@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { HASIL_KUNJUNGAN } from "@/lib/constants";
 import { sasaranDef  } from "@/lib/kr-form";
-import type {SasaranKey} from "@/lib/kr-form";
+import type {ConditionalRule, SasaranKey} from "@/lib/kr-form";
 import { seedKrTemplates  } from "@/lib/kr-templates";
 import type {KrTemplates} from "@/lib/kr-templates";
 
@@ -59,7 +59,8 @@ export interface Sanitasi {
   airBersih: boolean;
   jenisAir: string;
   jamban: boolean;
-  jambanSaniter: boolean;
+  jambanSaniter: string;
+  jenisSumberAir: string;
   ventilasi: boolean;
   odgj: boolean;
   tbc: boolean;
@@ -101,7 +102,8 @@ const EMPTY_SANITASI: Sanitasi = {
   airBersih: false,
   jenisAir: "",
   jamban: false,
-  jambanSaniter: false,
+  jambanSaniter: "",
+  jenisSumberAir: "",
   ventilasi: false,
   odgj: false,
   tbc: false,
@@ -218,7 +220,12 @@ export function useKunjungan(templatesInput?: KrTemplates) {
   }, []);
 
   const bahaCount = useMemo(
-    () => penilaian.reduce((acc, n) => acc + Object.values(n.checks).filter(Boolean).length, 0),
+    () =>
+      penilaian.reduce((acc, n) => {
+        const def = sasaranDef(n.sasaran);
+        const bahaKeys = new Set(def.baha.map((b) => b.key));
+        return acc + Object.entries(n.checks).filter(([k, v]) => v && bahaKeys.has(k)).length;
+      }, 0),
     [penilaian],
   );
 
@@ -280,8 +287,8 @@ export function useKunjungan(templatesInput?: KrTemplates) {
   }, [info, anggota, penilaian, masalah, hasil, ttd, templates]);
 
   const stepState = useMemo((): ("done" | "now" | "todo")[] => {
-    const n = ttd.trim() ? 4 : penilaian.length > 0 ? 3 : anggota.length > 0 ? 2 : 1;
-    return [1, 2, 3, 4].map((s) => (s < n ? "done" : s === n ? "now" : "todo"));
+    const n = ttd.trim() ? 3 : penilaian.length > 0 ? 2 : anggota.length > 0 ? 1 : 0;
+    return [0, 1, 2].map((s) => (s < n ? "done" : s === n ? "now" : "todo"));
   }, [ttd, penilaian.length, anggota.length]);
 
   const validate = useCallback((): boolean => {
@@ -370,10 +377,18 @@ export function useKunjungan(templatesInput?: KrTemplates) {
       ok = false;
     } else {
       for (const p of penilaian) {
+        const def = sasaranDef(p.sasaran);
+        const ruleMap = new Map<string, ConditionalRule>();
+        for (const r of def.conditionals ?? []) for (const dep of r.dependents) ruleMap.set(dep, r);
         const fields = templates.sasaran[p.sasaran].fields.filter((f) => f.active && f.required);
         for (const f of fields) {
+          const r = ruleMap.get(f.id);
+          if (r) {
+            const raw = p.values[r.trigger] as string | undefined;
+            const active = r.kind === "checks" ? !!p.checks[r.trigger] : r.whenNonEmpty ? !!String(raw ?? "").trim() : r.when !== undefined ? String(raw ?? "") === r.when : !!String(raw ?? "").trim();
+            if (!active) continue;
+          }
           if (f.kind === "checkbox") {
-            // checkbox required means must be checked
             if (!p.checks[f.id]) {
               nextInvalid[`${p.id}:${f.id}`] = true;
               ok = false;
@@ -461,7 +476,7 @@ export function useKunjungan(templatesInput?: KrTemplates) {
       posyandu: "Mawar 2",
       namaKK: "Bpk. Salim",
     });
-    setSanitasi({ ...EMPTY_SANITASI, jkn: true, airBersih: true, jamban: true, ventilasi: true });
+    setSanitasi({ ...EMPTY_SANITASI, jkn: true, airBersih: true, jamban: true, jambanSaniter: "Kloset", ventilasi: true });
     setAnggota([
       { id: "demo-a1", nama: "Budi Setiawan", nik: "3579015202800001", tglLahir: "1980-02-15", jk: "L", hubKK: "Anak", statusKawin: "Kawin", pendidikan: "SMA", pekerjaan: "Buruh" },
       { id: "demo-a2", nama: "Siti Rahmawati", nik: "3579016202900002", tglLahir: "1990-02-16", jk: "P", hubKK: "Istri", statusKawin: "Kawin", pendidikan: "SMP", pekerjaan: "IRT" },
@@ -470,16 +485,16 @@ export function useKunjungan(templatesInput?: KrTemplates) {
       id: "demo-p1",
       anggotaId: "demo-a1",
       sasaran: "dewasa",
-      values: { suhu: "36.5", tdAdaObat: "Ya", tdMinum24: "Tidak", gdAdaObat: "Tidak", merokok: "Pasif" },
-      checks: { tdPeriksaSetahun: true, tdPeriksaSebulan: true, skriningJiwa: false, edukasi: true, paraf: true },
+      values: { merokok: "Pasif" },
+      checks: { suhu: false, tdAdaObat: true, gdAdaObat: false, tdPeriksaSetahun: true, tdPeriksaSebulan: true, skriningJiwa: false, edukasi: true },
       prioritas: [],
     };
     const bumil: PenilaianForm = {
       id: "demo-p2",
       anggotaId: "demo-a2",
       sasaran: "ibu-hamil",
-      values: { nama: "Siti Rahmawati", umur: "36", kehamilanKe: "3" },
-      checks: { bukuKia: true, ttdAda: true, ttdMinum: true, skriningJiwa: false, paraf: true },
+      values: { nama: "Siti Rahmawati", umur: "36", kehamilanKe: "3", paraf: "Siti Rahmawati" },
+      checks: { bukuKia: true, ttdAda: true, ttdMinum: true, skriningJiwa: false },
       prioritas: ["Bumil Risti"],
     };
     setPenilaian([dewasa, bumil]);

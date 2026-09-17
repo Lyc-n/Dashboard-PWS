@@ -10,6 +10,11 @@ import { nitro } from 'nitro/vite'
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
   plugins: [devtools(), nitro(), tailwindcss(), tanstackStart(), viteReact()],
+  ssr: {
+    // Fix rolldown MISSING_EXPORT for @tanstack/history in nitro build (upstream mismatch)
+    // Externalize to avoid bundling issue; Node will resolve at runtime
+    external: ["@tanstack/history"],
+  },
 })
 
 export default config

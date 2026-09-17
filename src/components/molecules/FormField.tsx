@@ -7,6 +7,8 @@ export interface FormFieldProps extends LabelHTMLAttributes<HTMLLabelElement> {
   hint?: ReactNode;
   error?: ReactNode;
   invalid?: boolean;
+  htmlFor?: string;
+  errorId?: string;
 }
 
 export function FormField({
@@ -17,10 +19,15 @@ export function FormField({
   invalid,
   className,
   children,
+  htmlFor,
+  errorId,
   ...props
 }: FormFieldProps) {
   return (
     <label
+      htmlFor={htmlFor}
+      aria-invalid={invalid}
+      aria-describedby={invalid && errorId ? errorId : undefined}
       className={cn(
         "grid gap-1.5 text-xs font-semibold text-ink",
         invalid && "[&>input]:border-[var(--color-danger-border)] [&>select]:border-[var(--color-danger-border)] [&>textarea]:border-[var(--color-danger-border)]",
@@ -35,7 +42,7 @@ export function FormField({
       {children}
       {hint ? <span className="text-[11px] font-normal text-muted">{hint}</span> : null}
       {error ? (
-        <span className={cn("text-[11px] font-semibold text-danger", !invalid && "hidden")}>{error}</span>
+        <span id={errorId} role={invalid ? "alert" : undefined} className={cn("text-[11px] font-semibold text-danger", !invalid && "hidden")}>{error}</span>
       ) : null}
     </label>
   );

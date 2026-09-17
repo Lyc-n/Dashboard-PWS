@@ -35,7 +35,7 @@ export interface KrSasaranTemplate {
 }
 
 export interface KrTemplates {
-  version: 1;
+  version: 17;
   keluargaInfo: KrTemplateField[];
   anggota: KrTemplateField[];
   sanitasi: KrTemplateField[];
@@ -116,13 +116,14 @@ export function seedKrTemplates(): KrTemplates {
     { id: "jkn", label: "Jaminan kesehatan (JKN/JamKesDa)", kind: "checkbox" },
     { id: "airBersih", label: "Sarana air bersih", kind: "checkbox" },
     { id: "jamban", label: "Jamban keluarga", kind: "checkbox" },
-    { id: "jambanSaniter", label: "Jamban saniter", kind: "checkbox" },
+    { id: "jambanSaniter", label: "Jenis jamban", kind: "select", options: ["Kloset","Leher angsa","Plengseran"] },
     { id: "ventilasi", label: "Ventilasi cukup", kind: "checkbox" },
     { id: "odgj", label: "Anggota dgn gangguan jiwa (ODGJ)", kind: "checkbox" },
     { id: "tbc", label: "Anggota terdiagnosa TBC", kind: "checkbox" },
     { id: "hipertensi", label: "Anggota terdiagnosa hipertensi", kind: "checkbox" },
     { id: "dm", label: "Anggota terdiagnosa DM", kind: "checkbox" },
     { id: "jenisAir", label: "Jenis air bersih", kind: "select", options: ["Sumur terlindung","Ledeng/PDAM","Sumur pompa","Mata air","Tidak terlindung","Lainnya"] },
+    { id: "jenisSumberAir", label: "Jenis sumber air", kind: "select", options: ["Sumur terbuka","Air sungai","Danau / telaga"] },
   ];
   const sanitasi: KrTemplateField[] = sanitasiDefs.map((d, i) => ({
     id: d.id,
@@ -216,7 +217,7 @@ export function seedKrTemplates(): KrTemplates {
   }
 
   return {
-    version: 1,
+    version: 17,
     keluargaInfo,
     anggota,
     sanitasi,
@@ -229,7 +230,7 @@ export function seedKrTemplates(): KrTemplates {
 export function validateKrTemplates(obj: unknown): obj is KrTemplates {
   if (!obj || typeof obj !== "object") return false;
   const o = obj as Record<string, unknown>;
-  if (o.version !== 1) return false;
+  if (o.version !== 17) return false;
   if (!Array.isArray(o.keluargaInfo) || !Array.isArray(o.anggota) || !Array.isArray(o.sanitasi) || !Array.isArray(o.masalah)) return false;
   if (typeof o.sasaran !== "object" || o.sasaran === null) return false;
   if (!Array.isArray(o.hasilOpsi)) return false;
