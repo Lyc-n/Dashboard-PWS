@@ -64,10 +64,9 @@ export function SasaranForm({ p, state, templates, dispatch }: Props) {
     };
     for (const b of imunBools) {
       const m = b.id.match(/^imun(\d+)/);
-      if (!m) continue;
-      const k = m[1];
-      if (map[k]) map[k].ids.push(b.id);
-      else map["0"].ids.push(b.id);
+      const k = m?.[1];
+      const entry = (k ? map[k] : undefined) ?? map["0"];
+      entry?.ids.push(b.id);
     }
     return Object.entries(map).filter(([, v]) => v.ids.length > 0);
   }, [imunBools]);

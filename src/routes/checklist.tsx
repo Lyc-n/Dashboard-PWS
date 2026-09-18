@@ -32,9 +32,9 @@ function Checklist() {
   const [saved, setSaved] = useState<KunjunganRecord | null>(null);
 
   const steps: Step[] = [
-    { label: "Data Keluarga & Sasaran", state: stepState[0] },
-    { label: "Form Sasaran", state: stepState[1] },
-    { label: "Hasil & Tindak", state: stepState[2] },
+    { label: "Data Keluarga & Sasaran", state: stepState[0] ?? "todo" },
+    { label: "Form Sasaran", state: stepState[1] ?? "todo" },
+    { label: "Hasil & Tindak", state: stepState[2] ?? "todo" },
   ];
 
   const onSubmit = () => {

@@ -30,6 +30,59 @@ export interface DataTableProps<T> {
   className?: string;
 }
 
+interface SortThProps {
+  col: DataTableColumn;
+  active: boolean;
+  sortDir: "asc" | "desc";
+  onSort?: (key: string) => void;
+}
+
+function SortTh({ col, active, sortDir, onSort }: SortThProps) {
+  const sortable = col.sortable && onSort;
+  const handleSort = () => {
+    if (sortable) onSort(col.key);
+  };
+  return (
+    <th
+      key={col.key}
+      onClick={sortable ? handleSort : undefined}
+      onKeyDown={
+        sortable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleSort();
+              }
+            }
+          : undefined
+      }
+      tabIndex={sortable ? 0 : undefined}
+      role={sortable ? "button" : undefined}
+      aria-sort={sortable ? (active ? (sortDir === "asc" ? "ascending" : "descending") : "none") : undefined}
+      className={cn(
+        "whitespace-nowrap border-b border-[var(--color-line-2)] bg-surface-2 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted",
+        sortable && "cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-accent",
+        col.headerClassName,
+      )}
+    >
+      <span className={cn("inline-flex items-center gap-1", active && "text-ink")}>
+        {col.label}
+        {sortable ? (
+          active ? (
+            sortDir === "asc" ? (
+              <ArrowUp size={12} />
+            ) : (
+              <ArrowDown size={12} />
+            )
+          ) : (
+            <ArrowUpDown size={12} className="opacity-50" />
+          )
+        ) : null}
+      </span>
+    </th>
+  );
+}
+
 export function DataTable<T>({
   columns,
   rows,
@@ -58,35 +111,9 @@ export function DataTable<T>({
             <table className="w-full border-collapse text-xs max-md:hidden">
               <thead>
                 <tr>
-                  {columns.map((col) => {
-                    const active = sortKey === col.key;
-                    return (
-                      <th
-                        key={col.key}
-                        onClick={col.sortable && onSort ? () => onSort(col.key) : undefined}
-                        className={cn(
-                          "whitespace-nowrap border-b border-[var(--color-line-2)] bg-surface-2 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted",
-                          col.sortable && onSort && "cursor-pointer select-none",
-                          col.headerClassName,
-                        )}
-                      >
-                        <span className={cn("inline-flex items-center gap-1", active && "text-ink")}>
-                          {col.label}
-                          {col.sortable && onSort ? (
-                            active ? (
-                              sortDir === "asc" ? (
-                                <ArrowUp size={12} />
-                              ) : (
-                                <ArrowDown size={12} />
-                              )
-                            ) : (
-                              <ArrowUpDown size={12} className="opacity-50" />
-                            )
-                          ) : null}
-                        </span>
-                      </th>
-                    );
-                  })}
+                  {columns.map((col) => (
+                    <SortTh key={col.key} col={col} active={sortKey === col.key} sortDir={sortDir} onSort={onSort} />
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -117,35 +144,9 @@ export function DataTable<T>({
           <table className="w-full border-collapse text-xs">
             <thead>
               <tr>
-                {columns.map((col) => {
-                  const active = sortKey === col.key;
-                  return (
-                    <th
-                      key={col.key}
-                      onClick={col.sortable && onSort ? () => onSort(col.key) : undefined}
-                      className={cn(
-                        "whitespace-nowrap border-b border-[var(--color-line-2)] bg-surface-2 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted",
-                        col.sortable && onSort && "cursor-pointer select-none",
-                        col.headerClassName,
-                      )}
-                    >
-                      <span className={cn("inline-flex items-center gap-1", active && "text-ink")}>
-                        {col.label}
-                        {col.sortable && onSort ? (
-                          active ? (
-                            sortDir === "asc" ? (
-                              <ArrowUp size={12} />
-                            ) : (
-                              <ArrowDown size={12} />
-                            )
-                          ) : (
-                            <ArrowUpDown size={12} className="opacity-50" />
-                          )
-                        ) : null}
-                      </span>
-                    </th>
-                  );
-                })}
+                {columns.map((col) => (
+                  <SortTh key={col.key} col={col} active={sortKey === col.key} sortDir={sortDir} onSort={onSort} />
+                ))}
               </tr>
             </thead>
             <tbody>

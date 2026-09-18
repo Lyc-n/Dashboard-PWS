@@ -89,6 +89,7 @@ export function dashboardRows(): ReportRow[] {
   const rows = [...DASHBOARD_ROWS];
   while (rows.length < 24) {
     const b = rows[rows.length % 4];
+    if (!b) break;
     rows.push({ ...b, tgl: "2026-03-0" + (3 + (rows.length % 6)), nama: `${b.nama} #${rows.length}` });
   }
   return rows;
@@ -111,6 +112,7 @@ export function sasaranRows(): SasaranRow[] {
   const rows = [...SASARAN_ROWS];
   while (rows.length < 36) {
     const b = rows[rows.length % 10];
+    if (!b) break;
     rows.push({ ...b, nik: b.nik.slice(0, 12) + (1000 + rows.length), nama: `${b.nama} #${rows.length}` });
   }
   return rows;
@@ -143,9 +145,10 @@ export function laporanRows(): ReportRow[] {
   const posys = ["Melati 1", "Mawar 2", "Kenanga", "Flamboyan"];
   const rows: ReportRow[] = [];
   for (let i = 0; i < 48; i++) {
-    const kel = kels[i % 4];
-    const prio = prios[(i * 2 + ((i / 4) | 0)) % 5];
-    const posy = posys[(i + ((i / 4) | 0)) % 4];
+    // modulo atas array non-kosong — index selalu valid
+    const kel = kels[i % 4]!;
+    const prio = prios[(i * 2 + ((i / 4) | 0)) % 5]!;
+    const posy = posys[(i + ((i / 4) | 0)) % 4]!;
     const st = i % 5 === 3 ? "Perlu tindak lanjut" : i % 4 === 3 ? "Terjadwal" : "Selesai";
     const m = (i % 12) + 1;
     const d = ((i * 7) % 27) + 1;
@@ -154,9 +157,9 @@ export function laporanRows(): ReportRow[] {
       kel,
       posy,
       prior: prio,
-      nama: (i % 2 ? "Tn. " : "Ny. ") + LAPORAN_NAMES[i % 12] + (i >= 12 ? ` #${i + 1}` : ""),
+      nama: (i % 2 ? "Tn. " : "Ny. ") + LAPORAN_NAMES[i % 12]! + (i >= 12 ? ` #${i + 1}` : ""),
       sumber: i % 3 === 0 ? "Datang ke posyandu" : "Kunjungan rumah",
-      hasil: LAPORAN_HASIL[st],
+      hasil: LAPORAN_HASIL[st]!,
       status: st,
     });
   }

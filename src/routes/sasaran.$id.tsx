@@ -26,7 +26,8 @@ function SasaranDetail() {
   if (Number.isNaN(idx) || idx < 0 || idx >= rows.length) idx = 0;
   const row = rows[idx];
 
-  const [localStatus, setLocalStatus] = useState(row.status);
+  const [localStatus, setLocalStatus] = useState(row?.status ?? "Belum");
+  if (!row) return null;
 
   const markVisited = () => {
     if (localStatus === "Sudah") {

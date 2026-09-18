@@ -9,7 +9,7 @@ export interface DlgState {
   kind: DlgKind;
   title: string;
   edit?: Priority | Staff;
-  form: Record<string, string>;
+  form: Record<string, string | undefined>;
   errs: Record<string, string>;
 }
 

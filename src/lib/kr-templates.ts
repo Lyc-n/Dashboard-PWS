@@ -279,7 +279,10 @@ export function validateKrTemplates(obj: unknown): obj is KrTemplates {
   if (!o.anggota.every((f) => isTemplateField(f, "anggota"))) return false;
   if (!o.sanitasi.every((f) => isTemplateField(f, "sanitasi"))) return false;
   if (!o.masalah.every((f) => isTemplateField(f, "masalah"))) return false;
-  if (!hasUniqueIds([...o.keluargaInfo, ...o.anggota, ...o.sanitasi, ...o.masalah])) return false;
+  if (!hasUniqueIds(o.keluargaInfo)) return false;
+  if (!hasUniqueIds(o.anggota)) return false;
+  if (!hasUniqueIds(o.sanitasi)) return false;
+  if (!hasUniqueIds(o.masalah)) return false;
   if (typeof o.sasaran !== "object" || o.sasaran === null) return false;
   const sas = o.sasaran as Record<string, unknown>;
   for (const key of SASARAN_KEYS) {

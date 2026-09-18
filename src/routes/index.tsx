@@ -102,7 +102,7 @@ function Dashboard() {
             <b>
               {MONTHS[i]} · {BASE_MONTHLY[i]} kunjungan
             </b>
-            {POSYANDU_CONTRIB[i].map((x) => (
+            {(POSYANDU_CONTRIB[i] ?? []).map((x) => (
               <div key={x.n} className="flex items-center justify-between gap-4">
                 {x.n}
                 <b>{x.v}</b>

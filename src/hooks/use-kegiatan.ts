@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { JENIS_KEGIATAN } from "@/lib/constants";
 
 export interface Peserta {
@@ -39,6 +39,18 @@ export function useKegiatan() {
   const [jenis, setJenis] = useState<string>(JENIS_KEGIATAN[0]);
   const [peserta, setPeserta] = useState<Peserta[]>([]);
   const [fotos, setFotos] = useState<Foto[]>([]);
+  const fotosRef = useRef<Foto[]>([]);
+  // cermin fotos untuk addFiles tanpa closure basi + cleanup unmount
+  useEffect(() => {
+    fotosRef.current = fotos;
+  }, [fotos]);
+  useEffect(() => {
+    const ref = fotosRef;
+    return () => {
+      ref.current.forEach((x) => URL.revokeObjectURL(x.url));
+      ref.current = [];
+    };
+  }, []);
   const [invalid, setInvalid] = useState<Record<string, boolean>>({});
   const [pesertaEmpty, setPesertaEmpty] = useState(false);
   const [fields, setFields] = useState<KegiatanFieldState>({
@@ -70,22 +82,20 @@ export function useKegiatan() {
     setPeserta((p) => p.filter((_, idx) => idx !== i));
   }, []);
 
-  const addFiles = useCallback(
-    (files: File[]): number => {
-      let skipped = 0;
-      const next: Foto[] = [];
-      for (const file of files) {
-        if (fotos.length + next.length >= MAX_FOTO || file.size > MAX_SIZE || !file.type.startsWith("image/")) {
-          skipped++;
-          continue;
-        }
-        next.push({ url: URL.createObjectURL(file), cap: "" });
+  const addFiles = useCallback((files: File[]): number => {
+    let skipped = 0;
+    const next: Foto[] = [];
+    // baca via ref agar panggilan cepat beruntun tidak pakai length basi
+    for (const file of files) {
+      if (fotosRef.current.length + next.length >= MAX_FOTO || file.size > MAX_SIZE || !file.type.startsWith("image/")) {
+        skipped++;
+        continue;
       }
-      setFotos((f) => [...f, ...next]);
-      return skipped;
-    },
-    [fotos.length],
-  );
+      next.push({ url: URL.createObjectURL(file), cap: "" });
+    }
+    if (next.length > 0) setFotos((f) => [...f, ...next]);
+    return skipped;
+  }, []);
 
   const setCaption = useCallback((i: number, cap: string) => {
     setFotos((f) => f.map((x, idx) => (idx === i ? { ...x, cap } : x)));
@@ -93,7 +103,8 @@ export function useKegiatan() {
 
   const removeFoto = useCallback((i: number) => {
     setFotos((f) => {
-      URL.revokeObjectURL(f[i].url);
+      const target = f[i];
+      if (target) URL.revokeObjectURL(target.url);
       return f.filter((_, idx) => idx !== i);
     });
   }, []);

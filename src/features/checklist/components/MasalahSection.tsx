@@ -26,7 +26,7 @@ export function MasalahSection({ state, templates, dispatch }: Props) {
       if (state.info.alamat !== m.alamat) dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "alamat", value: state.info.alamat });
       if (state.info.hpKK !== m.telepon) dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "telepon", value: state.info.hpKK });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // JSON.stringify agar effect ikut perubahan isi array (bukan referensi).
   }, [JSON.stringify(state.anggota), state.info.alamat, state.info.hpKK]);
 
   return (

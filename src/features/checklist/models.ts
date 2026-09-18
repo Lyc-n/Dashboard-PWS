@@ -84,6 +84,6 @@ export function strField(rec: Record<string, string>, id: string): string {
 }
 
 /** Baca field sanitasi (boolean|string) tanpa cast di call-site. */
-export function sanField(rec: Sanitasi, id: string): boolean | string {
+export function sanField(rec: Sanitasi, id: string): boolean | string | undefined {
   return rec[id];
 }

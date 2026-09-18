@@ -63,7 +63,9 @@ export function FormKrSection({ templates, setTemplates, resetTemplates, exportJ
     if (idx < 0) return;
     const swapIdx = idx + dir;
     if (swapIdx < 0 || swapIdx >= fields.length) return;
-    const a = fields[idx], b = fields[swapIdx];
+    const a = fields[idx];
+    const b = fields[swapIdx];
+    if (!a || !b) return;
     const ao = a.order, bo = b.order;
     a.order = bo;
     b.order = ao;
@@ -355,9 +357,11 @@ export function FormKrSection({ templates, setTemplates, resetTemplates, exportJ
                   <Button size="sm" disabled={idx === 0} onClick={() => {
                     setTemplates((t) => {
                       const next = [...t.hasilOpsi];
-                      const tmp = next[idx - 1];
-                      next[idx - 1] = next[idx];
-                      next[idx] = tmp;
+                      const cur = next[idx];
+                      const prev = next[idx - 1];
+                      if (cur === undefined || prev === undefined) return t;
+                      next[idx - 1] = cur;
+                      next[idx] = prev;
                       return { ...t, hasilOpsi: next };
                     });
                   }}>
@@ -366,9 +370,11 @@ export function FormKrSection({ templates, setTemplates, resetTemplates, exportJ
                   <Button size="sm" disabled={idx === templates.hasilOpsi.length - 1} onClick={() => {
                     setTemplates((t) => {
                       const next = [...t.hasilOpsi];
-                      const tmp = next[idx + 1];
-                      next[idx + 1] = next[idx];
-                      next[idx] = tmp;
+                      const cur = next[idx];
+                      const nxt = next[idx + 1];
+                      if (cur === undefined || nxt === undefined) return t;
+                      next[idx + 1] = cur;
+                      next[idx] = nxt;
                       return { ...t, hasilOpsi: next };
                     });
                   }}>

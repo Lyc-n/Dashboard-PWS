@@ -63,22 +63,10 @@ export function FieldCell({ field, value, invalid, onChange }: Props) {
       </FormField>
     );
   }
-  if (field.kind === "checkbox") {
-    return (
-      <FormField label={field.label} required={field.required} invalid={invalid} error="Wajib centang." hint={field.hint} errorId={errorId}>
-        <Checkbox checked={value === "true"} onChange={(e) => onChange(String(e.target.checked))} aria-describedby={invalid ? errorId : undefined} />
-      </FormField>
-    );
-  }
+  // Sisa satu-satunya kind yang belum return di atas adalah "checkbox".
   return (
-    <FormField label={field.label} required={field.required} invalid={invalid} error="Wajib diisi." hint={field.hint} errorId={errorId}>
-      {field.kind === "number" ? (
-        <Input value={value} onChange={(e) => onChange(e.target.value)} inputMode="decimal" invalid={invalid} aria-describedby={invalid ? errorId : undefined} />
-      ) : field.kind === "date" ? (
-        <Input type="date" value={value} onChange={(e) => onChange(e.target.value)} invalid={invalid} aria-describedby={invalid ? errorId : undefined} />
-      ) : (
-        <Input value={value} onChange={(e) => onChange(e.target.value)} invalid={invalid} aria-describedby={invalid ? errorId : undefined} />
-      )}
+    <FormField label={field.label} required={field.required} invalid={invalid} error="Wajib centang." hint={field.hint} errorId={errorId}>
+      <Checkbox checked={value === "true"} onChange={(e) => onChange(String(e.target.checked))} aria-describedby={invalid ? errorId : undefined} />
     </FormField>
   );
 }

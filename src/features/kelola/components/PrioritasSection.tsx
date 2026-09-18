@@ -32,7 +32,7 @@ export function PrioritasSection({ prios, setPrios, items, setItems }: Props) {
 
   const saveDlg = () => {
     if (!dlg) return;
-    const nama = (dlg.form.nama).trim();
+    const nama = (dlg.form.nama ?? "").trim();
     const errs: Record<string, string> = {};
     if (!nama) errs.nama = "Wajib isi nama prioritas.";
     else if (prios.some((p) => p.nama.toLowerCase() === nama.toLowerCase() && (dlg.edit ? p !== dlg.edit : true))) {
@@ -42,14 +42,15 @@ export function PrioritasSection({ prios, setPrios, items, setItems }: Props) {
       setDlg((d) => ({ ...d!, errs: { ...d!.errs, ...errs } }));
       return;
     }
-    const warna = dlg.form.warna;
+    const warna = dlg.form.warna ?? "odgj";
+    const desk = dlg.form.desk ?? "";
     if (dlg.edit) {
       const old = (dlg.edit as Priority).nama;
-      setPrios((prev) => prev.map((p) => (p.nama === old ? { ...p, nama, desk: dlg.form.desk, warna } : p)));
+      setPrios((prev) => prev.map((p) => (p.nama === old ? { ...p, nama, desk, warna } : p)));
       if (old !== nama) setItems((prev) => prev.map((x) => (x.prio === old ? { ...x, prio: nama } : x)));
       if (curPrio === old) setCurPrio(nama);
     } else {
-      setPrios((prev) => [...prev, { nama, desk: dlg.form.desk, warna, on: true }]);
+      setPrios((prev) => [...prev, { nama, desk, warna, on: true }]);
     }
     toast("Prioritas tersimpan.");
     setDlg(null);
@@ -123,13 +124,13 @@ export function PrioritasSection({ prios, setPrios, items, setItems }: Props) {
       {dlg ? (
         <AdminModal title={dlg.title} onClose={() => setDlg(null)} onSave={saveDlg}>
           <FormField label="Nama prioritas" required error={dlg.errs.nama || "Wajib diisi."} invalid={!!dlg.errs.nama}>
-            <Input value={dlg.form.nama} onChange={(e) => setForm("nama", e.target.value)} invalid={!!dlg.errs.nama} placeholder="cth. Lansia Risti" />
+            <Input value={dlg.form.nama ?? ""} onChange={(e) => setForm("nama", e.target.value)} invalid={!!dlg.errs.nama} placeholder="cth. Lansia Risti" />
           </FormField>
           <FormField label="Deskripsi">
-            <Textarea onChange={(e) => setForm("desk", e.target.value)} value={dlg.form.desk} placeholder="cth. Kelompok berisiko…" />
+            <Textarea onChange={(e) => setForm("desk", e.target.value)} value={dlg.form.desk ?? ""} placeholder="cth. Kelompok berisiko…" />
           </FormField>
           <FormField label="Warna tag">
-            <Select value={dlg.form.warna} onChange={(e) => setForm("warna", e.target.value)}>
+            <Select value={dlg.form.warna ?? ""} onChange={(e) => setForm("warna", e.target.value)}>
               <option value="odgj">Hijau (ODGJ)</option>
               <option value="bumil">Merah muda (Bumil Risti)</option>
               <option value="balita">Hijau muda (Balita Risti)</option>

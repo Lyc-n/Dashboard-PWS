@@ -46,7 +46,7 @@ function Login() {
     void navigate({ to: "/" });
   };
 
-  const demo = DEMO_ACCOUNTS[0];
+  const demoUsername = DEMO_ACCOUNTS[0]?.username ?? "admin";
 
   return (
     <div className="grid min-h-screen place-items-center px-4 py-10">
@@ -113,7 +113,7 @@ function Login() {
 
             <div className="rounded-lg border border-line bg-surface-2 px-3.5 py-3 text-xs text-muted">
               <span className="font-semibold text-ink">Akun demo:</span>{" "}
-              <code className="rounded bg-surface px-1 py-0.5 text-ink">{demo.username}</code> /{" "}
+              <code className="rounded bg-surface px-1 py-0.5 text-ink">{demoUsername}</code> /{" "}
               <code className="rounded bg-surface px-1 py-0.5 text-ink">admin</code>
             </div>
           </form>

@@ -39,12 +39,18 @@ export function StaffSection({ staff, setStaff }: Props) {
 
   const saveDlg = () => {
     if (!dlg) return;
-    const nama = (dlg.form.nama).trim();
+    const nama = (dlg.form.nama ?? "").trim();
     if (!nama) {
       setDlg((d) => ({ ...d!, errs: { ...d!.errs, nama: "Wajib isi nama staff." } }));
       return;
     }
-    const payload = { nama, peran: dlg.form.peran, kel: dlg.form.kel, posy: dlg.form.posy, hp: dlg.form.hp };
+    const payload = {
+      nama,
+      peran: dlg.form.peran ?? "Kader",
+      kel: dlg.form.kel ?? KELS[0],
+      posy: dlg.form.posy ?? "—",
+      hp: dlg.form.hp ?? "",
+    };
     if (dlg.edit) {
       setStaff((prev) => prev.map((s) => (s === dlg.edit ? { ...s, ...payload } : s)));
     } else {
@@ -143,24 +149,24 @@ export function StaffSection({ staff, setStaff }: Props) {
       {dlg ? (
         <AdminModal title={dlg.title} onClose={() => setDlg(null)} onSave={saveDlg}>
           <FormField label="Nama lengkap" required error={dlg.errs.nama || "Wajib diisi."} invalid={!!dlg.errs.nama}>
-            <Input value={dlg.form.nama} onChange={(e) => setForm("nama", e.target.value)} invalid={!!dlg.errs.nama} placeholder="cth. Ibu Warsini" />
+            <Input value={dlg.form.nama ?? ""} onChange={(e) => setForm("nama", e.target.value)} invalid={!!dlg.errs.nama} placeholder="cth. Ibu Warsini" />
           </FormField>
           <FormField label="Peran">
-            <Select value={dlg.form.peran} onChange={(e) => setForm("peran", e.target.value)}>
+            <Select value={dlg.form.peran ?? ""} onChange={(e) => setForm("peran", e.target.value)}>
               {PERAN.map((p) => (
                 <option key={p}>{p}</option>
               ))}
             </Select>
           </FormField>
           <FormField label="Kelurahan tugas">
-            <Select value={dlg.form.kel} onChange={(e) => setForm("kel", e.target.value)}>
+            <Select value={dlg.form.kel ?? ""} onChange={(e) => setForm("kel", e.target.value)}>
               {KELS.map((k) => (
                 <option key={k}>{k}</option>
               ))}
             </Select>
           </FormField>
           <FormField label="Posyandu">
-            <Select value={dlg.form.posy} onChange={(e) => setForm("posy", e.target.value)}>
+            <Select value={dlg.form.posy ?? ""} onChange={(e) => setForm("posy", e.target.value)}>
               <option>—</option>
               {POSY.map((p) => (
                 <option key={p}>{p}</option>
@@ -168,7 +174,7 @@ export function StaffSection({ staff, setStaff }: Props) {
             </Select>
           </FormField>
           <FormField label="No. HP">
-            <Input value={dlg.form.hp} onChange={(e) => setForm("hp", e.target.value)} placeholder="cth. 0812xxxx" type="tel" />
+            <Input value={dlg.form.hp ?? ""} onChange={(e) => setForm("hp", e.target.value)} placeholder="cth. 0812xxxx" type="tel" />
           </FormField>
         </AdminModal>
       ) : null}

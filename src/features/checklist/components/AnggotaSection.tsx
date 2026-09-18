@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition -- guard runtime untuk index dinamis; perbaiki saat noUncheckedIndexedAccess aktif (Fase 4) */
 import { useMemo } from 'react'
 import { X } from 'lucide-react'
 import type { KrTemplates } from '@/lib/kr-templates'

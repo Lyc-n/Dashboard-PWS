@@ -26,11 +26,14 @@ export function PwsChart({ data, labels, renderTooltip, scale = 25, max = 6000 }
     const xStep = plotW / Math.max(1, data.length - 1);
     const yScale = (v: number) => PAD_T + plotH - (v / max) * plotH;
     const points = data.map((v, i) => [PAD_L + i * xStep, yScale(v * scale)] as const);
-    const area = `M ${points[0][0]} ${points[0][1]} L ${points
+    const first = points[0];
+    const last = points[points.length - 1];
+    if (!first || !last) return { pts: points, areaD: "", lineD: "" };
+    const area = `M ${first[0]} ${first[1]} L ${points
       .slice(1)
       .map((p) => `${p[0]} ${p[1]}`)
-      .join(" L ")} L ${points[points.length - 1][0]} ${H - PAD_B} L ${points[0][0]} ${H - PAD_B} Z`;
-    const line = `M ${points[0][0]} ${points[0][1]} L ${points
+      .join(" L ")} L ${last[0]} ${H - PAD_B} L ${first[0]} ${H - PAD_B} Z`;
+    const line = `M ${first[0]} ${first[1]} L ${points
       .slice(1)
       .map((p) => `${p[0]} ${p[1]}`)
       .join(" L ")}`;
@@ -41,7 +44,7 @@ export function PwsChart({ data, labels, renderTooltip, scale = 25, max = 6000 }
 
   return (
     <div className="relative mt-3 rounded-lg border border-line-2 bg-surface p-3">
-      <svg viewBox="0 0 860 220" preserveAspectRatio="none" className="block h-45 w-full">
+      <svg viewBox="0 0 860 220" preserveAspectRatio="none" className="block h-45 w-full" role="img" aria-label="Grafik tren kunjungan per bulan">
         <defs>
           <clipPath id="chart-plot">
             <rect x={PAD_L} y={PAD_T} width={W - PAD_L - PAD_R} height={H - PAD_T - PAD_B} />
@@ -60,11 +63,15 @@ export function PwsChart({ data, labels, renderTooltip, scale = 25, max = 6000 }
         })}
         <path d={areaD} fill="var(--color-accent-light)" opacity={0.35} />
         <path d={lineD} fill="none" stroke="var(--color-chart)" strokeWidth={2} />
-        {labels.map((label, i) => (
-          <text key={label} x={pts[i][0]} y={H - 4} textAnchor="middle" fontSize={8} fill="var(--color-muted-soft)">
-            {label}
-          </text>
-        ))}
+        {labels.map((label, i) => {
+          const pt = pts[i];
+          if (!pt) return null;
+          return (
+            <text key={label} x={pt[0]} y={H - 4} textAnchor="middle" fontSize={8} fill="var(--color-muted-soft)">
+              {label}
+            </text>
+          );
+        })}
         {pts.map(([x, y], i) => (
           <Fragment key={i}>
             <circle
@@ -73,8 +80,13 @@ export function PwsChart({ data, labels, renderTooltip, scale = 25, max = 6000 }
               r={10}
               fill="transparent"
               className="cursor-pointer"
+              tabIndex={0}
+              role="button"
+              aria-label={`${labels[i] ?? `titik ${i + 1}`}: ${data[i] ?? 0} kunjungan`}
               onMouseEnter={() => setActive({ i, x, y })}
               onMouseLeave={() => setActive(null)}
+              onFocus={() => setActive({ i, x, y })}
+              onBlur={() => setActive(null)}
             />
             <circle cx={x} cy={y} r={3} fill="var(--color-chart)" stroke="var(--color-surface)" strokeWidth={1.5} pointerEvents="none" />
           </Fragment>
