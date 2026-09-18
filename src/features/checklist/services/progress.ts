@@ -1,5 +1,5 @@
 import type { KrTemplates } from "@/lib/kr-templates";
-import type { AnggotaKeluarga, KeluargaInfo, MasalahTindak, PenilaianForm } from "@/hooks/use-kunjungan";
+import type { AnggotaKeluarga, KeluargaInfo, MasalahTindak, PenilaianForm } from "@/features/checklist/models";
 import { sasaranDef } from "@/lib/kr-form";
 
 export function computeFillPercent(args: {
@@ -20,7 +20,7 @@ export function computeFillPercent(args: {
   let filledReq = 0;
 
   for (const f of reqKeluarga) {
-    const v = (info as Record<string, string>)[f.id] ?? "";
+    const v = info[f.id] ?? "";
     if (String(v).trim()) filledReq++;
   }
 
@@ -29,8 +29,7 @@ export function computeFillPercent(args: {
     if (anggota.length > 0) {
       totalReq += reqAnggota.length * anggota.length;
       for (const m of anggota) {
-        const rec = m as Record<string, string>;
-        for (const f of reqAnggota) if (String(rec[f.id] ?? "").trim()) filledReq++;
+        for (const f of reqAnggota) if (String(m[f.id] ?? "").trim()) filledReq++;
       }
     } else {
       totalReq += reqAnggota.length;
@@ -51,8 +50,7 @@ export function computeFillPercent(args: {
     if (masalah.length > 0) {
       totalReq += reqMasalah.length * masalah.length;
       for (const mm of masalah) {
-        const rec = mm as Record<string, string>;
-        for (const f of reqMasalah) if (String(rec[f.id] ?? "").trim()) filledReq++;
+        for (const f of reqMasalah) if (String(mm[f.id] ?? "").trim()) filledReq++;
       }
     } else {
       totalReq += reqMasalah.length;

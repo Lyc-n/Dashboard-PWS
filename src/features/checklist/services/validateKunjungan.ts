@@ -5,7 +5,7 @@ import type {
   KeluargaInfo,
   MasalahTindak,
   PenilaianForm,
-} from '@/hooks/use-kunjungan'
+} from '@/features/checklist/models'
 import { buildConditionalMap, isConditionalActive } from './conditional'
 
 export interface ValidateInput {
@@ -31,7 +31,7 @@ export function validateKunjungan(input: ValidateInput): {
   for (const f of templates.keluargaInfo.filter(
     (x) => x.active && x.required,
   )) {
-    const v = (info as Record<string, string>)[f.id] ?? ''
+    const v = info[f.id] ?? ''
     if (!String(v).trim()) {
       nextInvalid[f.id] = true
       if (f.id === 'tglPengumpulan') nextInvalid.tgl = true
@@ -59,18 +59,17 @@ export function validateKunjungan(input: ValidateInput): {
 
   const seen = new Set<string>()
   for (const m of anggota) {
-    const rec = m as unknown as Record<string, string>
     for (const f of templates.anggota.filter((x) => x.active && x.required)) {
-      const v = rec[f.id] ?? ''
+      const v = m[f.id] ?? ''
       if (!String(v).trim()) {
         nextInvalid[`${f.id}:${m.id}`] = true
         ok = false
       }
       if (f.id === 'nik') {
-        if (!/^\d{16}$/.test(rec.nik || '')) {
+        if (!/^\d{16}$/.test(m.nik || '')) {
           nextInvalid[`nik:${m.id}`] = true
           ok = false
-        } else if (seen.has(rec.nik)) {
+        } else if (seen.has(m.nik)) {
           nextInvalid[`nik:${m.id}`] = true
           ok = false
         }
@@ -156,9 +155,8 @@ export function validateKunjungan(input: ValidateInput): {
     ok = false
   }
   for (const mm of masalah) {
-    const rec = mm as unknown as Record<string, string>
     for (const f of templates.masalah.filter((x) => x.active && x.required)) {
-      if (!String(rec[f.id] ?? '').trim()) {
+      if (!String(mm[f.id] ?? '').trim()) {
         nextInvalid[`masalah:${mm.id}:${f.id}`] = true
         ok = false
       }

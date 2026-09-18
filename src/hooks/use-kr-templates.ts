@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { STORAGE_KEYS } from "@/lib/constants";
-import { seedKrTemplates, validateKrTemplates  } from "@/lib/kr-templates";
+import { KR_TEMPLATE_VERSION, seedKrTemplates, validateKrTemplates  } from "@/lib/kr-templates";
 import type {KrTemplates} from "@/lib/kr-templates";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { triggerDownload } from "@/lib/utils";
@@ -9,7 +9,8 @@ export function useKrTemplates() {
   const [templates, setTemplates] = useLocalStorage<KrTemplates>(STORAGE_KEYS.krTemplates, seedKrTemplates());
 
   useEffect(() => {
-    if ((templates as unknown as { version: number }).version !== 17) {
+    // validateKrTemplates sudah cek version + shape; cukup satu guard
+    if (!validateKrTemplates(templates)) {
       setTemplates(seedKrTemplates());
     }
   }, [templates, setTemplates]);
@@ -29,7 +30,7 @@ export function useKrTemplates() {
       reader.onload = () => {
         try {
           const parsed = JSON.parse(String(reader.result));
-          if (!validateKrTemplates(parsed)) throw new Error("Format template tidak valid (version harus 17).");
+          if (!validateKrTemplates(parsed)) throw new Error(`Format template tidak valid (version harus ${KR_TEMPLATE_VERSION}).`);
           setTemplates(parsed);
           onDone?.(true, "Template berhasil diimpor.");
         } catch (e) {

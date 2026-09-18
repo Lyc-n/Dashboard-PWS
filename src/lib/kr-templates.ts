@@ -1,6 +1,8 @@
 import { HASIL_KUNJUNGAN } from "@/lib/constants";
-import { SASARAN_DEFS  } from "@/lib/kr-form";
+import { SASARAN_DEFS, SASARAN_KEYS  } from "@/lib/kr-form";
 import type {SasaranKey} from "@/lib/kr-form";
+
+export const KR_TEMPLATE_VERSION = 17 as const;
 
 // ── Types ──
 export type KrFieldKind = "text" | "number" | "date" | "select" | "checkbox";
@@ -35,7 +37,7 @@ export interface KrSasaranTemplate {
 }
 
 export interface KrTemplates {
-  version: 17;
+  version: typeof KR_TEMPLATE_VERSION;
   keluargaInfo: KrTemplateField[];
   anggota: KrTemplateField[];
   sanitasi: KrTemplateField[];
@@ -92,7 +94,7 @@ export function seedKrTemplates(): KrTemplates {
 
   const anggotaDefs: { id: string; label: string; kind: KrFieldKind; required: boolean; options?: string[]; hint?: string }[] = [
     { id: "nama", label: "Nama lengkap", kind: "text", required: true },
-    { id: "nik", label: "NIK", kind: "text", required: true, hint: "16 digit, tanpa spasi." },
+    { id: "nik", label: "NIK", kind: "text", required: true },
     { id: "tglLahir", label: "Tanggal lahir", kind: "date", required: true },
     { id: "jk", label: "Jenis kelamin", kind: "select", required: false, options: ["L", "P"] },
     { id: "hubKK", label: "Hubungan dengan KK", kind: "select", required: false, options: ["Kepala Keluarga","Istri","Anak","Menantu","Cucu","Orang tua","Mertua","Famili lain","Lainnya"] },
@@ -114,16 +116,13 @@ export function seedKrTemplates(): KrTemplates {
 
   const sanitasiDefs: { id: string; label: string; kind: KrFieldKind; options?: string[] }[] = [
     { id: "jkn", label: "Jaminan kesehatan (JKN/JamKesDa)", kind: "checkbox" },
-    { id: "airBersih", label: "Sarana air bersih", kind: "checkbox" },
-    { id: "jamban", label: "Jamban keluarga", kind: "checkbox" },
-    { id: "jambanSaniter", label: "Jenis jamban", kind: "select", options: ["Kloset","Leher angsa","Plengseran"] },
     { id: "ventilasi", label: "Ventilasi cukup", kind: "checkbox" },
     { id: "odgj", label: "Anggota dgn gangguan jiwa (ODGJ)", kind: "checkbox" },
     { id: "tbc", label: "Anggota terdiagnosa TBC", kind: "checkbox" },
     { id: "hipertensi", label: "Anggota terdiagnosa hipertensi", kind: "checkbox" },
     { id: "dm", label: "Anggota terdiagnosa DM", kind: "checkbox" },
-    { id: "jenisAir", label: "Jenis air bersih", kind: "select", options: ["Sumur terlindung","Ledeng/PDAM","Sumur pompa","Mata air","Tidak terlindung","Lainnya"] },
-    { id: "jenisSumberAir", label: "Jenis sumber air", kind: "select", options: ["Sumur terbuka","Air sungai","Danau / telaga"] },
+    { id: "jambanSaniter", label: "- jamban keluarga -", kind: "select", options: ["Kloset","Leher angsa","Plengseran","Cemplung"] },
+    { id: "jenisAir", label: "- sarana air bersih -", kind: "select", options: ["Sumur terlindung","Ledeng/PDAM","Sumur pompa","Mata air terlindung","Sumur terbuka","Air sungai","Danau / telaga","Lainnya"] },
   ];
   const sanitasi: KrTemplateField[] = sanitasiDefs.map((d, i) => ({
     id: d.id,
@@ -217,7 +216,7 @@ export function seedKrTemplates(): KrTemplates {
   }
 
   return {
-    version: 17,
+    version: KR_TEMPLATE_VERSION,
     keluargaInfo,
     anggota,
     sanitasi,
@@ -227,13 +226,73 @@ export function seedKrTemplates(): KrTemplates {
   };
 }
 
+const KR_KINDS: KrFieldKind[] = ["text", "number", "date", "select", "checkbox"];
+const KR_SECTIONS: KrSection[] = [
+  "keluargaInfo",
+  "anggota",
+  "sanitasi",
+  "sasaran:identitas",
+  "sasaran:kolom",
+  "sasaran:bools",
+  "sasaran:baha",
+  "masalah",
+  "hasil",
+];
+
+function isTemplateField(f: unknown, expectedSection?: KrTemplateField["section"]): f is KrTemplateField {
+  if (!f || typeof f !== "object") return false;
+  const o = f as Record<string, unknown>;
+  if (typeof o.id !== "string" || !o.id || typeof o.label !== "string" || !o.label) return false;
+  if (!KR_KINDS.includes(o.kind as KrFieldKind)) return false;
+  if (!KR_SECTIONS.includes(o.section as KrSection)) return false;
+  if (expectedSection && o.section !== expectedSection) return false;
+  if (typeof o.required !== "boolean" || typeof o.active !== "boolean") return false;
+  if (typeof o.order !== "number" || !Number.isFinite(o.order)) return false;
+  if (o.options !== undefined) {
+    const opts: unknown = o.options;
+    if (!Array.isArray(opts) || !opts.every((x) => typeof x === "string")) return false;
+    // select wajib punya opsi; non-select tidak boleh bawa opsi
+    if (o.kind === "select" && opts.length === 0) return false;
+    if (o.kind !== "select" && opts.length > 0) return false;
+  }
+  if (o.hint !== undefined && typeof o.hint !== "string") return false;
+  if (o.sasaranKey !== undefined && !SASARAN_KEYS.includes(o.sasaranKey as SasaranKey)) return false;
+  return true;
+}
+
+function hasUniqueIds(fields: unknown[]): boolean {
+  const ids = new Set<string>();
+  for (const f of fields) {
+    if (!isTemplateField(f)) return false;
+    if (ids.has(f.id)) return false;
+    ids.add(f.id);
+  }
+  return true;
+}
+
 export function validateKrTemplates(obj: unknown): obj is KrTemplates {
   if (!obj || typeof obj !== "object") return false;
   const o = obj as Record<string, unknown>;
-  if (o.version !== 17) return false;
+  if (o.version !== KR_TEMPLATE_VERSION) return false;
   if (!Array.isArray(o.keluargaInfo) || !Array.isArray(o.anggota) || !Array.isArray(o.sanitasi) || !Array.isArray(o.masalah)) return false;
+  if (!o.keluargaInfo.every((f) => isTemplateField(f, "keluargaInfo"))) return false;
+  if (!o.anggota.every((f) => isTemplateField(f, "anggota"))) return false;
+  if (!o.sanitasi.every((f) => isTemplateField(f, "sanitasi"))) return false;
+  if (!o.masalah.every((f) => isTemplateField(f, "masalah"))) return false;
+  if (!hasUniqueIds([...o.keluargaInfo, ...o.anggota, ...o.sanitasi, ...o.masalah])) return false;
   if (typeof o.sasaran !== "object" || o.sasaran === null) return false;
-  if (!Array.isArray(o.hasilOpsi)) return false;
+  const sas = o.sasaran as Record<string, unknown>;
+  for (const key of SASARAN_KEYS) {
+    const entry = sas[key] as Record<string, unknown> | undefined;
+    if (!entry || typeof entry !== "object") return false;
+    if (typeof entry.label !== "string" || !entry.label) return false;
+    if (!Array.isArray(entry.fields)) return false;
+    const fields = entry.fields as unknown[];
+    if (!fields.every((f) => isTemplateField(f) && f.sasaranKey === key)) return false;
+    if (!hasUniqueIds(fields)) return false;
+    if (!Array.isArray(entry.prioritasDefault) || !entry.prioritasDefault.every((x) => typeof x === "string")) return false;
+  }
+  if (!Array.isArray(o.hasilOpsi) || o.hasilOpsi.length === 0 || !o.hasilOpsi.every((x) => typeof x === "string")) return false;
   return true;
 }
 

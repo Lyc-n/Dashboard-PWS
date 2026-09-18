@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useReducer } from 'react'
+import { useCallback, useMemo, useReducer, useState } from 'react'
 import { useKrTemplates } from '@/hooks/use-kr-templates'
-import { getKunjunganRepository } from '@/lib/repositories'
+import { StorageQuotaError, getKunjunganRepository } from '@/lib/repositories'
 import { useToast } from '@/providers/toast'
 import { validateKunjungan } from '../services/validateKunjungan'
 import {
@@ -23,11 +23,14 @@ export function useChecklistForm() {
     undefined,
     initialKunjunganState,
   )
-  const repo = useMemo(() => getKunjunganRepository(), [])
-
-  // Persist records via repo wrapper + localStorage hook for reactivity
-  // Keep compatibility with existing useLocalStorage records page hook via direct repo read
-  // Expose records derived from localStorage for history panel
+  // Single source: repository. Tidak ada dual-write useLocalStorage.
+  const [records, setRecords] = useState<KunjunganRecord[]>(() => {
+    try {
+      return getKunjunganRepository().list()
+    } catch {
+      return []
+    }
+  })
 
   const fillPercent = useMemo(
     () => selectFillPercent(state, templates),
@@ -49,13 +52,10 @@ export function useChecklistForm() {
     const { ok, invalid } = validateKunjungan({ ...state, templates })
     dispatch({ type: 'SET_INVALID', invalid })
     if (!ok) return null
-    const record: KunjunganRecord = {
+    return {
       id: createRecordId(),
       schemaVersion: CHECKLIST_SCHEMA_VERSION,
-      clientId:
-        typeof crypto !== 'undefined' && 'randomUUID' in crypto
-          ? crypto.randomUUID()
-          : createRecordId(),
+      clientId: createRecordId(),
       syncedAt: null,
       waktuSimpan: new Date().toISOString(),
       info: { ...state.info },
@@ -72,38 +72,50 @@ export function useChecklistForm() {
       jadwal: state.jadwal,
       ttd: state.ttd,
     }
-    return record
   }, [state, templates])
 
-  const persist = useCallback(
-    (record: KunjunganRecord) => {
-      try {
-        repo.save(record)
-      } catch {
-        toast('Gagal simpan lokal.')
-      }
-    },
-    [repo, toast],
-  )
+  const handleSubmit = useCallback((): KunjunganRecord | null => {
+    const record = submit()
+    if (!record) {
+      toast('Periksa kembali isian yang wajib diisi.')
+      return null
+    }
+    try {
+      getKunjunganRepository().save(record)
+      setRecords(getKunjunganRepository().list())
+    } catch (e) {
+      if (e instanceof StorageQuotaError) toast(e.message)
+      else toast('Gagal menyimpan. Coba lagi.')
+      return null
+    }
+    toast(`Kunjungan ${record.info.namaKK || 'keluarga'} tersimpan.`)
+    return record
+  }, [submit, toast])
+
+  const reset = useCallback(() => {
+    dispatch({ type: 'RESET' })
+  }, [])
 
   return {
     templates,
     state,
     dispatch,
+    records,
     fillPercent,
     bahaCount,
     stepState,
     validate,
     submit,
-    persist,
+    handleSubmit,
+    reset,
     // convenience dispatchers
     setField: useCallback(
-      (k: keyof typeof state.info, v: string) =>
+      (k: keyof typeof state.info | string, v: string) =>
         dispatch({ type: 'SET_FIELD', key: k, value: v }),
       [],
     ),
     setSanField: useCallback(
-      (k: keyof typeof state.sanitasi, v: string | boolean) =>
+      (k: keyof typeof state.sanitasi | string, v: string | boolean) =>
         dispatch({ type: 'SET_SAN_FIELD', key: k, value: v }),
       [],
     ),

@@ -1,6 +1,9 @@
 import { LocalKunjunganRepository } from "./localKunjungan.repository";
 import type { KunjunganRepository } from "./kunjungan.repository";
 
+export { LocalKunjunganRepository, StorageQuotaError } from "./localKunjungan.repository";
+export type { KunjunganRepository } from "./kunjungan.repository";
+
 let singleton: KunjunganRepository | null = null;
 
 export function getKunjunganRepository(): KunjunganRepository {

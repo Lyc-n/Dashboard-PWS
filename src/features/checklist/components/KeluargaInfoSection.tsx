@@ -7,7 +7,7 @@ import type { KunjunganAction, KunjunganState } from "../store/kunjunganReducer"
 
 const PLACEHOLDER: Partial<Record<string, string>> = {
   alamat: "cth. Jl. Trajeng gg. II no. 8",
-  hpKK: "cth. 0812-xxxx",
+  hpKK: "cth. 62812xxxx",
   posyandu: "cth. Melati 1",
   puskesmas: "cth. Puskesmas Trajeng",
 };
@@ -24,22 +24,22 @@ export function KeluargaInfoSection({ state, templates, dispatch }: Props) {
   return (
     <div className="grid grid-cols-3 gap-3 max-md:grid-cols-2 max-sm:grid-cols-1">
       {keluargaInfoFields.map((f) => {
-        const val = (state.info as Record<string, string>)[f.id] ?? "";
+        const val = state.info[f.id] ?? "";
         const invalid = !!state.invalid[f.id] || (f.id === "tglPengumpulan" ? !!state.invalid.tgl : f.id === "posyandu" ? !!state.invalid.posyandu : false);
         const errorId = `${f.id}-error`;
         return (
           <FormField key={f.id} label={f.label} required={f.required} invalid={invalid} error={f.required ? "Wajib diisi." : undefined} hint={f.hint} errorId={errorId}>
             {f.kind === "date" ? (
-              <Input type="date" value={val} onChange={(e) => dispatch({ type: "SET_FIELD", key: f.id as never, value: e.target.value })} invalid={invalid} aria-describedby={invalid ? errorId : undefined} />
+              <Input type="date" value={val} onChange={(e) => dispatch({ type: "SET_FIELD", key: f.id, value: e.target.value })} invalid={invalid} aria-describedby={invalid ? errorId : undefined} />
             ) : f.kind === "select" ? (
-              <Select value={val} onChange={(e) => dispatch({ type: "SET_FIELD", key: f.id as never, value: e.target.value })} aria-describedby={invalid ? errorId : undefined}>
+              <Select value={val} onChange={(e) => dispatch({ type: "SET_FIELD", key: f.id, value: e.target.value })} aria-describedby={invalid ? errorId : undefined}>
                 <option value="">— Pilih —</option>
                 {(f.options ?? []).map((o) => (
                   <option key={o}>{o}</option>
                 ))}
               </Select>
             ) : (
-              <Input value={val} onChange={(e) => dispatch({ type: "SET_FIELD", key: f.id as never, value: e.target.value })} placeholder={PLACEHOLDER[f.id] ?? ""} invalid={invalid} aria-describedby={invalid ? errorId : undefined} />
+              <Input value={val} onChange={(e) => dispatch({ type: "SET_FIELD", key: f.id, value: e.target.value })} placeholder={PLACEHOLDER[f.id] ?? ""} invalid={invalid} aria-describedby={invalid ? errorId : undefined} />
             )}
           </FormField>
         );

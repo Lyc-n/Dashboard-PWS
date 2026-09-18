@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition */
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- guard runtime untuk index dinamis; perbaiki saat noUncheckedIndexedAccess aktif (Fase 4) */
 import { useMemo } from 'react'
 import { X } from 'lucide-react'
 import type { KrTemplates } from '@/lib/kr-templates'
@@ -77,8 +77,7 @@ export function AnggotaSection({ state, templates, dispatch }: Props) {
               </div>
               <div className="grid grid-cols-4 gap-3 max-md:grid-cols-2 max-sm:grid-cols-1">
                 {anggotaFields.map((f) => {
-                  const val =
-                    (m as unknown as Record<string, string>)[f.id] ?? ''
+                  const val = m[f.id] ?? ''
                   const invalid = !!state.invalid[`${f.id}:${m.id}`]
                   const errorId = `${f.id}:${m.id}-error`
                   if (f.id === 'nik') {
@@ -87,7 +86,7 @@ export function AnggotaSection({ state, templates, dispatch }: Props) {
                         key={f.id}
                         label={f.label}
                         required={f.required}
-                        hint={f.hint ?? '16 digit, tanpa spasi.'}
+                        // hint={f.hint ?? '16 digit, tanpa spasi.'}
                         invalid={invalid}
                         error={
                           f.required ? 'Wajib 16 digit & unik.' : undefined
@@ -100,7 +99,7 @@ export function AnggotaSection({ state, templates, dispatch }: Props) {
                             dispatch({
                               type: 'UPDATE_ANGGOTA',
                               id: m.id,
-                              key: f.id as never,
+                              key: f.id,
                               value: e.target.value
                                 .replace(/\D/g, '')
                                 .slice(0, 16),
@@ -131,7 +130,7 @@ export function AnggotaSection({ state, templates, dispatch }: Props) {
                             dispatch({
                               type: 'UPDATE_ANGGOTA',
                               id: m.id,
-                              key: f.id as never,
+                              key: f.id,
                               value: e.target.value,
                             })
                           }
@@ -163,7 +162,7 @@ export function AnggotaSection({ state, templates, dispatch }: Props) {
                             dispatch({
                               type: 'UPDATE_ANGGOTA',
                               id: m.id,
-                              key: f.id as never,
+                              key: f.id,
                               value: e.target.value,
                             })
                           }
@@ -189,7 +188,7 @@ export function AnggotaSection({ state, templates, dispatch }: Props) {
                           dispatch({
                             type: 'UPDATE_ANGGOTA',
                             id: m.id,
-                            key: f.id as never,
+                            key: f.id,
                             value: e.target.value,
                           })
                         }

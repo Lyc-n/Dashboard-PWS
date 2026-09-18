@@ -85,15 +85,23 @@ export function triggerDownload(filename: string, blob: Blob) {
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  // revoke async agar Firefox sempat mulai download
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function escapeCsvCell(v: string | number): string {
+  let s = String(v);
+  // cegah formula injection saat dibuka di Excel: = + - @_TAB \r
+  if (/^[=+\-@\t\r]/.test(s)) s = `\t${s}`;
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 export function downloadCsv(filename: string, head: string[], rows: (string | number)[][]) {
-  const esc = (v: string | number) => {
-    const s = String(v);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
+  const esc = escapeCsvCell;
   const content = "\uFEFF" + [head, ...rows].map((r) => r.map(esc).join(",")).join("\n");
   triggerDownload(filename, new Blob([content], { type: "text/csv;charset=utf-8" }));
 }
@@ -104,9 +112,11 @@ export function average(values: number[]): number {
 }
 
 export function initialsOf(name: string): string {
+  if (!name.trim()) return "?";
   return name
     .split(" ")
     .map((part) => part[0])
+    .filter(Boolean)
     .slice(0, 2)
     .join("")
     .toUpperCase();

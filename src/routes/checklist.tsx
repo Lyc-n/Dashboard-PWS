@@ -1,9 +1,5 @@
-import { useMemo, useReducer, useState } from "react";
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useKrTemplates } from "@/hooks/use-kr-templates";
-import { useLocalStorage } from "@/hooks/use-local-storage";
-import { STORAGE_KEYS } from "@/lib/constants";
-import { useToast } from "@/providers/toast";
 import { AppShell } from "@/components/organisms/AppShell";
 import { DetailHeader } from "@/components/organisms/DetailHeader";
 import { SuccessPanel } from "@/components/organisms/SuccessPanel";
@@ -14,11 +10,7 @@ import { FillBar } from "@/components/molecules/FillBar";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { Button } from "@/components/atoms/Button";
 import { requireAuth } from "@/lib/auth";
-import { getKunjunganRepository } from "@/lib/repositories";
-import { validateKunjungan } from "@/features/checklist/services/validateKunjungan";
-import { initialKunjunganState, kunjunganReducer } from "@/features/checklist/store/kunjunganReducer";
-import { selectBahaCount, selectFillPercent, selectStepState } from "@/features/checklist/store/kunjunganSelectors";
-import { CHECKLIST_SCHEMA_VERSION, createRecordId, fromStorageWrapper } from "@/features/checklist/types";
+import { useChecklistForm } from "@/features/checklist/hooks/useChecklistForm";
 import type { KunjunganRecord } from "@/features/checklist/types";
 import { KeluargaInfoSection } from "@/features/checklist/components/KeluargaInfoSection";
 import { AnggotaSection } from "@/features/checklist/components/AnggotaSection";
@@ -35,16 +27,9 @@ export const Route = createFileRoute("/checklist")({
 });
 
 function Checklist() {
-  const { templates } = useKrTemplates();
-  const toast = useToast();
-  const [state, dispatch] = useReducer(kunjunganReducer, undefined, initialKunjunganState);
-  const [rawRecords, setRawRecords] = useLocalStorage<unknown>(STORAGE_KEYS.checklist, []);
-  const records: KunjunganRecord[] = useMemo(() => fromStorageWrapper(rawRecords), [rawRecords]);
+  const { templates, state, dispatch, records, fillPercent, bahaCount, stepState, handleSubmit, reset } =
+    useChecklistForm();
   const [saved, setSaved] = useState<KunjunganRecord | null>(null);
-
-  const fillPercent = useMemo(() => selectFillPercent(state, templates), [state, templates]);
-  const bahaCount = useMemo(() => selectBahaCount(state), [state.penilaian]);
-  const stepState = useMemo(() => selectStepState(state), [state.anggota, state.penilaian, state.ttd]);
 
   const steps: Step[] = [
     { label: "Data Keluarga & Sasaran", state: stepState[0] },
@@ -52,51 +37,13 @@ function Checklist() {
     { label: "Hasil & Tindak", state: stepState[2] },
   ];
 
-  const handleSubmit = () => {
-    const { ok, invalid } = validateKunjungan({ ...state, templates });
-    dispatch({ type: "SET_INVALID", invalid });
-    if (!ok) {
-      toast("Periksa kembali isian yang wajib diisi.");
-      return;
-    }
-    const rec: KunjunganRecord = {
-      id: createRecordId(),
-      schemaVersion: CHECKLIST_SCHEMA_VERSION,
-      clientId: createRecordId(),
-      syncedAt: null,
-      waktuSimpan: new Date().toISOString(),
-      info: { ...state.info },
-      sanitasi: { ...state.sanitasi },
-      anggota: state.anggota.map((m) => ({ ...m })),
-      penilaian: state.penilaian.map((p) => ({ ...p, values: { ...p.values }, checks: { ...p.checks }, prioritas: [...p.prioritas] })),
-      masalah: state.masalah.map((m) => ({ ...m })),
-      hasil: state.hasil,
-      jadwal: state.jadwal,
-      ttd: state.ttd,
-    };
-    // repo wrapper keeps versioned shape; also update rawRecords for reactivity
-    try {
-      getKunjunganRepository().save(rec);
-      setRawRecords((prev: unknown) => {
-        const prevList = fromStorageWrapper(prev);
-        const next = [...prevList, rec];
-        // store as wrapper object to be supabase-ready
-        return { version: CHECKLIST_SCHEMA_VERSION, updatedAt: new Date().toISOString(), data: next } as unknown as typeof prev; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
-      });
-    } catch {
-      // fallback direct
-      setRawRecords((prev: unknown) => {
-        const prevList = fromStorageWrapper(prev);
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- wrapper type compat
-        return [...prevList, rec] as unknown as typeof prev;
-      });
-    }
-    setSaved(rec);
-    toast(`Kunjungan ${rec.info.namaKK || "keluarga"} tersimpan.`);
+  const onSubmit = () => {
+    const rec = handleSubmit();
+    if (rec) setSaved(rec);
   };
 
   const handleNext = () => {
-    dispatch({ type: "RESET" });
+    reset();
     setSaved(null);
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -123,7 +70,7 @@ function Checklist() {
         <HasilSection state={state} templates={templates} dispatch={dispatch} />
       </SectionCard>
 
-      <SectionCard title="Simpan" actions={<SaveBar onReset={() => dispatch({ type: "RESET" })} onFillDemo={() => dispatch({ type: "FILL_DEMO" })} onSubmit={handleSubmit} />}>
+      <SectionCard title="Simpan" actions={<SaveBar onReset={reset} onFillDemo={() => dispatch({ type: "FILL_DEMO" })} onSubmit={onSubmit} />}>
         <span className="text-xs text-muted">Pastikan seluruh isian wajib bercentang hijau sebelum menyimpan.</span>
       </SectionCard>
 

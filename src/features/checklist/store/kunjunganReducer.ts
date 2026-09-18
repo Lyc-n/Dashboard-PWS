@@ -3,7 +3,7 @@ import { sasaranDef } from "@/lib/kr-form";
 import { seedKrTemplates } from "@/lib/kr-templates";
 import type { KrTemplates } from "@/lib/kr-templates";
 import type { SasaranKey } from "@/lib/kr-form";
-import type { AnggotaKeluarga, KeluargaInfo, MasalahTindak, PenilaianForm, Sanitasi } from "@/hooks/use-kunjungan";
+import type { AnggotaKeluarga, KeluargaInfo, MasalahTindak, PenilaianForm, Sanitasi } from "@/features/checklist/models";
 import { createRecordId } from "../types";
 
 export interface KunjunganState {
@@ -78,10 +78,10 @@ export function initialKunjunganState(): KunjunganState {
 }
 
 export type KunjunganAction =
-  | { type: "SET_FIELD"; key: keyof KeluargaInfo; value: string }
-  | { type: "SET_SAN_FIELD"; key: keyof Sanitasi; value: string | boolean }
+  | { type: "SET_FIELD"; key: keyof KeluargaInfo | string; value: string }
+  | { type: "SET_SAN_FIELD"; key: keyof Sanitasi | string; value: string | boolean }
   | { type: "ADD_ANGGOTA" }
-  | { type: "UPDATE_ANGGOTA"; id: string; key: keyof AnggotaKeluarga; value: string }
+  | { type: "UPDATE_ANGGOTA"; id: string; key: keyof AnggotaKeluarga | string; value: string }
   | { type: "REMOVE_ANGGOTA"; id: string }
   | { type: "ADD_PENILAIAN"; anggotaId: string; sasaran: SasaranKey; templates: KrTemplates }
   | { type: "REMOVE_PENILAIAN"; id: string }
@@ -90,7 +90,7 @@ export type KunjunganAction =
   | { type: "BATCH_CLEAR_VALUES"; id: string; keys: string[] }
   | { type: "TOGGLE_PRIORITAS"; id: string; prio: string }
   | { type: "ADD_MASALAH" }
-  | { type: "UPDATE_MASALAH"; id: string; key: keyof MasalahTindak; value: string }
+  | { type: "UPDATE_MASALAH"; id: string; key: keyof MasalahTindak | string; value: string }
   | { type: "REMOVE_MASALAH"; id: string }
   | { type: "SET_HASIL"; value: string }
   | { type: "SET_JADWAL"; value: string }

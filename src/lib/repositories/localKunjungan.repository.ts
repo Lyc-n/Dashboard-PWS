@@ -7,13 +7,34 @@ function isBrowser(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
+function isRecordLike(r: unknown): r is KunjunganRecord {
+  if (!r || typeof r !== "object") return false;
+  const o = r as Record<string, unknown>;
+  return (
+    typeof o.id === "string" &&
+    typeof o.waktuSimpan === "string" &&
+    !!o.info &&
+    typeof o.info === "object" &&
+    Array.isArray(o.anggota) &&
+    Array.isArray(o.penilaian) &&
+    Array.isArray(o.masalah)
+  );
+}
+
 function readWrapper(): KunjunganStorageWrapper | null {
   if (!isBrowser()) return null;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEYS.checklist);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && "version" in parsed && "data" in parsed) return parsed as KunjunganStorageWrapper;
+    if (parsed && typeof parsed === "object" && "version" in parsed && "data" in parsed) {
+      const w = parsed as KunjunganStorageWrapper;
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- tipe statis bohong untuk JSON korup; guard runtime tetap perlu
+      if (w.version !== CHECKLIST_SCHEMA_VERSION || !Array.isArray(w.data)) return null;
+      // saring entri rusak, jangan jatuhkan seluruh riwayat karena 1 record korup
+      const clean = w.data.filter(isRecordLike);
+      return { ...w, data: clean };
+    }
     // legacy array fallback
     if (Array.isArray(parsed)) return toStorageWrapper(parsed as KunjunganRecord[]);
     return null;
@@ -22,12 +43,22 @@ function readWrapper(): KunjunganStorageWrapper | null {
   }
 }
 
+export class StorageQuotaError extends Error {
+  constructor(key: string) {
+    super(`Penyimpanan penuh untuk "${key}". Hapus riwayat lama atau kosongkan ruang browser.`);
+    this.name = "StorageQuotaError";
+  }
+}
+
 function writeWrapper(wrapper: KunjunganStorageWrapper): void {
   if (!isBrowser()) return;
   try {
     window.localStorage.setItem(STORAGE_KEYS.checklist, JSON.stringify(wrapper));
-  } catch {
-    // quota exceeded — caller handles via toast if needed
+  } catch (e) {
+    if (e && typeof e === "object" && "name" in e && (e as { name: string }).name.includes("Quota")) {
+      throw new StorageQuotaError(STORAGE_KEYS.checklist);
+    }
+    throw e;
   }
 }
 

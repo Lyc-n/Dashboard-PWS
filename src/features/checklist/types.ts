@@ -1,6 +1,6 @@
 import type { KrTemplates } from "@/lib/kr-templates";
 import type { SasaranKey } from "@/lib/kr-form";
-import type { AnggotaKeluarga, KeluargaInfo, MasalahTindak, PenilaianForm, Sanitasi } from "@/hooks/use-kunjungan";
+import type { AnggotaKeluarga, KeluargaInfo, MasalahTindak, PenilaianForm, Sanitasi } from "@/features/checklist/models";
 
 export const CHECKLIST_SCHEMA_VERSION = 17 as const;
 
