@@ -26,8 +26,8 @@ export function Stepper({ steps, className }: StepperProps) {
           <i
             className={cn(
               "grid size-[22px] place-items-center rounded-full text-[11px] font-bold not-italic",
-              step.state === "done" && "bg-accent text-white",
-              step.state === "now" && "bg-ink text-white",
+              step.state === "done" && "bg-accent text-on-accent",
+              step.state === "now" && "bg-ink text-on-accent",
               step.state === "todo" && "bg-line-2 text-muted",
             )}
           >

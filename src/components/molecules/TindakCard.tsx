@@ -11,7 +11,7 @@ export function TindakCard({ icon, color, title, issue }: TindakCardProps) {
   return (
     <div className="flex gap-2.5 rounded-[10px] border border-[var(--color-line-2)] bg-surface p-3 shadow-card">
       <span
-        className="grid size-8 flex-none place-items-center rounded-lg text-[13px] text-white"
+        className="grid size-8 flex-none place-items-center rounded-lg text-[13px] text-on-accent"
         style={{ background: color }}
       >
         {icon}

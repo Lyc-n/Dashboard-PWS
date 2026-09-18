@@ -12,10 +12,10 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANT_CLASS: Record<Variant, string> = {
   default: "border-line bg-surface text-ink-2 hover:border-accent",
-  primary: "border-accent bg-accent text-white hover:bg-accent-hover",
+  primary: "border-accent bg-accent text-on-accent hover:bg-accent-hover",
   ghost: "border-accent-border bg-surface text-accent hover:bg-accent-light",
   danger: "border-[var(--color-danger-border)] bg-surface text-danger hover:bg-[var(--color-danger-soft)]",
-  export: "border-accent bg-accent text-white hover:bg-accent-hover",
+  export: "border-accent bg-accent text-on-accent hover:bg-accent-hover",
 };
 
 const SIZE_CLASS: Record<Size, string> = {

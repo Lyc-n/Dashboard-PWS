@@ -51,8 +51,11 @@ export function SasaranForm({ p, state, templates, dispatch }: Props) {
   const nonImunBools = useMemo(() => bools.filter((b) => !b.id.startsWith("imun")), [bools]);
   const baha = useMemo(() => fields.filter((f) => f.section === "sasaran:baha"), [fields]);
   const imunGroups = useMemo(() => {
+    // Grup default dipegang via referensi langsung: tanpa optional chain,
+    // valid baik dengan maupun tanpa noUncheckedIndexedAccess.
+    const defaultGroup = { title: "0 bln", ids: [] as string[] };
     const map: Record<string, { title: string; ids: string[] }> = {
-      "0": { title: "0 bln", ids: [] },
+      "0": defaultGroup,
       "1": { title: "1 bln", ids: [] },
       "2": { title: "2 bln", ids: [] },
       "3": { title: "3 bln", ids: [] },
@@ -64,9 +67,9 @@ export function SasaranForm({ p, state, templates, dispatch }: Props) {
     };
     for (const b of imunBools) {
       const m = b.id.match(/^imun(\d+)/);
-      const k = m?.[1];
-      const entry = (k ? map[k] : undefined) ?? map["0"];
-      entry?.ids.push(b.id);
+      const k = m === null ? undefined : m[1];
+      const entry = k === undefined ? defaultGroup : (map[k] ?? defaultGroup);
+      entry.ids.push(b.id);
     }
     return Object.entries(map).filter(([, v]) => v.ids.length > 0);
   }, [imunBools]);

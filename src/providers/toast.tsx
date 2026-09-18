@@ -23,7 +23,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         aria-live="polite"
         role="status"
-        className="pointer-events-none fixed bottom-21 left-1/2 z-50 -translate-x-1/2 rounded-full bg-ink-strong px-4 py-2.5 text-xs font-semibold text-white transition-opacity duration-200"
+        className="pointer-events-none fixed bottom-21 left-1/2 z-50 -translate-x-1/2 rounded-full bg-toast-bg px-4 py-2.5 text-xs font-semibold text-toast-text shadow-elev transition-opacity duration-200"
         style={{ opacity: message ? 1 : 0 }}
       >
         {message}

@@ -18,7 +18,7 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(
         "cursor-pointer rounded-full border text-ink-2 font-semibold transition-colors",
         size === "md" ? "px-3.5 py-2 text-xs" : "px-2.5 py-1.5 text-[11px]",
         selected &&
-          (dark ? "border-ink bg-ink text-white" : "border-accent bg-accent text-white"),
+          (dark ? "border-ink bg-ink text-on-accent" : "border-accent bg-accent text-on-accent"),
         className,
       )}
       {...props}

@@ -3,6 +3,7 @@ import type { KrTemplates } from '@/lib/kr-templates'
 import type {
   AnggotaKeluarga,
   KeluargaInfo,
+  KunjunganFoto,
   MasalahTindak,
   PenilaianForm,
 } from '@/features/checklist/models'
@@ -16,6 +17,7 @@ export interface ValidateInput {
   hasil: string
   jadwal: string
   ttd: string
+  fotos: KunjunganFoto[]
   templates: KrTemplates
 }
 
@@ -23,7 +25,7 @@ export function validateKunjungan(input: ValidateInput): {
   ok: boolean
   invalid: Record<string, boolean>
 } {
-  const { info, anggota, penilaian, masalah, hasil, jadwal, ttd, templates } =
+  const { info, anggota, penilaian, masalah, hasil, jadwal, ttd, fotos, templates } =
     input
   const nextInvalid: Record<string, boolean> = {}
   let ok = true
@@ -174,6 +176,10 @@ export function validateKunjungan(input: ValidateInput): {
   }
   if (!ttd.trim()) {
     nextInvalid.ttd = true
+    ok = false
+  }
+  if (fotos.length === 0) {
+    nextInvalid.fotos = true
     ok = false
   }
 

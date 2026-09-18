@@ -195,7 +195,7 @@ function Kegiatan() {
           </Button>
           <Link
             to="/sasaran"
-            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-[18px] py-[11px] text-[13px] font-bold text-white hover:bg-accent-hover"
+            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-[18px] py-[11px] text-[13px] font-bold text-on-accent hover:bg-accent-hover"
           >
             Lihat Data Sasaran
           </Link>

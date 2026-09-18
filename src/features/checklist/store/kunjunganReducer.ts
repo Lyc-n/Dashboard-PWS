@@ -3,7 +3,7 @@ import { sasaranDef } from "@/lib/kr-form";
 import { seedKrTemplates } from "@/lib/kr-templates";
 import type { KrTemplates } from "@/lib/kr-templates";
 import type { SasaranKey } from "@/lib/kr-form";
-import type { AnggotaKeluarga, KeluargaInfo, MasalahTindak, PenilaianForm, Sanitasi } from "@/features/checklist/models";
+import type { AnggotaKeluarga, KeluargaInfo, KunjunganFoto, MasalahTindak, PenilaianForm, Sanitasi } from "@/features/checklist/models";
 import { createRecordId } from "../types";
 
 export interface KunjunganState {
@@ -15,6 +15,7 @@ export interface KunjunganState {
   hasil: string;
   jadwal: string;
   ttd: string;
+  fotos: KunjunganFoto[];
   invalid: Record<string, boolean>;
 }
 
@@ -73,6 +74,7 @@ export function initialKunjunganState(): KunjunganState {
     hasil: HASIL_KUNJUNGAN[0],
     jadwal: "",
     ttd: "",
+    fotos: [],
     invalid: {},
   };
 }
@@ -96,6 +98,9 @@ export type KunjunganAction =
   | { type: "SET_JADWAL"; value: string }
   | { type: "SET_TTD"; value: string }
   | { type: "SET_INVALID"; invalid: Record<string, boolean> }
+  | { type: "ADD_FOTOS"; fotos: KunjunganFoto[] }
+  | { type: "SET_FOTO_CAPTION"; index: number; caption: string }
+  | { type: "REMOVE_FOTO"; index: number }
   | { type: "RESET" }
   | { type: "FILL_DEMO" };
 
@@ -150,6 +155,12 @@ export function kunjunganReducer(state: KunjunganState, action: KunjunganAction)
       return { ...state, ttd: action.value };
     case "SET_INVALID":
       return { ...state, invalid: action.invalid };
+    case "ADD_FOTOS":
+      return { ...state, fotos: [...state.fotos, ...action.fotos] };
+    case "SET_FOTO_CAPTION":
+      return { ...state, fotos: state.fotos.map((f, i) => (i === action.index ? { ...f, caption: action.caption } : f)) };
+    case "REMOVE_FOTO":
+      return { ...state, fotos: state.fotos.filter((_, i) => i !== action.index) };
     case "RESET":
       return initialKunjunganState();
     case "FILL_DEMO": {
@@ -182,6 +193,7 @@ export function kunjunganReducer(state: KunjunganState, action: KunjunganAction)
         ],
         ttd: "Siti Aminah",
         hasil: HASIL_KUNJUNGAN[0],
+        fotos: [],
       };
     }
     default:

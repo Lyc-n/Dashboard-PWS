@@ -94,7 +94,7 @@ export function PwsChart({ data, labels, renderTooltip, scale = 25, max = 6000 }
       </svg>
       {active && renderTooltip ? (
         <div
-          className={`pointer-events-none absolute z-30 max-w-60 whitespace-nowrap -translate-y-full rounded-lg bg-ink-strong px-2.5 py-2 text-[11px] text-white shadow-lg ${
+          className={`pointer-events-none absolute z-30 max-w-60 whitespace-nowrap -translate-y-full rounded-lg bg-toast-bg px-2.5 py-2 text-[11px] text-toast-text shadow-lg ${
             active.x < 110 ? "" : active.x > W - 110 ? "-translate-x-full" : "-translate-x-1/2"
           }`}
           style={{ left: `${(active.x / W) * 100}%`, top: `${(active.y / 220) * 100}%` }}

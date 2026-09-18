@@ -67,6 +67,15 @@ export interface Sanitasi {
   [key: string]: boolean | string;
 }
 
+/** Satu foto dokumentasi kunjungan. dataUrl (base64) agar persist ke localStorage. */
+export interface KunjunganFoto {
+  id: string;
+  name: string;
+  dataUrl: string;
+  caption: string;
+  takenAt: string;
+}
+
 export interface KunjunganFormState {
   info: KeluargaInfo;
   sanitasi: Sanitasi;
@@ -76,6 +85,7 @@ export interface KunjunganFormState {
   hasil: string;
   jadwal: string;
   ttd: string;
+  fotos: KunjunganFoto[];
 }
 
 /** Baca field string dinamis tanpa `as unknown` di call-site. */

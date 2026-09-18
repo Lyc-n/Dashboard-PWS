@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { seedKrTemplates } from "@/lib/kr-templates";
 import { computeBahaCount, computeFillPercent, computeStepState } from "@/features/checklist/services/progress";
-import type { AnggotaKeluarga, KeluargaInfo } from "@/features/checklist/models";
+import type { AnggotaKeluarga, KeluargaInfo, KunjunganFoto, MasalahTindak, PenilaianForm } from "@/features/checklist/models";
 
 const templates = seedKrTemplates();
 
@@ -31,6 +31,14 @@ const anggota: AnggotaKeluarga = {
   pekerjaan: "Buruh",
 };
 
+const foto: KunjunganFoto = {
+  id: "f1",
+  name: "kunjungan.jpg",
+  dataUrl: "data:image/jpeg;base64,AAA",
+  caption: "",
+  takenAt: "2026-02-14T08:00:00.000Z",
+};
+
 describe("computeFillPercent", () => {
   it("0% saat form kosong", () => {
     const pct = computeFillPercent({
@@ -40,6 +48,7 @@ describe("computeFillPercent", () => {
       masalah: [],
       hasil: "",
       ttd: "",
+      fotos: [],
       templates,
     });
     expect(pct).toBe(0);
@@ -53,6 +62,7 @@ describe("computeFillPercent", () => {
       masalah: [],
       hasil: templates.hasilOpsi[0] ?? "",
       ttd: "Siti Aminah",
+      fotos: [foto],
       templates,
     });
     expect(pct).toBe(100);
@@ -66,10 +76,30 @@ describe("computeFillPercent", () => {
       masalah: [],
       hasil: "",
       ttd: "",
+      fotos: [],
       templates,
     });
     expect(pct).toBeGreaterThan(0);
     expect(pct).toBeLessThan(100);
+  });
+
+  it("dokumentasi dihitung sebagai 1 butir wajib", () => {
+    const penilaian: PenilaianForm[] = [
+      { id: "p1", anggotaId: "a1", sasaran: "dewasa", values: {}, checks: {}, prioritas: [] },
+    ];
+    const base = {
+      info: { ...emptyInfo, tglPengumpulan: "2026-02-14", posyandu: "Mawar 2" },
+      anggota: [anggota],
+      penilaian,
+      masalah: [] as MasalahTindak[],
+      hasil: templates.hasilOpsi[0] ?? "",
+      ttd: "Siti Aminah",
+      templates,
+    };
+    const tanpa = computeFillPercent({ ...base, fotos: [] });
+    const dengan = computeFillPercent({ ...base, fotos: [foto] });
+    expect(tanpa).toBeLessThan(100);
+    expect(dengan).toBe(100);
   });
 });
 

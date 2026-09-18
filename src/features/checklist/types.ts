@@ -1,6 +1,6 @@
 import type { KrTemplates } from "@/lib/kr-templates";
 import type { SasaranKey } from "@/lib/kr-form";
-import type { AnggotaKeluarga, KeluargaInfo, MasalahTindak, PenilaianForm, Sanitasi } from "@/features/checklist/models";
+import type { AnggotaKeluarga, KeluargaInfo, KunjunganFoto, MasalahTindak, PenilaianForm, Sanitasi } from "@/features/checklist/models";
 
 export const CHECKLIST_SCHEMA_VERSION = 17 as const;
 
@@ -19,6 +19,7 @@ export interface KunjunganRecord {
   hasil: string;
   jadwal: string;
   ttd: string;
+  fotos: KunjunganFoto[];
 }
 
 // Versioned wrapper for localStorage — maps 1:1 to jsonb later
@@ -44,15 +45,21 @@ export function toStorageWrapper(records: KunjunganRecord[]): KunjunganStorageWr
   return { version: CHECKLIST_SCHEMA_VERSION, updatedAt: new Date().toISOString(), data: records };
 }
 
+function withFotosFallback(r: KunjunganRecord): KunjunganRecord {
+  // record lama (sebelum dokumentasi) tidak punya fotos
+  if (Array.isArray(r.fotos)) return r;
+  return { ...r, fotos: [] };
+}
+
 export function fromStorageWrapper(raw: unknown): KunjunganRecord[] {
   if (!raw || typeof raw !== "object") return [];
   const o = raw as Record<string, unknown>;
   // new wrapper shape
   if (o.version === CHECKLIST_SCHEMA_VERSION && Array.isArray(o.data)) {
-    return o.data as KunjunganRecord[];
+    return (o.data as KunjunganRecord[]).map(withFotosFallback);
   }
   // legacy: plain array
-  if (Array.isArray(raw)) return raw as KunjunganRecord[];
+  if (Array.isArray(raw)) return (raw as KunjunganRecord[]).map(withFotosFallback);
   // legacy wrapper with checklist key?
   return [];
 }

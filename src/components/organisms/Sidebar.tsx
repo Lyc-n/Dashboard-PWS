@@ -44,10 +44,10 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
             to={item.to}
             activeOptions={{ exact: item.to === "/" }}
             className={cn(
-              "flex items-center rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-400 ease-[cubic-bezier(0.4,0,0.2,1)] hover:bg-sea",
+              "flex items-center rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-400 ease-[cubic-bezier(0.4,0,0.2,1)] hover:bg-surface-2",
               collapsed ? "justify-center gap-0 px-0" : "gap-2.5",
             )}
-            activeProps={{ className: "border-accent/20 border bg-accent-light font-semibold" }}
+            activeProps={{ className: "border border-[rgba(79,214,205,0.45)] bg-accent-light font-semibold" }}
           >
             <Icon size={16} className="shrink-0" />
             <span

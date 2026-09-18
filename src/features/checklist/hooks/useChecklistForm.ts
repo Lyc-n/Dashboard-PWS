@@ -2,6 +2,7 @@ import { useCallback, useMemo, useReducer, useState } from 'react'
 import { useKrTemplates } from '@/hooks/use-kr-templates'
 import { StorageQuotaError, getKunjunganRepository } from '@/lib/repositories'
 import { useToast } from '@/providers/toast'
+import { prepareFotos } from '../lib/fotos'
 import { validateKunjungan } from '../services/validateKunjungan'
 import {
   initialKunjunganState,
@@ -31,6 +32,35 @@ export function useChecklistForm() {
       return []
     }
   })
+  const [fotoUploading, setFotoUploading] = useState(false)
+
+  const addFotos = useCallback(
+    async (files: File[]): Promise<{ added: number; skipped: number }> => {
+      setFotoUploading(true)
+      try {
+        const { added, skipped } = await prepareFotos(state.fotos, files)
+        if (added.length > 0) {
+          dispatch({ type: 'ADD_FOTOS', fotos: added })
+          dispatch({
+            type: 'SET_INVALID',
+            invalid: { ...state.invalid, fotos: false },
+          })
+        }
+        return { added: added.length, skipped }
+      } finally {
+        setFotoUploading(false)
+      }
+    },
+    [state.fotos, state.invalid],
+  )
+
+  const setFotoCaption = useCallback((index: number, caption: string) => {
+    dispatch({ type: 'SET_FOTO_CAPTION', index, caption })
+  }, [])
+
+  const removeFoto = useCallback((index: number) => {
+    dispatch({ type: 'REMOVE_FOTO', index })
+  }, [])
 
   const fillPercent = useMemo(
     () => selectFillPercent(state, templates),
@@ -71,6 +101,7 @@ export function useChecklistForm() {
       hasil: state.hasil,
       jadwal: state.jadwal,
       ttd: state.ttd,
+      fotos: state.fotos.map((f) => ({ ...f })),
     }
   }, [state, templates])
 
@@ -108,6 +139,10 @@ export function useChecklistForm() {
     submit,
     handleSubmit,
     reset,
+    addFotos,
+    setFotoCaption,
+    removeFoto,
+    fotoUploading,
     // convenience dispatchers
     setField: useCallback(
       (k: keyof typeof state.info | string, v: string) =>

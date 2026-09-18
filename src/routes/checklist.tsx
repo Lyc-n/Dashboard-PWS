@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/organisms/AppShell";
 import { DetailHeader } from "@/components/organisms/DetailHeader";
+import { DokumentasiPanel } from "@/components/organisms/DokumentasiPanel";
 import { SuccessPanel } from "@/components/organisms/SuccessPanel";
 import { SectionCard } from "@/components/molecules/SectionCard";
 import { Stepper } from "@/components/molecules/Stepper";
@@ -10,6 +11,7 @@ import { FillBar } from "@/components/molecules/FillBar";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { Button } from "@/components/atoms/Button";
 import { requireAuth } from "@/lib/auth";
+import { useToast } from "@/providers/toast";
 import { useChecklistForm } from "@/features/checklist/hooks/useChecklistForm";
 import type { KunjunganRecord } from "@/features/checklist/types";
 import { KeluargaInfoSection } from "@/features/checklist/components/KeluargaInfoSection";
@@ -27,9 +29,22 @@ export const Route = createFileRoute("/checklist")({
 });
 
 function Checklist() {
-  const { templates, state, dispatch, records, fillPercent, bahaCount, stepState, handleSubmit, reset } =
+  const { templates, state, dispatch, records, fillPercent, bahaCount, stepState, handleSubmit, reset, addFotos, setFotoCaption, removeFoto, fotoUploading } =
     useChecklistForm();
+  const toast = useToast();
   const [saved, setSaved] = useState<KunjunganRecord | null>(null);
+  const [fotoErr, setFotoErr] = useState("");
+
+  const handleFiles = async (files: File[]) => {
+    const { added, skipped } = await addFotos(files);
+    if (skipped > 0) {
+      const msg = `${skipped} berkas dilewati — bukan foto, >2 MB, maks. 6 foto, atau total melebihi kuota.`;
+      setFotoErr(added === 0 ? msg : `${added} foto ditambah. ${msg}`);
+      toast(`${skipped} berkas dilewati (bukan foto / >2 MB / maks. 6 foto / kuota penuh).`);
+    } else {
+      setFotoErr("");
+    }
+  };
 
   const steps: Step[] = [
     { label: "Data Keluarga & Sasaran", state: stepState[0] ?? "todo" },
@@ -45,6 +60,7 @@ function Checklist() {
   const handleNext = () => {
     reset();
     setSaved(null);
+    setFotoErr("");
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -70,14 +86,31 @@ function Checklist() {
         <HasilSection state={state} templates={templates} dispatch={dispatch} />
       </SectionCard>
 
-      <SectionCard title="Simpan" actions={<SaveBar onReset={reset} onFillDemo={() => dispatch({ type: "FILL_DEMO" })} onSubmit={onSubmit} />}>
+      <SectionCard title="4. Dokumentasi Kegiatan" sub="Foto dokumentasi kunjungan — wajib minimal 1 foto, maks. 6.">
+        <DokumentasiPanel
+          fotos={state.fotos.map((f) => ({ url: f.dataUrl, cap: f.caption }))}
+          onAddFiles={(files) => void handleFiles(files)}
+          onSetCaption={setFotoCaption}
+          onRemoveFoto={removeFoto}
+          title={`Dokumentasi Kunjungan (${state.fotos.length}/6)`}
+        />
+        {fotoUploading ? (
+          <span className="mt-2 block text-[11px] font-semibold text-muted">Mengompres foto…</span>
+        ) : null}
+        {fotoErr ? <span className="mt-2 block text-[11px] font-semibold text-danger">{fotoErr}</span> : null}
+        {state.invalid.fotos ? (
+          <span className="mt-2 block text-[11px] font-semibold text-danger">Tambahkan minimal 1 foto dokumentasi.</span>
+        ) : null}
+      </SectionCard>
+
+      <SectionCard title="Simpan" actions={<SaveBar onReset={reset} onFillDemo={() => dispatch({ type: "FILL_DEMO" })} onSubmit={onSubmit} disabled={fotoUploading} />}>
         <span className="text-xs text-muted">Pastikan seluruh isian wajib bercentang hijau sebelum menyimpan.</span>
       </SectionCard>
 
       {saved ? (
         <SuccessPanel title={`Kunjungan ${saved.info.namaKK || "keluarga"} tersimpan.`} message={`${saved.penilaian.length} penilaian sasaran · ${saved.masalah.length} masalah tercatat. Kader dapat melanjutkan ke keluarga berikutnya.`}>
           <Button variant="primary" onClick={handleNext}>Isi keluarga berikutnya</Button>
-          <Link to="/sasaran" className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-4.5 py-2.75 text-[13px] font-bold text-white hover:bg-accent-hover">Lihat Data Sasaran</Link>
+          <Link to="/sasaran" className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-4.5 py-2.75 text-[13px] font-bold text-on-accent hover:bg-accent-hover">Lihat Data Sasaran</Link>
         </SuccessPanel>
       ) : null}
 

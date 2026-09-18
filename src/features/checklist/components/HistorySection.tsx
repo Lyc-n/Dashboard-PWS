@@ -38,7 +38,7 @@ export function HistorySection({ records, templates }: Props) {
           </span>
           <span className="text-muted">
             {r.penilaian.length} penilaian sasaran · {r.masalah.length} masalah
-            · kader {r.ttd}
+            · {r.fotos?.length ?? 0} foto · kader {r.ttd}
           </span>
         </HistoryRow>
       ))}

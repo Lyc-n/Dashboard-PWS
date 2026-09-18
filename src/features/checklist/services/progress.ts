@@ -1,5 +1,5 @@
 import type { KrTemplates } from "@/lib/kr-templates";
-import type { AnggotaKeluarga, KeluargaInfo, MasalahTindak, PenilaianForm } from "@/features/checklist/models";
+import type { AnggotaKeluarga, KeluargaInfo, KunjunganFoto, MasalahTindak, PenilaianForm } from "@/features/checklist/models";
 import { sasaranDef } from "@/lib/kr-form";
 
 export function computeFillPercent(args: {
@@ -9,14 +9,15 @@ export function computeFillPercent(args: {
   masalah: MasalahTindak[];
   hasil: string;
   ttd: string;
+  fotos: KunjunganFoto[];
   templates: KrTemplates;
 }): number {
-  const { info, anggota, penilaian, masalah, hasil, ttd, templates } = args;
+  const { info, anggota, penilaian, masalah, hasil, ttd, fotos, templates } = args;
   const reqKeluarga = templates.keluargaInfo.filter((f) => f.active && f.required);
   const reqAnggota = templates.anggota.filter((f) => f.active && f.required);
   const reqMasalah = templates.masalah.filter((f) => f.active && f.required);
 
-  let totalReq = reqKeluarga.length + 2; // hasil + ttd
+  let totalReq = reqKeluarga.length + 3; // hasil + ttd + dokumentasi
   let filledReq = 0;
 
   for (const f of reqKeluarga) {
@@ -59,6 +60,7 @@ export function computeFillPercent(args: {
 
   if (hasil.trim()) filledReq++;
   if (ttd.trim()) filledReq++;
+  if (fotos.length > 0) filledReq++;
 
   if (totalReq === 0) return 100;
   return Math.max(0, Math.min(100, Math.round((filledReq / totalReq) * 100)));

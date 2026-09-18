@@ -2,8 +2,17 @@ import { describe, expect, it } from "vitest";
 import { seedKrTemplates } from "@/lib/kr-templates";
 import { validateKunjungan } from "@/features/checklist/services/validateKunjungan";
 import type { ValidateInput } from "@/features/checklist/services/validateKunjungan";
+import type { KunjunganFoto } from "@/features/checklist/models";
 
 const templates = seedKrTemplates();
+
+const foto: KunjunganFoto = {
+  id: "f1",
+  name: "kunjungan.jpg",
+  dataUrl: "data:image/jpeg;base64,AAA",
+  caption: "",
+  takenAt: "2026-02-14T08:00:00.000Z",
+};
 
 function validInput(): ValidateInput {
   return {
@@ -38,6 +47,7 @@ function validInput(): ValidateInput {
     hasil: templates.hasilOpsi[0] ?? "",
     jadwal: "",
     ttd: "Siti Aminah",
+    fotos: [foto],
     templates,
   };
 }
@@ -99,5 +109,13 @@ describe("validateKunjungan", () => {
     const { ok, invalid } = validateKunjungan(input);
     expect(ok).toBe(false);
     expect(invalid.hasil).toBe(true);
+  });
+
+  it("wajibkan minimal 1 foto dokumentasi", () => {
+    const input = validInput();
+    input.fotos = [];
+    const { ok, invalid } = validateKunjungan(input);
+    expect(ok).toBe(false);
+    expect(invalid.fotos).toBe(true);
   });
 });
