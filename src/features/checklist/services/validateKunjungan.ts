@@ -1,4 +1,5 @@
 import { sasaranDef } from '@/lib/kr-form'
+import { hasilKind } from '@/lib/hasil'
 import type { KrTemplates } from '@/lib/kr-templates'
 import type {
   AnggotaKeluarga,
@@ -170,7 +171,7 @@ export function validateKunjungan(input: ValidateInput): {
     nextInvalid.hasil = true
     ok = false
   }
-  if (hasil === hasilOpsi[1] && !jadwal) {
+  if (hasilKind(hasil) === 'jadwal' && !jadwal) {
     nextInvalid.jadwal = true
     ok = false
   }

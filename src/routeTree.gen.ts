@@ -16,6 +16,7 @@ import { Route as KelolaRouteImport } from './routes/kelola'
 import { Route as LaporanRouteImport } from './routes/laporan'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SasaranRouteImport } from './routes/sasaran'
+import { Route as ChecklistIdRouteImport } from './routes/checklist.$id'
 import { Route as SasaranIndexRouteImport } from './routes/sasaran.index'
 import { Route as SasaranIdRouteImport } from './routes/sasaran.$id'
 
@@ -54,6 +55,11 @@ const SasaranRoute = SasaranRouteImport.update({
   path: '/sasaran',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChecklistIdRoute = ChecklistIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ChecklistRoute,
+} as any)
 const SasaranIndexRoute = SasaranIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -67,34 +73,37 @@ const SasaranIdRoute = SasaranIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/checklist': typeof ChecklistRoute
+  '/checklist': typeof ChecklistRouteWithChildren
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
   '/laporan': typeof LaporanRoute
   '/login': typeof LoginRoute
   '/sasaran': typeof SasaranRouteWithChildren
+  '/checklist/$id': typeof ChecklistIdRoute
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran/': typeof SasaranIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/checklist': typeof ChecklistRoute
+  '/checklist': typeof ChecklistRouteWithChildren
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
   '/laporan': typeof LaporanRoute
   '/login': typeof LoginRoute
+  '/checklist/$id': typeof ChecklistIdRoute
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran': typeof SasaranIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/checklist': typeof ChecklistRoute
+  '/checklist': typeof ChecklistRouteWithChildren
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
   '/laporan': typeof LaporanRoute
   '/login': typeof LoginRoute
   '/sasaran': typeof SasaranRouteWithChildren
+  '/checklist/$id': typeof ChecklistIdRoute
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran/': typeof SasaranIndexRoute
 }
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/laporan'
     | '/login'
     | '/sasaran'
+    | '/checklist/$id'
     | '/sasaran/$id'
     | '/sasaran/'
   fileRoutesByTo: FileRoutesByTo
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/kelola'
     | '/laporan'
     | '/login'
+    | '/checklist/$id'
     | '/sasaran/$id'
     | '/sasaran'
   id:
@@ -129,13 +140,14 @@ export interface FileRouteTypes {
     | '/laporan'
     | '/login'
     | '/sasaran'
+    | '/checklist/$id'
     | '/sasaran/$id'
     | '/sasaran/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ChecklistRoute: typeof ChecklistRoute
+  ChecklistRoute: typeof ChecklistRouteWithChildren
   KegiatanRoute: typeof KegiatanRoute
   KelolaRoute: typeof KelolaRoute
   LaporanRoute: typeof LaporanRoute
@@ -194,6 +206,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SasaranRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/checklist/$id': {
+      id: '/checklist/$id'
+      path: '/$id'
+      fullPath: '/checklist/$id'
+      preLoaderRoute: typeof ChecklistIdRouteImport
+      parentRoute: typeof ChecklistRoute
+    }
     '/sasaran/': {
       id: '/sasaran/'
       path: '/'
@@ -211,6 +230,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ChecklistRouteChildren {
+  ChecklistIdRoute: typeof ChecklistIdRoute
+}
+
+const ChecklistRouteChildren: ChecklistRouteChildren = {
+  ChecklistIdRoute: ChecklistIdRoute,
+}
+
+const ChecklistRouteWithChildren = ChecklistRoute._addFileChildren(
+  ChecklistRouteChildren,
+)
+
 interface SasaranRouteChildren {
   SasaranIdRoute: typeof SasaranIdRoute
   SasaranIndexRoute: typeof SasaranIndexRoute
@@ -226,7 +257,7 @@ const SasaranRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ChecklistRoute: ChecklistRoute,
+  ChecklistRoute: ChecklistRouteWithChildren,
   KegiatanRoute: KegiatanRoute,
   KelolaRoute: KelolaRoute,
   LaporanRoute: LaporanRoute,

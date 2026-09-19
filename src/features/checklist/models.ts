@@ -27,6 +27,8 @@ export interface PenilaianForm {
 
 export interface MasalahTindak {
   id: string;
+  /** Bind ke anggota keluarga via id, bukan nama — aman utk nama kembar. */
+  anggotaId?: string;
   nama: string;
   nik: string;
   tglLahir: string;
@@ -34,7 +36,7 @@ export interface MasalahTindak {
   telepon: string;
   masalah: string;
   tindakLanjut: string;
-  [key: string]: string;
+  [key: string]: string | undefined;
 }
 
 export interface KeluargaInfo {
@@ -54,11 +56,8 @@ export interface KeluargaInfo {
 
 export interface Sanitasi {
   jkn: boolean;
-  airBersih: boolean;
   jenisAir: string;
-  jamban: boolean;
   jambanSaniter: string;
-  jenisSumberAir: string;
   ventilasi: boolean;
   odgj: boolean;
   tbc: boolean;
@@ -74,23 +73,6 @@ export interface KunjunganFoto {
   dataUrl: string;
   caption: string;
   takenAt: string;
-}
-
-export interface KunjunganFormState {
-  info: KeluargaInfo;
-  sanitasi: Sanitasi;
-  anggota: AnggotaKeluarga[];
-  penilaian: PenilaianForm[];
-  masalah: MasalahTindak[];
-  hasil: string;
-  jadwal: string;
-  ttd: string;
-  fotos: KunjunganFoto[];
-}
-
-/** Baca field string dinamis tanpa `as unknown` di call-site. */
-export function strField(rec: Record<string, string>, id: string): string {
-  return rec[id] ?? "";
 }
 
 /** Baca field sanitasi (boolean|string) tanpa cast di call-site. */

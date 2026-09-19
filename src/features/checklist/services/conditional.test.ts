@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildConditionalMap, getActiveDependents, isConditionalActive } from "@/features/checklist/services/conditional";
+import { buildConditionalMap, isConditionalActive } from "@/features/checklist/services/conditional";
 import type { ConditionalRule } from "@/lib/kr-form";
 
 const checksRule: ConditionalRule = {
@@ -49,13 +49,5 @@ describe("buildConditionalMap", () => {
     expect(m.get("skriningJiwaTanggal")).toBe(checksRule);
     expect(m.get("konselingBerhenti")).toBe(valueRule);
     expect(m.get("tidak-ada")).toBeUndefined();
-  });
-});
-
-describe("getActiveDependents", () => {
-  it("hanya kembalikan dependent dari rule aktif", () => {
-    const got = getActiveDependents([checksRule, valueRule], { merokok: "Aktif" }, {});
-    expect(got.has("konselingBerhenti")).toBe(true);
-    expect(got.has("skriningJiwaTempat")).toBe(false);
   });
 });

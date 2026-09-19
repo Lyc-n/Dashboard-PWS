@@ -36,6 +36,16 @@ export function SasaranForm({ p, state, templates, dispatch }: Props) {
   const DEWASA_EXTRA_IDS = useMemo(() => ["tdPeriksaSetahunTanggal","tdPeriksaSetahunTempat","tdPeriksaSetahunHasil","tdPeriksaSebulanTanggal","tdPeriksaSebulanTempat","tdPeriksaSebulanHasil","gdPeriksaSetahunTanggal","gdPeriksaSetahunTempat","gdPeriksaSetahunHasil","gdPeriksaSebulanTanggal","gdPeriksaSebulanTempat","gdPeriksaSebulanHasil"], []);
   const LANSIA_EXTRA_IDS = useMemo(() => ["aksTempat","aksTanggal","skilasTempat","skilasTanggal"], []);
   const TBC_IDS = useMemo(() => ["kontakEratJenis"], []);
+  const TBC_SHARED_IDS = useMemo(() => new Set(["paraf", "edukasiNakesMateri", "edukasiNakesTanggal", "laporNakesTanggal", "merokok"]), []);
+  const mergedTbc = useMemo(() => {
+    if (p.sasaran === "tbc" || !p.prioritas.includes("TB")) return null;
+    return templates.sasaran["tbc"].fields
+      .filter((f) => f.active)
+      .filter((f) => f.section !== "sasaran:identitas")
+      .filter((f) => !TBC_SHARED_IDS.has(f.id) && !fieldMap.has(f.id));
+  }, [p.sasaran, p.prioritas, templates.sasaran, TBC_SHARED_IDS, fieldMap]);
+  const mergedTbcKolom = useMemo(() => (mergedTbc ?? []).filter((f) => f.section === "sasaran:kolom"), [mergedTbc]);
+  const mergedTbcBools = useMemo(() => (mergedTbc ?? []).filter((f) => f.section === "sasaran:bools" || f.section === "sasaran:baha"), [mergedTbc]);
   const alwaysSet = useMemo(() => new Set([...K1K6_IDS, ...EDUKASI_IDS, ...SKRINING_IDS, ...KELAS_IDS, ...BF_KF_IDS, ...BAYI_KN_IDS, ...BALITA_IDS, ...DEWASA_EXTRA_IDS, ...LANSIA_EXTRA_IDS, ...TBC_IDS]), [K1K6_IDS, EDUKASI_IDS, SKRINING_IDS, KELAS_IDS, BF_KF_IDS, BAYI_KN_IDS, BALITA_IDS, DEWASA_EXTRA_IDS, LANSIA_EXTRA_IDS, TBC_IDS]);
   const [openT1, setOpenT1] = useState(true);
   const [openT2, setOpenT2] = useState(true);
@@ -499,6 +509,51 @@ export function SasaranForm({ p, state, templates, dispatch }: Props) {
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Prioritas program</span>
         <ChipGroup options={PRIOS.map((prio) => ({ value: prio, label: prio }))} selected={p.prioritas} onToggle={(v) => dispatch({ type: "TOGGLE_PRIORITAS", id: p.id, prio: v })} />
       </div>
+
+    {mergedTbc && mergedTbc.length > 0 ? (
+        <div className="mt-3 grid gap-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Pengendalian Penyakit Menular (TBC)</span>
+            <span className="text-[11px] text-muted">prioritas program: TB</span>
+          </div>
+          <div className="grid gap-2 rounded-lg border border-line bg-muted/10 p-2">
+            {mergedTbcKolom.length > 0 ? (
+              <div className="grid gap-2 rounded-md border border-line bg-surface p-2">
+                <button type="button" onClick={() => toggle("tbc-kolom")} className="flex w-full items-center justify-between text-left">
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-ink">Pemeriksaan & kontak erat</span>
+                  <span className="text-xs text-muted">{isOpen("tbc-kolom") ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}</span>
+                </button>
+                {isOpen("tbc-kolom") ? (
+                  <div className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
+                    {mergedTbcKolom.map((f) => (
+                      <FieldCell key={f.id} field={f} value={p.values[f.id] ?? ""} invalid={!!state.invalid[`${p.id}:${f.id}`]} onChange={(v) => dispatch({ type: "SET_VALUE", id: p.id, key: f.id, value: v })} />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {mergedTbcBools.length > 0 ? (
+              <div className="grid gap-2 rounded-md border border-line bg-surface p-2">
+                <button type="button" onClick={() => toggle("tbc-bools")} className="flex w-full items-center justify-between text-left">
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-ink">Kondisi / pelayanan & tanda bahaya</span>
+                  <span className="text-xs text-muted">{isOpen("tbc-bools") ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}</span>
+                </button>
+                {isOpen("tbc-bools") ? (
+                  <div className="grid grid-cols-3 gap-x-3 gap-y-1.5 max-md:grid-cols-2 max-sm:grid-cols-1">
+                    {mergedTbcBools.map((b) => (
+                      <label key={b.id} className="flex cursor-pointer items-center gap-2 text-[13px]">
+                        <Checkbox checked={p.checks[b.id] ?? false} onChange={(e) => dispatch({ type: "SET_CHECK", id: p.id, key: b.id, checked: e.target.checked })} aria-label={b.label} />
+                        {b.label}
+                      </label>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
     </div>
   );
 }

@@ -55,8 +55,8 @@ function makeRecord(over: RecOver): KunjunganRecord {
   };
 }
 
-function penilaian(anggotaId: string, sasaran: SasaranKey, values: Record<string, string> = {}, checks: Record<string, boolean> = {}): PenilaianForm {
-  return { id: `p-${anggotaId}-${sasaran}`, anggotaId, sasaran, values, checks, prioritas: [] };
+function penilaian(anggotaId: string, sasaran: SasaranKey, values: Record<string, string> = {}, checks: Record<string, boolean> = {}, prioritas: string[] = []): PenilaianForm {
+  return { id: `p-${anggotaId}-${sasaran}`, anggotaId, sasaran, values, checks, prioritas };
 }
 
 describe("mingguKe", () => {
@@ -198,6 +198,34 @@ describe("computeRekap", () => {
     });
     const res = computeRekap([rec], templates, { month: "2026-03", ref });
     expect(res.rows[0]!.auto.masalahDewasaTidakMinumObat).toBe(1);
+  });
+
+  it("bergejala TBC via prioritas program TB pada sasaran dewasa", () => {
+    const rec = makeRecord({
+      tgl: "2026-03-03",
+      penilaian: [penilaian("a1", "dewasa", { tdPeriksaSetahunTanggal: "2026-01-01" }, { batukTerus: true }, ["TB"])],
+    });
+    const res = computeRekap([rec], templates, { month: "2026-03", ref });
+    expect(res.rows[0]!.auto.masalahDewasaBergejalaTbc).toBe(1);
+  });
+
+  it("tidak minum obat TBC via prioritas program TB", () => {
+    const rec = makeRecord({
+      tgl: "2026-03-03",
+      penilaian: [penilaian("a1", "lansia", { tdPeriksaSetahunTanggal: "2026-01-01" }, { adaObat: true, minum24: false }, ["TB"])],
+    });
+    const res = computeRekap([rec], templates, { month: "2026-03", ref });
+    expect(res.rows[0]!.auto.masalahDewasaTidakMinumObat).toBe(1);
+  });
+
+  it("sasaran tbc legacy tetap dihitung sebelum/lewat prioritas", () => {
+    const rec = makeRecord({
+      tgl: "2026-03-03",
+      penilaian: [penilaian("a1", "tbc", { tglDiagnosa: "2026-03-01" }, { batukTerus: true })],
+    });
+    const res = computeRekap([rec], templates, { month: "2026-03", ref });
+    expect(res.rows[0]!.auto.masalahDewasaBergejalaTbc).toBe(1);
+    expect(res.rows[0]!.auto.sasaran.produktif).toBe(1);
   });
 
   it("bergejala TBC via sanitasi.tbc keluarga", () => {

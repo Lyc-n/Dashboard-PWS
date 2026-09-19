@@ -1,0 +1,69 @@
+import { describe, expect, it } from "vitest";
+import { sanitizeRecord, fromStorageWrapper } from "@/features/checklist/types";
+
+describe("sanitizeRecord", () => {
+  it("mengisi fotos, prioritas, sanitasi & values yang hilang dari record lama", () => {
+    const rec = sanitizeRecord({
+      id: "r1",
+      waktuSimpan: "2026-01-01T00:00:00.000Z",
+      info: { tglPengumpulan: "2026-03-03", posyandu: "Melati 1", kelurahan: "Trajeng" },
+      anggota: [],
+      penilaian: [{ id: "p1", anggotaId: "a1", sasaran: "dewasa", values: { merokok: "Pasif" } }],
+      masalah: [],
+    });
+    expect(rec).not.toBeNull();
+    expect(rec!.fotos).toEqual([]);
+    expect(rec!.penilaian[0]!.prioritas).toEqual([]);
+    expect(rec!.penilaian[0]!.checks).toEqual({});
+    expect(rec!.sanitasi.jkn).toBe(false);
+    expect(rec!.sanitasi.ventilasi).toBe(false);
+    expect(rec!.info.kecamatan).toBe("");
+    expect(rec!.hasil).toBe("");
+    expect(rec!.clientId).toBe("");
+  });
+
+  it("record korup (tanpa id / bukan objek) → null", () => {
+    expect(sanitizeRecord(null)).toBeNull();
+    expect(sanitizeRecord("x")).toBeNull();
+    expect(sanitizeRecord({})).toBeNull();
+    expect(sanitizeRecord({ id: "r", info: {} })).toBeNull();
+  });
+
+  it("penilaian tanpa prioritas & checks tetap disimpan, buang entri non-objek", () => {
+    const rec = sanitizeRecord({
+      id: "r2",
+      waktuSimpan: "2026-01-01T00:00:00.000Z",
+      info: { tglPengumpulan: "2026-03-03" },
+      penilaian: [{ id: "good", sasaran: "lansia" }, "garbage", 42],
+      pasar: true,
+    });
+    expect(rec!.penilaian).toHaveLength(1);
+    expect(rec!.penilaian[0]!.sasaran).toBe("lansia");
+    expect(rec!.penilaian[0]!.prioritas).toEqual([]);
+  });
+});
+
+describe("fromStorageWrapper (migrasi versi)", () => {
+  it("wrapper versi 16 tidak dibuang — record lama dipertahankan", () => {
+    const raw = {
+      version: 16,
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      data: [
+        {
+          id: "old1",
+          waktuSimpan: "2026-01-01T00:00:00.000Z",
+          info: { tglPengumpulan: "2026-03-03" },
+          anggotA: [],
+        },
+      ],
+    };
+    const out = sanitizeRecord(raw.data[0]);
+    expect(out).not.toBeNull();
+    const list = fromStorageWrapper(raw);
+    expect(list).toHaveLength(1);
+  });
+
+  it("data non-array di wrapper → []", () => {
+    expect(fromStorageWrapper({ version: 17, data: "x" })).toEqual([]);
+  });
+});

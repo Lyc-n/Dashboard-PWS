@@ -135,6 +135,11 @@ function anyTrue(checks: Record<string, boolean>, keys: string[]): boolean {
   return keys.some((k) => Boolean(checks[k]));
 }
 
+/** Penilaian terhubung TBC: sasaran legacy "tbc" atau prioritas program "TB". */
+function isTbcPenilaian(p: { sasaran: SasaranKey; prioritas: string[] }): boolean {
+  return p.sasaran === "tbc" || p.prioritas.includes("TB");
+}
+
 export function isIbuGroup(g: SasaranGroupKey): boolean {
   return g === "ibuHamil" || g === "bersalinNifas" || g === "bayiApras";
 }
@@ -242,13 +247,13 @@ export function computeRekap(
         if (pelayanan && !hasAnyValue(p.values, pelayanan)) agg.masalahIbuTidakAkses += 1;
       } else if (isDewasaGroup(g)) {
         if (pelayanan && !hasAnyValue(p.values, pelayanan)) agg.masalahDewasaTidakAdaPelayanan += 1;
-        if (hasFamilyTbc || (p.sasaran === "tbc" && anyTrue(p.checks, bahaKeysOf("tbc")))) {
+        if (hasFamilyTbc || (isTbcPenilaian(p) && anyTrue(p.checks, bahaKeysOf("tbc")))) {
           agg.masalahDewasaBergejalaTbc += 1;
         }
         const obatAda =
           (p.checks.tdAdaObat && !p.checks.tdMinum24) ||
           (p.checks.gdAdaObat && !p.checks.gdMinum24) ||
-          (p.sasaran === "tbc" && p.checks.adaObat && !p.checks.minum24);
+          (isTbcPenilaian(p) && p.checks.adaObat && !p.checks.minum24);
         if (obatAda) agg.masalahDewasaTidakMinumObat += 1;
       }
 

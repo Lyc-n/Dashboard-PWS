@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
+import { Link } from '@tanstack/react-router'
+import { Pencil, Trash2 } from 'lucide-react'
 import { HistoryPanel } from '@/components/organisms/HistoryPanel'
 import { HistoryRow } from '@/components/molecules/HistoryRow'
 import { Tag } from '@/components/atoms/Tag'
@@ -9,9 +11,10 @@ import type { KunjunganRecord } from '../types'
 interface Props {
   records: KunjunganRecord[]
   templates: KrTemplates
+  onDelete?: (id: string) => void
 }
 
-export function HistorySection({ records, templates }: Props) {
+export function HistorySection({ records, templates, onDelete }: Props) {
   return (
     <HistoryPanel
       items={records.map((r) => (
@@ -40,6 +43,22 @@ export function HistorySection({ records, templates }: Props) {
             {r.penilaian.length} penilaian sasaran · {r.masalah.length} masalah
             · {r.fotos?.length ?? 0} foto · kader {r.ttd}
           </span>
+          <div className="flex gap-2">
+            <Link
+              to="/checklist/$id"
+              params={{ id: r.id }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-[12px] font-semibold text-ink hover:border-accent hover:text-accent"
+            >
+              <Pencil size={12} /> Edit
+            </Link>
+            <button
+              type="button"
+              onClick={() => onDelete?.(r.id)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-[12px] font-semibold text-danger hover:border-danger"
+            >
+              <Trash2 size={12} /> Hapus
+            </button>
+          </div>
         </HistoryRow>
       ))}
     />

@@ -1,10 +1,10 @@
 import { HASIL_KUNJUNGAN } from "@/lib/constants";
 import { sasaranDef } from "@/lib/kr-form";
-import { seedKrTemplates } from "@/lib/kr-templates";
 import type { KrTemplates } from "@/lib/kr-templates";
 import type { SasaranKey } from "@/lib/kr-form";
 import type { AnggotaKeluarga, KeluargaInfo, KunjunganFoto, MasalahTindak, PenilaianForm, Sanitasi } from "@/features/checklist/models";
 import { createRecordId } from "../types";
+import type { KunjunganRecord } from "../types";
 
 export interface KunjunganState {
   info: KeluargaInfo;
@@ -19,8 +19,13 @@ export interface KunjunganState {
   invalid: Record<string, boolean>;
 }
 
+function todayISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 const EMPTY_INFO: KeluargaInfo = {
-  tglPengumpulan: "2026-02-14",
+  tglPengumpulan: todayISO(),
   alamat: "",
   kelurahan: "",
   kecamatan: "",
@@ -35,11 +40,8 @@ const EMPTY_INFO: KeluargaInfo = {
 
 const EMPTY_SANITASI: Sanitasi = {
   jkn: false,
-  airBersih: false,
   jenisAir: "",
-  jamban: false,
   jambanSaniter: "",
-  jenisSumberAir: "",
   ventilasi: false,
   odgj: false,
   tbc: false,
@@ -51,7 +53,7 @@ const EMPTY_ANGGOTA: Omit<AnggotaKeluarga, "id"> = {
   nama: "",
   nik: "",
   tglLahir: "",
-  jk: "P",
+  jk: "",
   hubKK: "",
   statusKawin: "",
   pendidikan: "",
@@ -102,6 +104,7 @@ export type KunjunganAction =
   | { type: "SET_FOTO_CAPTION"; index: number; caption: string }
   | { type: "REMOVE_FOTO"; index: number }
   | { type: "RESET" }
+  | { type: "LOAD_RECORD"; record: KunjunganRecord }
   | { type: "FILL_DEMO" };
 
 export function kunjunganReducer(state: KunjunganState, action: KunjunganAction): KunjunganState {
@@ -137,12 +140,25 @@ export function kunjunganReducer(state: KunjunganState, action: KunjunganAction)
     case "TOGGLE_PRIORITAS":
       return {
         ...state,
-        penilaian: state.penilaian.map((p) =>
-          p.id === action.id ? { ...p, prioritas: p.prioritas.includes(action.prio) ? p.prioritas.filter((x) => x !== action.prio) : [...p.prioritas, action.prio] } : p,
-        ),
+        penilaian: state.penilaian.map((p) => {
+          if (p.id !== action.id) return p;
+          const turningOffTb = action.prio === "TB" && p.prioritas.includes("TB");
+          let next = { ...p, prioritas: p.prioritas.includes(action.prio) ? p.prioritas.filter((x) => x !== action.prio) : [...p.prioritas, action.prio] };
+          if (turningOffTb) {
+            const nextVals = { ...next.values };
+            const nextChecks = { ...next.checks };
+            const tbcKeys = ["tglDiagnosa", "tempatDiagnosa", "periksaTgl", "tempatPeriksa", "namaPmo", "kontakEratJenis", "adaObat", "minum24", "ingatPeriksa", "batukTerus", "demam", "bbTurun"];
+            for (const k of tbcKeys) {
+              nextVals[k] = "";
+              nextChecks[k] = false;
+            }
+            next = { ...next, values: nextVals, checks: nextChecks };
+          }
+          return next;
+        }),
       };
     case "ADD_MASALAH":
-      return { ...state, masalah: [...state.masalah, { id: createRecordId(), nama: "", nik: "", tglLahir: "", alamat: "", telepon: "", masalah: "", tindakLanjut: "" }] };
+      return { ...state, masalah: [...state.masalah, { id: createRecordId(), anggotaId: "", nama: "", nik: "", tglLahir: "", alamat: "", telepon: "", masalah: "", tindakLanjut: "" }] };
     case "UPDATE_MASALAH":
       return { ...state, masalah: state.masalah.map((r) => (r.id === action.id ? { ...r, [action.key]: action.value } : r)) };
     case "REMOVE_MASALAH":
@@ -163,6 +179,21 @@ export function kunjunganReducer(state: KunjunganState, action: KunjunganAction)
       return { ...state, fotos: state.fotos.filter((_, i) => i !== action.index) };
     case "RESET":
       return initialKunjunganState();
+    case "LOAD_RECORD": {
+      const r = action.record;
+      return {
+        ...initialKunjunganState(),
+        info: { ...r.info },
+        sanitasi: { ...r.sanitasi },
+        anggota: r.anggota.map((m) => ({ ...m })),
+        penilaian: r.penilaian.map((p) => ({ ...p, values: { ...p.values }, checks: { ...p.checks }, prioritas: [...p.prioritas] })),
+        masalah: r.masalah.map((mm) => ({ ...mm })),
+        hasil: r.hasil,
+        jadwal: r.jadwal,
+        ttd: r.ttd,
+        fotos: r.fotos.map((f) => ({ ...f })),
+      };
+    }
     case "FILL_DEMO": {
       return {
         ...initialKunjunganState(),
@@ -179,14 +210,14 @@ export function kunjunganReducer(state: KunjunganState, action: KunjunganAction)
           posyandu: "Mawar 2",
           namaKK: "Bpk. Salim",
         },
-        sanitasi: { ...EMPTY_SANITASI, jkn: true, airBersih: true, jamban: true, jambanSaniter: "Kloset", ventilasi: true },
+        sanitasi: { ...EMPTY_SANITASI, jkn: true, ventilasi: true, jambanSaniter: "Kloset" },
         anggota: [
           { id: "demo-a1", nama: "Budi Setiawan", nik: "3579015202800001", tglLahir: "1980-02-15", jk: "L", hubKK: "Anak", statusKawin: "Kawin", pendidikan: "SMA", pekerjaan: "Buruh" },
           { id: "demo-a2", nama: "Siti Rahmawati", nik: "3579016202900002", tglLahir: "1990-02-16", jk: "P", hubKK: "Istri", statusKawin: "Kawin", pendidikan: "SMP", pekerjaan: "IRT" },
         ],
         penilaian: [
-          { id: "demo-p1", anggotaId: "demo-a1", sasaran: "dewasa", values: { merokok: "Pasif" }, checks: { suhu: false, tdAdaObat: true, gdAdaObat: false, tdPeriksaSetahun: true, tdPeriksaSebulan: true, skriningJiwa: false, edukasi: true }, prioritas: [] },
-          { id: "demo-p2", anggotaId: "demo-a2", sasaran: "ibu-hamil", values: { nama: "Siti Rahmawati", umur: "36", kehamilanKe: "3", paraf: "Siti Rahmawati" }, checks: { bukuKia: true, ttdAda: true, ttdMinum: true, skriningJiwa: false }, prioritas: ["Bumil Risti"] },
+          { id: "demo-p1", anggotaId: "demo-a1", sasaran: "dewasa", values: { merokok: "Pasif", edukasiNakesTanggal: "2026-02-14" }, checks: { suhu: false, tdAdaObat: true, tdMinum24: false, gdAdaObat: false, gdMinum24: false }, prioritas: [] },
+          { id: "demo-p2", anggotaId: "demo-a2", sasaran: "ibu-hamil", values: { nama: "Siti Rahmawati", umur: "36", kehamilanKe: "3", paraf: "Siti Rahmawati" }, checks: { bukuKia: true, ttdAda: true, ttdMinum: true, lilaRisiko: false }, prioritas: ["Bumil Risti"] },
         ],
         masalah: [
           { id: "demo-m1", nama: "Budi Setiawan", nik: "3579015202800001", tglLahir: "1980-02-15", alamat: "Jl. Ngemplakrejo gg. III no. 12", telepon: "081234567890", masalah: "Hipertensi tidak patuh berobat (ada obat tapi tidak minum 24 jam terakhir)", tindakLanjut: "Edukasi patuh minum obat & jadwal kontrol" },
@@ -200,6 +231,3 @@ export function kunjunganReducer(state: KunjunganState, action: KunjunganAction)
       return state;
   }
 }
-
-// Keep seed stable reference
-export const seededTemplates = seedKrTemplates();

@@ -210,13 +210,13 @@ export function AnggotaSection({ state, templates, dispatch }: Props) {
                   </span>
                 </div>
                 <ChipGroup
-                  options={Object.entries(templates.sasaran).map(
-                    ([key, tpl]) => ({
+                  options={Object.entries(templates.sasaran)
+                    .filter(([key]) => key !== 'tbc')
+                    .map(([key, tpl]) => ({
                       value: key,
                       label:
                         SASARAN_LABEL_SHORT[key as SasaranKey] ?? tpl.label,
-                    }),
-                  )}
+                    }))}
                   selected={memberPeni.map((p) => p.sasaran)}
                   onToggle={(v) => {
                     const key = v as SasaranKey

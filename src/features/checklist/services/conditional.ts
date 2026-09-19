@@ -17,13 +17,3 @@ export function buildConditionalMap(rules: ConditionalRule[]): Map<string, Condi
   for (const r of rules) for (const dep of r.dependents) m.set(dep, r);
   return m;
 }
-
-export function getActiveDependents(
-  rules: ConditionalRule[],
-  values: Record<string, string>,
-  checks: Record<string, boolean>,
-): Set<string> {
-  const active = new Set<string>();
-  for (const r of rules) if (isConditionalActive(r, values, checks)) for (const d of r.dependents) active.add(d);
-  return active;
-}

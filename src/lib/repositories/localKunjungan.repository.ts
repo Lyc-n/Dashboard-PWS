@@ -1,24 +1,10 @@
 import { STORAGE_KEYS } from "@/lib/constants";
 import type { KunjunganRecord, KunjunganStorageWrapper } from "@/features/checklist/types";
-import { CHECKLIST_SCHEMA_VERSION, fromStorageWrapper, toStorageWrapper } from "@/features/checklist/types";
+import { CHECKLIST_SCHEMA_VERSION, fromStorageWrapper, sanitizeRecord, toStorageWrapper } from "@/features/checklist/types";
 import type { KunjunganRepository } from "./kunjungan.repository";
 
 function isBrowser(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
-}
-
-function isRecordLike(r: unknown): r is KunjunganRecord {
-  if (!r || typeof r !== "object") return false;
-  const o = r as Record<string, unknown>;
-  return (
-    typeof o.id === "string" &&
-    typeof o.waktuSimpan === "string" &&
-    !!o.info &&
-    typeof o.info === "object" &&
-    Array.isArray(o.anggota) &&
-    Array.isArray(o.penilaian) &&
-    Array.isArray(o.masalah)
-  );
 }
 
 function readWrapper(): KunjunganStorageWrapper | null {
@@ -27,13 +13,15 @@ function readWrapper(): KunjunganStorageWrapper | null {
     const raw = window.localStorage.getItem(STORAGE_KEYS.checklist);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && "version" in parsed && "data" in parsed) {
-      const w = parsed as KunjunganStorageWrapper;
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- tipe statis bohong untuk JSON korup; guard runtime tetap perlu
-      if (w.version !== CHECKLIST_SCHEMA_VERSION || !Array.isArray(w.data)) return null;
-      // saring entri rusak, jangan jatuhkan seluruh riwayat karena 1 record korup
-      const clean = w.data.filter(isRecordLike);
-      return { ...w, data: clean };
+    if (parsed && typeof parsed === "object" && "data" in parsed) {
+      const o = parsed as Record<string, unknown>;
+      if (!Array.isArray(o.data)) return null;
+      // Terima versi berapa pun; migrasi dilakukan di sanitizeRecord (isi default),
+      // bukan membuang data — skema 16/17 dkk tetap disimpan lalu di-rewrap saat tulis ulang.
+      const clean = (o.data as unknown[])
+        .map(sanitizeRecord)
+        .filter((r): r is KunjunganRecord => r !== null);
+      return { version: CHECKLIST_SCHEMA_VERSION, updatedAt: new Date().toISOString(), data: clean };
     }
     // legacy array fallback
     if (Array.isArray(parsed)) return toStorageWrapper(parsed as KunjunganRecord[]);
@@ -77,21 +65,21 @@ export class LocalKunjunganRepository implements KunjunganRepository {
     }
   }
 
-  async listAsync(): Promise<KunjunganRecord[]> {
-    return this.list();
-  }
-
   save(record: KunjunganRecord): void {
     const current = this.list();
     const next = [...current, record];
     writeWrapper(toStorageWrapper(next));
   }
 
-  async saveAsync(record: KunjunganRecord): Promise<void> {
-    this.save(record);
+  update(record: KunjunganRecord): void {
+    const current = this.list();
+    const idx = current.findIndex((r) => r.id === record.id);
+    const next = idx >= 0 ? current.map((r) => (r.id === record.id ? record : r)) : [...current, record];
+    writeWrapper(toStorageWrapper(next));
   }
 
-  replaceAll(records: KunjunganRecord[]): void {
-    writeWrapper({ version: CHECKLIST_SCHEMA_VERSION, updatedAt: new Date().toISOString(), data: records });
+  remove(id: string): void {
+    const current = this.list();
+    writeWrapper(toStorageWrapper(current.filter((r) => r.id !== id)));
   }
 }

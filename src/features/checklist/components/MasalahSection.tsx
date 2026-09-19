@@ -16,17 +16,17 @@ interface Props {
 export function MasalahSection({ state, templates, dispatch }: Props) {
   const masalahFields = useMemo(() => templates.masalah.filter((f) => f.active).sort((a, b) => a.order - b.order), [templates.masalah]);
 
-  // Sync otomatis: jika data anggota / info berubah, update masalah yang nama-nya match
+  // Sync otomatis: ikat ke anggota by id (amar utk nama kembar).
   useEffect(() => {
     for (const m of state.masalah) {
-      const agg = state.anggota.find((a) => a.nama === m.nama);
+      if (!m.anggotaId) continue;
+      const agg = state.anggota.find((a) => a.id === m.anggotaId);
       if (!agg) continue;
       if (agg.nik !== m.nik) dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "nik", value: agg.nik });
       if (agg.tglLahir !== m.tglLahir) dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "tglLahir", value: agg.tglLahir });
       if (state.info.alamat !== m.alamat) dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "alamat", value: state.info.alamat });
       if (state.info.hpKK !== m.telepon) dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "telepon", value: state.info.hpKK });
     }
-    // JSON.stringify agar effect ikut perubahan isi array (bukan referensi).
   }, [JSON.stringify(state.anggota), state.info.alamat, state.info.hpKK]);
 
   return (
@@ -35,6 +35,9 @@ export function MasalahSection({ state, templates, dispatch }: Props) {
         <span className="text-xs font-semibold text-ink">Masalah & tindak lanjut (per sasaran)</span>
         <Button variant="ghost" onClick={() => dispatch({ type: "ADD_MASALAH" })}>+ Tambah masalah</Button>
       </div>
+      {state.invalid.masalahRequired ? (
+        <span className="mb-1 block text-[11px] font-semibold text-danger">Masalah wajib diisi minimal 1 untuk sasaran yang dinilai.</span>
+      ) : null}
       <div className="grid gap-3">
         {state.masalah.map((m) => (
           <div key={m.id} className="rounded-[10px] border border-line bg-surface p-3">
@@ -51,16 +54,18 @@ export function MasalahSection({ state, templates, dispatch }: Props) {
                 if (f.id === "nama") {
                   return (
                     <FormField key={f.id} label={f.label} required={f.required} invalid={invalid} error="Wajib diisi." hint={f.hint} errorId={errorId}>
-                      <Select value={val} onChange={(e) => {
-                        const v = e.target.value;
-                        const agg = state.anggota.find((a) => a.nama === v);
-                        dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "nama", value: v });
+                      <Select value={m.anggotaId ?? ""} onChange={(e) => {
+                        const id = e.target.value;
+                        const agg = state.anggota.find((a) => a.id === id);
+                        dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "anggotaId", value: id });
                         if (agg) {
+                          dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "nama", value: agg.nama });
                           dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "nik", value: agg.nik });
                           dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "tglLahir", value: agg.tglLahir });
                           dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "alamat", value: state.info.alamat });
                           dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "telepon", value: state.info.hpKK });
                         } else {
+                          dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "nama", value: "" });
                           dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "nik", value: "" });
                           dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "tglLahir", value: "" });
                           dispatch({ type: "UPDATE_MASALAH", id: m.id, key: "alamat", value: "" });
@@ -69,7 +74,7 @@ export function MasalahSection({ state, templates, dispatch }: Props) {
                       }} aria-describedby={invalid ? errorId : undefined}>
                         <option value="">— Pilih anggota —</option>
                         {state.anggota.map((a) => (
-                          <option key={a.id} value={a.nama}>{a.nama}</option>
+                          <option key={a.id} value={a.id}>{a.nama}</option>
                         ))}
                       </Select>
                     </FormField>

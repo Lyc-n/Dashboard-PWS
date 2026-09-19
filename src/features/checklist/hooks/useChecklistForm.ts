@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 import { useKrTemplates } from '@/hooks/use-kr-templates'
 import { StorageQuotaError, getKunjunganRepository } from '@/lib/repositories'
 import { useToast } from '@/providers/toast'
@@ -18,6 +18,11 @@ import type { KunjunganRecord } from '../types'
 import { getAuth, isAdminUser } from '@/lib/auth'
 import type { KunjunganState } from '../store/kunjunganReducer'
 
+export interface UseChecklistFormOptions {
+  /** Record yang sedang diedit. Saat diberikan, submit memperbarui record ini (bukan menambah baru). */
+  record?: KunjunganRecord | null
+}
+
 function initialStateForUser(): KunjunganState {
   const state = initialKunjunganState()
   const user = getAuth()
@@ -28,13 +33,20 @@ function initialStateForUser(): KunjunganState {
   return state
 }
 
-export function useChecklistForm() {
+export function useChecklistForm(opts?: UseChecklistFormOptions) {
   const { templates } = useKrTemplates()
   const toast = useToast()
+  const record = opts?.record ?? null
+  const editingId = record?.id ?? null
   const [state, dispatch] = useReducer(
     kunjunganReducer,
     undefined,
-    initialStateForUser,
+    () => {
+      const s = initialStateForUser()
+      const first = templates.hasilOpsi[0]
+      if (first && s.hasil !== first) s.hasil = first
+      return s
+    },
   )
   // Single source: repository. Tidak ada dual-write useLocalStorage.
   const [records, setRecords] = useState<KunjunganRecord[]>(() => {
@@ -45,6 +57,11 @@ export function useChecklistForm() {
     }
   })
   const [fotoUploading, setFotoUploading] = useState(false)
+
+  // Mode edit: isi form dari record yang dipilih.
+  useEffect(() => {
+    if (record) dispatch({ type: 'LOAD_RECORD', record })
+  }, [editingId])
 
   const addFotos = useCallback(
     async (files: File[]): Promise<{ added: number; skipped: number }> => {
@@ -84,18 +101,15 @@ export function useChecklistForm() {
     [state.anggota, state.penilaian, state.ttd],
   )
 
-  const validate = useCallback(() => {
+  const handleSubmit = useCallback((): KunjunganRecord | null => {
     const { ok, invalid } = validateKunjungan({ ...state, templates })
     dispatch({ type: 'SET_INVALID', invalid })
-    return ok
-  }, [state, templates])
-
-  const submit = useCallback((): KunjunganRecord | null => {
-    const { ok, invalid } = validateKunjungan({ ...state, templates })
-    dispatch({ type: 'SET_INVALID', invalid })
-    if (!ok) return null
-    return {
-      id: createRecordId(),
+    if (!ok) {
+      toast('Periksa kembali isian yang wajib diisi.')
+      return null
+    }
+    const rec: KunjunganRecord = {
+      id: editingId ?? createRecordId(),
       schemaVersion: CHECKLIST_SCHEMA_VERSION,
       clientId: createRecordId(),
       syncedAt: null,
@@ -115,28 +129,26 @@ export function useChecklistForm() {
       ttd: state.ttd,
       fotos: state.fotos.map((f) => ({ ...f })),
     }
-  }, [state, templates])
-
-  const handleSubmit = useCallback((): KunjunganRecord | null => {
-    const record = submit()
-    if (!record) {
-      toast('Periksa kembali isian yang wajib diisi.')
-      return null
-    }
     try {
-      getKunjunganRepository().save(record)
+      if (editingId) getKunjunganRepository().update(rec)
+      else getKunjunganRepository().save(rec)
       setRecords(getKunjunganRepository().list())
     } catch (e) {
       if (e instanceof StorageQuotaError) toast(e.message)
       else toast('Gagal menyimpan. Coba lagi.')
       return null
     }
-    toast(`Kunjungan ${record.info.namaKK || 'keluarga'} tersimpan.`)
-    return record
-  }, [submit, toast])
+    toast(`Kunjungan ${rec.info.namaKK || 'keluarga'} tersimpan.`)
+    return rec
+  }, [state, templates, editingId, toast])
 
   const reset = useCallback(() => {
     dispatch({ type: 'RESET' })
+  }, [])
+
+  const removeRecord = useCallback((id: string) => {
+    getKunjunganRepository().remove(id)
+    setRecords(getKunjunganRepository().list())
   }, [])
 
   return {
@@ -147,24 +159,12 @@ export function useChecklistForm() {
     fillPercent,
     bahaCount,
     stepState,
-    validate,
-    submit,
     handleSubmit,
     reset,
+    removeRecord,
     addFotos,
     setFotoCaption,
     removeFoto,
     fotoUploading,
-    // convenience dispatchers
-    setField: useCallback(
-      (k: keyof typeof state.info | string, v: string) =>
-        dispatch({ type: 'SET_FIELD', key: k, value: v }),
-      [],
-    ),
-    setSanField: useCallback(
-      (k: keyof typeof state.sanitasi | string, v: string | boolean) =>
-        dispatch({ type: 'SET_SAN_FIELD', key: k, value: v }),
-      [],
-    ),
   }
 }
