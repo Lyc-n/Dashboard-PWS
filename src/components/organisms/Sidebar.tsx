@@ -1,14 +1,17 @@
 import { Link } from "@tanstack/react-router";
 import { APP_BRAND } from "@/lib/constants";
-import { NAV_ITEMS } from "@/lib/nav";
+import { navItemsForUser } from "@/lib/nav";
+import { useAuth } from "@/providers/auth";
 import { cn } from "@/lib/utils";
-import brandIcon from "@/assets/brandIcon.png" 
+import brandIcon from "@/assets/brandIcon.png"
 
 export interface SidebarProps {
   collapsed?: boolean;
 }
 
 export function Sidebar({ collapsed = false }: SidebarProps) {
+  const { user } = useAuth();
+  const items = navItemsForUser(user);
   return (
     <aside
       className={cn(
@@ -36,7 +39,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
         </div>
       </div>
       <nav className="flex flex-1 flex-col gap-1 px-3 pb-4 pt-4" aria-label="Navigasi utama">
-        {NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const Icon = item.Icon;
           return (
           <Link

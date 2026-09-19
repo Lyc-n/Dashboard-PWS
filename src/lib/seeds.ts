@@ -59,7 +59,18 @@ export interface Staff {
   kel: string;
   posy: string;
   hp: string;
+  username: string;
+  password: string;
   on: boolean;
+}
+
+export function staffUsername(nama: string): string {
+  return nama
+    .toLowerCase()
+    .trim()
+    .replace(/^dr\.\s*/, "")
+    .replace(/\s+/g, ".")
+    .replace(/[^a-z0-9.]/g, "");
 }
 
 export interface AdminItem {
@@ -92,11 +103,11 @@ export function seedAdminPrios(): Priority[] {
 
 export function seedAdminStaff(): Staff[] {
   return [
-    { nama: "dr. Ayu Rahmawati", peran: "Admin", kel: "Trajeng", posy: "—", hp: "0811-0000-01", on: true },
-    { nama: "Siti Aminah", peran: "Kader", kel: "Trajeng", posy: "Melati 1", hp: "0812-0000-02", on: true },
-    { nama: "Siti Nurhaliza", peran: "Bidan", kel: "Ngemplakrejo", posy: "Kenanga", hp: "0812-0000-03", on: true },
-    { nama: "Budi Santoso", peran: "Kader", kel: "Tambaan", posy: "Mawar 2", hp: "0812-0000-04", on: true },
-    { nama: "Dewi Lestari", peran: "Perawat", kel: "Mayangan", posy: "Flamboyan", hp: "0812-0000-05", on: true },
-    { nama: "Agus Wijaya", peran: "Kader", kel: "Mayangan", posy: "Flamboyan", hp: "0812-0000-06", on: false },
+    { nama: "dr. Ayu Rahmawati", peran: "Admin", kel: "Trajeng", posy: "—", hp: "0811-0000-01", username: "admin", password: "admin", on: true },
+    { nama: "Siti Aminah", peran: "Kader", kel: "Trajeng", posy: "Melati 1", hp: "0812-0000-02", username: "siti.aminah", password: "admin123", on: true },
+    { nama: "Siti Nurhaliza", peran: "Bidan", kel: "Ngemplakrejo", posy: "Kenanga", hp: "0812-0000-03", username: "siti.nurhaliza", password: "admin123", on: true },
+    { nama: "Budi Santoso", peran: "Kader", kel: "Tambaan", posy: "Mawar 2", hp: "0812-0000-04", username: "budi.santoso", password: "admin123", on: true },
+    { nama: "Dewi Lestari", peran: "Perawat", kel: "Mayangan", posy: "Flamboyan", hp: "0812-0000-05", username: "dewi.lestari", password: "admin123", on: true },
+    { nama: "Agus Wijaya", peran: "Kader", kel: "Mayangan", posy: "Flamboyan", hp: "0812-0000-06", username: "agus.wijaya", password: "admin123", on: false },
   ];
 }

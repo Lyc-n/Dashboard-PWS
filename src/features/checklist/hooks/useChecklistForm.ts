@@ -15,6 +15,18 @@ import {
 } from '../store/kunjunganSelectors'
 import { CHECKLIST_SCHEMA_VERSION, createRecordId } from '../types'
 import type { KunjunganRecord } from '../types'
+import { getAuth, isAdminUser } from '@/lib/auth'
+import type { KunjunganState } from '../store/kunjunganReducer'
+
+function initialStateForUser(): KunjunganState {
+  const state = initialKunjunganState()
+  const user = getAuth()
+  if (!user || isAdminUser(user)) return state
+  if (user.kel) state.info.kelurahan = user.kel
+  if (user.posy) state.info.posyandu = user.posy
+  if (user.name) state.ttd = user.name
+  return state
+}
 
 export function useChecklistForm() {
   const { templates } = useKrTemplates()
@@ -22,7 +34,7 @@ export function useChecklistForm() {
   const [state, dispatch] = useReducer(
     kunjunganReducer,
     undefined,
-    initialKunjunganState,
+    initialStateForUser,
   )
   // Single source: repository. Tidak ada dual-write useLocalStorage.
   const [records, setRecords] = useState<KunjunganRecord[]>(() => {

@@ -9,7 +9,7 @@ import { AppShell } from "@/components/organisms/AppShell";
 import { StatCard } from "@/components/molecules/StatCard";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { Tab } from "@/components/atoms/Tab";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, isAdminUser, getAuth } from "@/lib/auth";
 import { TABS } from "@/features/kelola/types";
 import type { KelolaTab } from "@/features/kelola/types";
 import { FormKrSection } from "@/features/kelola/components/FormKrSection";
@@ -17,7 +17,15 @@ import { PrioritasSection } from "@/features/kelola/components/PrioritasSection"
 import { StaffSection } from "@/features/kelola/components/StaffSection";
 
 export const Route = createFileRoute("/kelola")({
-  beforeLoad: requireAuth,
+  beforeLoad: () => {
+    const guard = requireAuth();
+    if (guard) return guard;
+    const user = getAuth();
+    if (!isAdminUser(user)) {
+      return { redirect: { to: "/laporan" } };
+    }
+    return undefined;
+  },
   component: Kelola,
 });
 

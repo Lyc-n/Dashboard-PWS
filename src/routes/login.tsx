@@ -3,7 +3,7 @@ import type {FormEvent} from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Eye, EyeOff } from "lucide-react";
 import { APP_BRAND } from "@/lib/constants";
-import { DEMO_ACCOUNTS, getAuth } from "@/lib/auth";
+import { ADMIN_USERNAME, getAuth } from "@/lib/auth";
 import { useAuth } from "@/providers/auth";
 import { useToast } from "@/providers/toast";
 import { LogoEmblem } from "@/components/atoms/LogoEmblem";
@@ -46,7 +46,7 @@ function Login() {
     void navigate({ to: "/" });
   };
 
-  const demoUsername = DEMO_ACCOUNTS[0]?.username ?? "admin";
+  const demoUsername = ADMIN_USERNAME;
 
   return (
     <div className="grid min-h-screen place-items-center px-4 py-10">
@@ -112,9 +112,16 @@ function Login() {
             </Button>
 
             <div className="rounded-lg border border-line bg-surface-2 px-3.5 py-3 text-xs text-muted">
-              <span className="font-semibold text-ink">Akun demo:</span>{" "}
-              <code className="rounded bg-surface px-1 py-0.5 text-ink">{demoUsername}</code> /{" "}
-              <code className="rounded bg-surface px-1 py-0.5 text-ink">admin</code>
+              <div>
+                <span className="font-semibold text-ink">Akun demo admin:</span>{" "}
+                <code className="rounded bg-surface px-1 py-0.5 text-ink">{demoUsername}</code> /{" "}
+                <code className="rounded bg-surface px-1 py-0.5 text-ink">admin</code>
+              </div>
+              <div className="mt-1.5">
+                <span className="font-semibold text-ink">Akun kader (lihat kelola → Staff):</span>{" "}
+                username sesuai staff, password default{" "}
+                <code className="rounded bg-surface px-1 py-0.5 text-ink">admin123</code>
+              </div>
             </div>
           </form>
         </div>

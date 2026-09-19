@@ -21,7 +21,9 @@ import { StatusBadge } from "@/components/atoms/StatusBadge";
 import { Tag } from "@/components/atoms/Tag";
 import { LogoEmblem } from "@/components/atoms/LogoEmblem";
 import { Tab } from "@/components/atoms/Tab";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, isAdminUser } from "@/lib/auth";
+import { useAuth } from "@/providers/auth";
+import { RekapKunjunganSection } from "@/features/laporan/RekapKunjunganSection";
 
 export const Route = createFileRoute("/laporan")({
   beforeLoad: requireAuth,
@@ -38,9 +40,11 @@ const PAGE_SIZE = 10;
 function Laporan() {
   const rows = useMemo(() => laporanRows(), []);
   const toast = useToast();
+  const { user } = useAuth();
+  const admin = isAdminUser(user);
   const [kegiatanRows] = useLocalStorage<KegiatanRecord[]>(STORAGE_KEYS.kegiatan, []);
 
-  const [tab, setTab] = useState<"kunjungan" | "kegiatan">("kunjungan");
+  const [tab, setTab] = useState<"kunjungan" | "kegiatan" | "rekap">("kunjungan");
 
   const [dari, setDari] = useState("2026-01-01");
   const [sampai, setSampai] = useState("2026-03-31");
@@ -65,19 +69,26 @@ function Laporan() {
   const [gJudul, setGJudul] = useState("LAPORAN KEGIATAN PEMBERDAYAAN — KOTA PASURUAN");
   const [gPage, setGPage] = useState(1);
 
+  // rekap state
+  const [judulRekap, setJudulRekap] = useState("REKAPITULASI KUNJUNGAN RUMAH (KR) — KOTA PASURUAN");
+
+  // non-admin: wilayah tab kunjungan terkunci ke wilayah kader
+  const effKel = admin ? kel : (user?.kel ?? "all");
+  const effPosy = admin ? posy : (user?.posy ?? "all");
+
   const filtered = useMemo(() => {
     return rows.filter(
       (r) =>
         r.tgl >= dari &&
         r.tgl <= sampai &&
-        (kel === "all" || r.kel === kel) &&
+        (effKel === "all" || r.kel === effKel) &&
         (prior === "all" || r.prior === prior) &&
-        (posy === "all" || r.posy === posy) &&
+        (effPosy === "all" || r.posy === effPosy) &&
         (status === "all" || r.status === status) &&
         (sumber === "all" || r.sumber === sumber) &&
         (!cari || r.nama.toLowerCase().includes(cari.toLowerCase())),
     );
-  }, [rows, dari, sampai, kel, prior, posy, status, sumber, cari]);
+  }, [rows, dari, sampai, effKel, prior, effPosy, status, sumber, cari]);
 
   const pctSelesai = filtered.length ? Math.round((filtered.filter((r) => r.status === "Selesai").length / filtered.length) * 100) : 0;
   const perluTindak = filtered.filter((r) => r.status === "Perlu tindak lanjut").length;
@@ -180,15 +191,27 @@ function Laporan() {
         <Tab active={tab === "kegiatan"} onClick={() => setTab("kegiatan")} role="tab" aria-selected={tab === "kegiatan"}>
           Kegiatan Pemberdayaan
         </Tab>
+        <Tab active={tab === "rekap"} onClick={() => setTab("rekap")} role="tab" aria-selected={tab === "rekap"}>
+          Rekap Kunjungan Rumah
+        </Tab>
       </div>
 
-      {tab === "kunjungan" ? (
+      {tab === "rekap" ? (
+        <RekapKunjunganSection
+          judul={judulRekap}
+          setJudul={setJudulRekap}
+          ttdNama={ttdNama}
+          setTtdNama={setTtdNama}
+          ttdJabatan={ttdJabatan}
+          setTtdJabatan={setTtdJabatan}
+        />
+      ) : tab === "kunjungan" ? (
         <>
           <SectionCard className="no-print" title="Saring Laporan" sub="Filter ikut memperbarui ringkasan, kop, dan pratinjau di bawah.">
             <Toolbar>
               <Input type="date" value={dari} onChange={(e) => setDari(e.target.value)} aria-label="Tanggal awal" className="max-w-[170px] max-md:max-w-none" />
               <Input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} aria-label="Tanggal akhir" className="max-w-[170px] max-md:max-w-none" />
-              <Select value={kel} onChange={(e) => setKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-[170px] max-md:max-w-none">
+              <Select value={effKel} onChange={(e) => setKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-[170px] max-md:max-w-none" disabled={!admin}>
                 <option value="all">Semua kelurahan</option>
                 {KELS.map((k) => (
                   <option key={k}>{k}</option>
@@ -200,7 +223,7 @@ function Laporan() {
                   <option key={p}>{p}</option>
                 ))}
               </Select>
-              <Select value={posy} onChange={(e) => setPosy(e.target.value)} aria-label="Filter posyandu" className="max-w-[170px] max-md:max-w-none">
+              <Select value={effPosy} onChange={(e) => setPosy(e.target.value)} aria-label="Filter posyandu" className="max-w-[170px] max-md:max-w-none" disabled={!admin}>
                 <option value="all">Semua posyandu</option>
                 {POSY.map((p) => (
                   <option key={p}>{p}</option>

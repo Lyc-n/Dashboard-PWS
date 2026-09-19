@@ -1,9 +1,16 @@
 import { STORAGE_KEYS } from "@/lib/constants";
+import { staffUsername } from "@/lib/seeds";
+import type { Staff } from "@/lib/seeds";
+
+export const ADMIN_USERNAME = "admin";
+export const DEFAULT_STAFF_PASSWORD = "admin123";
 
 export interface AuthUser {
   username: string;
   name: string;
   role: string;
+  kel?: string;
+  posy?: string;
 }
 
 export interface LoginResult {
@@ -12,9 +19,9 @@ export interface LoginResult {
   error?: string;
 }
 
-export const DEMO_ACCOUNTS: AuthUser[] = [
-  { username: "admin", name: "A. Jubaidi", role: "Petugas PWS" },
-];
+export function isAdminUser(user: AuthUser | null): boolean {
+  return user?.role === "Admin";
+}
 
 interface StoredSession {
   user: AuthUser;
@@ -46,7 +53,7 @@ function isValidUser(u: unknown): u is AuthUser {
     o.username.length > 0 &&
     typeof o.name === "string" &&
     typeof o.role === "string" &&
-    DEMO_ACCOUNTS.some((a) => a.username === o.username)
+    o.role.length > 0
   );
 }
 
@@ -95,12 +102,66 @@ export function clearAuth(): void {
   window.localStorage.removeItem(AUTH_KEY);
 }
 
+function readStaff(): Staff[] {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEYS.adminStaff);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return (parsed as (Partial<Staff> | null)[])
+      .filter((s): s is Partial<Staff> => s !== null && typeof s.nama === "string" && s.nama.length > 0)
+      .map((s) => ({
+        nama: s.nama as string,
+        peran: typeof s.peran === "string" ? s.peran : "Kader",
+        kel: typeof s.kel === "string" ? s.kel : "",
+        posy: typeof s.posy === "string" ? s.posy : "—",
+        hp: typeof s.hp === "string" ? s.hp : "",
+        username: typeof s.username === "string" && s.username.trim() ? s.username : staffUsernameSuggestion(s.nama as string),
+        password: typeof s.password === "string" && s.password ? s.password : DEFAULT_STAFF_PASSWORD,
+        on: s.on !== false,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function adminUser(): AuthUser {
+  return { username: ADMIN_USERNAME, name: "A. Jubaidi", role: "Admin" };
+}
+
+export function listStaffAccounts(): { username: string; name: string; role: string; kel: string; posy: string }[] {
+  return readStaff()
+    .filter((s) => s.on)
+    .map((s) => ({ username: s.username, name: s.nama, role: s.peran, kel: s.kel, posy: s.posy }));
+}
+
+export function staffUsernameSuggestion(nama: string): string {
+  return staffUsername(nama);
+}
+
 export function login(username: string, password: string): LoginResult {
-  const account = DEMO_ACCOUNTS.find((a) => a.username === username.trim() && password === "admin");
+  const uname = username.trim().toLowerCase();
+  // Akun admin hardcoded
+  if (uname === ADMIN_USERNAME) {
+    if (password === "admin") return { ok: true, user: adminUser() };
+    return { ok: false, error: "Username atau password salah." };
+  }
+  // Akun staff dari kelola — username unik per staff
+  const candidates = readStaff().filter((s) => s.on && s.username.trim().toLowerCase() === uname);
+  const account = candidates.find((s) => s.password === password);
   if (!account) {
     return { ok: false, error: "Username atau password salah." };
   }
-  return { ok: true, user: account };
+  return {
+    ok: true,
+    user: {
+      username: account.username,
+      name: account.nama,
+      role: account.peran,
+      kel: account.kel,
+      posy: account.posy === "—" ? undefined : account.posy,
+    },
+  };
 }
 
 export function requireAuth(): { redirect: { to: "/login" } } | undefined {

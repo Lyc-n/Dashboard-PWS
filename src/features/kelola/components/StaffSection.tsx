@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Staff } from "@/lib/seeds";
 import { KELS, PERAN, POSY } from "@/lib/constants";
+import { DEFAULT_STAFF_PASSWORD, staffUsernameSuggestion } from "@/lib/auth";
 import { useToast } from "@/providers/toast";
 import { DataTable } from "@/components/organisms/DataTable";
 import { SectionCard } from "@/components/molecules/SectionCard";
@@ -50,6 +51,8 @@ export function StaffSection({ staff, setStaff }: Props) {
       kel: dlg.form.kel ?? KELS[0],
       posy: dlg.form.posy ?? "—",
       hp: dlg.form.hp ?? "",
+      username: dlg.form.username?.trim() ? dlg.form.username.trim() : staffUsernameSuggestion(nama),
+      password: dlg.form.password?.trim() || DEFAULT_STAFF_PASSWORD,
     };
     if (dlg.edit) {
       setStaff((prev) => prev.map((s) => (s === dlg.edit ? { ...s, ...payload } : s)));
@@ -65,7 +68,15 @@ export function StaffSection({ staff, setStaff }: Props) {
       kind: "staff",
       title: edit ? "Ubah staff" : "Tambah staff",
       edit,
-      form: { nama: edit?.nama ?? "", peran: edit?.peran ?? "Kader", kel: edit?.kel ?? KELS[0], posy: edit?.posy ?? "—", hp: edit?.hp ?? "" },
+      form: {
+        nama: edit?.nama ?? "",
+        peran: edit?.peran ?? "Kader",
+        kel: edit?.kel ?? KELS[0],
+        posy: edit?.posy ?? "—",
+        hp: edit?.hp ?? "",
+        username: edit?.username ?? "",
+        password: edit?.password ?? DEFAULT_STAFF_PASSWORD,
+      },
       errs: {},
     });
 
@@ -175,6 +186,12 @@ export function StaffSection({ staff, setStaff }: Props) {
           </FormField>
           <FormField label="No. HP">
             <Input value={dlg.form.hp ?? ""} onChange={(e) => setForm("hp", e.target.value)} placeholder="cth. 0812xxxx" type="tel" />
+          </FormField>
+          <FormField label="Username" hint={`Kosongkan: otomatis dari nama (mis. ${staffUsernameSuggestion(dlg.form.nama ?? "Siti Aminah")})`}>
+            <Input value={dlg.form.username ?? ""} onChange={(e) => setForm("username", e.target.value)} placeholder="mis. siti.aminah" autoCapitalize="none" autoComplete="off" />
+          </FormField>
+          <FormField label="Password" hint={`Dipakai login kader. Default: ${DEFAULT_STAFF_PASSWORD}`}>
+            <Input value={dlg.form.password ?? ""} onChange={(e) => setForm("password", e.target.value)} placeholder={DEFAULT_STAFF_PASSWORD} autoComplete="off" />
           </FormField>
         </AdminModal>
       ) : null}

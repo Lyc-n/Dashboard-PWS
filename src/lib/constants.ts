@@ -49,4 +49,5 @@ export const STORAGE_KEYS = {
   adminStaff: "pws-admin-staff",
   krTemplates: "pws-kr-templates",
   auth: "pws-auth",
+  rekap: "pws-rekap",
 } as const;
