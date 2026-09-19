@@ -23,7 +23,7 @@ function readWrapper(): KunjunganStorageWrapper | null {
         .filter((r): r is KunjunganRecord => r !== null);
       return { version: CHECKLIST_SCHEMA_VERSION, updatedAt: new Date().toISOString(), data: clean };
     }
-    // legacy array fallback
+    // fallback array polos dari versi sangat lama
     if (Array.isArray(parsed)) return toStorageWrapper(parsed as KunjunganRecord[]);
     return null;
   } catch {
@@ -54,7 +54,7 @@ export class LocalKunjunganRepository implements KunjunganRepository {
   list(): KunjunganRecord[] {
     const w = readWrapper();
     if (w) return w.data;
-    // fallback legacy read raw array directly
+    // fallback: baca array polos dari storage langsung
     if (!isBrowser()) return [];
     try {
       const raw = window.localStorage.getItem(STORAGE_KEYS.checklist);

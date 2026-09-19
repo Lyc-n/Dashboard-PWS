@@ -4,7 +4,7 @@ import type {SasaranKey} from "@/lib/kr-form";
 
 export const KR_TEMPLATE_VERSION = 17 as const;
 
-// ── Types ──
+// ── Tipe ──
 export type KrFieldKind = "text" | "number" | "date" | "select" | "checkbox";
 export type KrSection =
   | "keluargaInfo"
@@ -46,7 +46,7 @@ export interface KrTemplates {
   hasilOpsi: string[];
 }
 
-// ── helpers ──
+// ── helper ──
 export function slugify(label: string): string {
   return label
     .toLowerCase()
@@ -68,7 +68,7 @@ function uniqueId(base: string, existing: Set<string>): string {
 
 // ── Seed ──
 export function seedKrTemplates(): KrTemplates {
-  // KeluargaInfo 11 fields
+  // KeluargaInfo 11 field
   const keluargaDefs: { id: string; label: string; kind: KrFieldKind; required: boolean }[] = [
     { id: "tglPengumpulan", label: "Tanggal pengumpulan data", kind: "date", required: true },
     { id: "posyandu", label: "Posyandu", kind: "text", required: true },

@@ -16,7 +16,7 @@ interface Props {
 export function MasalahSection({ state, templates, dispatch }: Props) {
   const masalahFields = useMemo(() => templates.masalah.filter((f) => f.active).sort((a, b) => a.order - b.order), [templates.masalah]);
 
-  // Sync otomatis: ikat ke anggota by id (amar utk nama kembar).
+  // Sync otomatis: ikat ke anggota lewat id, aman untuk nama kembar.
   useEffect(() => {
     for (const m of state.masalah) {
       if (!m.anggotaId) continue;

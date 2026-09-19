@@ -2,7 +2,7 @@ import type { AnggotaKeluarga, KeluargaInfo, KunjunganFoto, MasalahTindak, Penil
 
 export const CHECKLIST_SCHEMA_VERSION = 17 as const;
 
-// Supabase-ready record — localStorage wrapper now, DB row later
+// Record siap-Supabase — sekarang dibungkus localStorage, kelak jadi satu baris di DB
 export interface KunjunganRecord {
   id: string;
   schemaVersion: typeof CHECKLIST_SCHEMA_VERSION;
@@ -20,7 +20,7 @@ export interface KunjunganRecord {
   fotos: KunjunganFoto[];
 }
 
-// Versioned wrapper for localStorage — maps 1:1 to jsonb later
+// Pembungkus ber-version untuk localStorage — petakan 1:1 ke jsonb kelak
 export interface KunjunganStorageWrapper {
   version: typeof CHECKLIST_SCHEMA_VERSION;
   updatedAt: string;
@@ -135,9 +135,9 @@ export function fromStorageWrapper(raw: unknown): KunjunganRecord[] {
   if (typeof o.version === "number" && Array.isArray(o.data)) {
     return (o.data as unknown[]).map(sanitizeRecord).filter((r): r is KunjunganRecord => r !== null);
   }
-  // legacy: plain array
+  // legacy: array polos
   if (Array.isArray(raw)) return (raw as KunjunganRecord[]).map(withFotosFallback);
-  // legacy wrapper with checklist key?
+  // legacy: pembungkus ber-key "checklist"?
   return [];
 }
 

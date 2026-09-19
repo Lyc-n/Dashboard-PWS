@@ -8,12 +8,12 @@ let singleton: KunjunganRepository | null = null;
 
 export function getKunjunganRepository(): KunjunganRepository {
   if (singleton) return singleton;
-  // FE only — localStorage. Swap to Supabase impl later without changing callers.
+  // Hanya FE (localStorage). Ganti impl Supabase nanti tanpa mengubah pemanggil.
   singleton = new LocalKunjunganRepository();
   return singleton;
 }
 
-// for testing
+// untuk tes
 export function __setKunjunganRepository(repo: KunjunganRepository) {
   singleton = repo;
 }

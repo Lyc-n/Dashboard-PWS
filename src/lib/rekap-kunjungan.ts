@@ -3,7 +3,7 @@ import type { SasaranKey } from "@/lib/kr-form";
 import type { KrTemplates } from "@/lib/kr-templates";
 import type { KunjunganRecord } from "@/features/checklist/types";
 
-// Rekap murni — tanpa efek samping, unit-testable.
+// Rekap murni — tanpa efek samping, bisa diuji unit.
 // Minggu Ke = minggu dalam bulan (1-5) dari info.tglPengumpulan.
 
 export type SasaranGroupKey =
@@ -183,7 +183,7 @@ function anggotaAge(record: KunjunganRecord, anggotaId: string, ref: string): nu
   return ageOn(a.tglLahir, ref);
 }
 
-/** Nama kader pemilik record: cocokkan tanda tangan dulu, fallback wilayah. */
+/** Nama kader pemilik record: cocokkan tanda tangan dulu, jika kosong pakai wilayah. */
 export function kaderNameOf(record: KunjunganRecord, staff: Staff[]): string | undefined {
   const byTtd = staff.find((s) => s.nama === record.ttd);
   if (byTtd) return byTtd.nama;

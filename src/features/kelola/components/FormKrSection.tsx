@@ -70,7 +70,7 @@ export function FormKrSection({ templates, setTemplates, resetTemplates, exportJ
     a.order = bo;
     b.order = ao;
     if (a.order === b.order) {
-      // ensure distinct if same order
+      // pastikan keduanya tetap berbeda urutan
       b.order = ao + dir;
     }
     setFieldsForSub([...fields]);
@@ -196,7 +196,7 @@ export function FormKrSection({ templates, setTemplates, resetTemplates, exportJ
     importJson(file, (ok, msg) => {
       toast(msg);
       if (!ok) {
-        // keep
+        // pesan gagal impor sudah muncul via toast — abaikan
       }
     });
     e.target.value = "";

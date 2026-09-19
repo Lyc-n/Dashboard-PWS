@@ -15,7 +15,7 @@ export const Route = createFileRoute("/checklist/$id")({
 
 function ChecklistEdit() {
   const { record } = Route.useLoaderData();
-  // Record tidak ditemukan (mis. laman dibuka langsung di server tanpa localStorage) →
+  // Record tidak ditemukan (mis. laman dibuka langsung di server tanpa localStorage):
   // fallback ke halaman input baru; tombol edit selalu menghantar via navigasi client.
   return <ChecklistFormScene record={record} />;
 }

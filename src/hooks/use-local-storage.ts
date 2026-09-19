@@ -24,7 +24,7 @@ export function useLocalStorage<T>(key: string, initial: T) {
       const raw = window.localStorage.getItem(key);
       if (raw != null) return JSON.parse(raw) as T;
     } catch {
-      // ignore corrupt storage
+      // abaikan storage korup
     }
     return initial;
   });

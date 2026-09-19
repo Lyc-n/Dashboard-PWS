@@ -30,7 +30,7 @@ interface StoredSession {
   sig: string;
 }
 
-// Demo-only: localStorage session. Bukan auth aman — ganti server session + httpOnly cookie saat backend siap.
+// Hanya untuk demo: sesi localStorage. Bukan auth aman — ganti server session + httpOnly cookie saat backend siap.
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const SIG_PEPPER = "pws-demo-v1";
 
@@ -141,7 +141,7 @@ export function staffUsernameSuggestion(nama: string): string {
 
 export function login(username: string, password: string): LoginResult {
   const uname = username.trim().toLowerCase();
-  // Akun admin hardcoded
+  // Akun admin patokan (hardcoded)
   if (uname === ADMIN_USERNAME) {
     if (password === "admin") return { ok: true, user: adminUser() };
     return { ok: false, error: "Username atau password salah." };

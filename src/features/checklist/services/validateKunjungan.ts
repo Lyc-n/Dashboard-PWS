@@ -93,10 +93,10 @@ export function validateKunjungan(input: ValidateInput): {
     if (m.nik) {
       if (!seen.has(m.nik)) seen.add(m.nik)
       else {
-        /* already flagged */
+        /* duplikat sudah ditandai di atas */
       }
     } else {
-      // still track empty to avoid false duplicate
+      // tetap lacak agar \u201ckosong\u201d tidak dianggap duplikat palsu
     }
     if (!m.nama.trim()) {
       const hasNamaReq = templates.anggota.some(

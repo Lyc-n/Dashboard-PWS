@@ -1,6 +1,6 @@
 import type { SasaranKey } from "@/lib/kr-form";
 
-// Single source untuk model domain checklist.
+// Sumber tunggal untuk model domain checklist.
 // Dipindah dari hooks/use-kunjungan (hook dihapus, tipe tetap di sini).
 
 export interface AnggotaKeluarga {
@@ -27,7 +27,7 @@ export interface PenilaianForm {
 
 export interface MasalahTindak {
   id: string;
-  /** Bind ke anggota keluarga via id, bukan nama — aman utk nama kembar. */
+  /** Ikat ke anggota keluarga lewat id, bukan nama — aman untuk nama kembar. */
   anggotaId?: string;
   nama: string;
   nik: string;
@@ -75,7 +75,7 @@ export interface KunjunganFoto {
   takenAt: string;
 }
 
-/** Baca field sanitasi (boolean|string) tanpa cast di call-site. */
+/** Baca field sanitasi (boolean|string) tanpa cast di lokasi pemanggil. */
 export function sanField(rec: Sanitasi, id: string): boolean | string | undefined {
   return rec[id];
 }

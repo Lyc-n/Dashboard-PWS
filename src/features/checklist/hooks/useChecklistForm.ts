@@ -48,7 +48,7 @@ export function useChecklistForm(opts?: UseChecklistFormOptions) {
       return s
     },
   )
-  // Single source: repository. Tidak ada dual-write useLocalStorage.
+  // Sumber tunggal: repository. Tidak ada tulis-ganda lewat useLocalStorage.
   const [records, setRecords] = useState<KunjunganRecord[]>(() => {
     try {
       return getKunjunganRepository().list()

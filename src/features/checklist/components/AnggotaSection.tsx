@@ -85,7 +85,6 @@ export function AnggotaSection({ state, templates, dispatch }: Props) {
                         key={f.id}
                         label={f.label}
                         required={f.required}
-                        // hint={f.hint ?? '16 digit, tanpa spasi.'}
                         invalid={invalid}
                         error={
                           f.required ? 'Wajib 16 digit & unik.' : undefined

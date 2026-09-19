@@ -25,7 +25,7 @@ export function computeFillPercent(args: {
     if (String(v).trim()) filledReq++;
   }
 
-  // per-anggota: each required field per each anggota counts
+  // per anggota: tiap field wajib dihitung untuk tiap anggota
   if (reqAnggota.length > 0) {
     if (anggota.length > 0) {
       totalReq += reqAnggota.length * anggota.length;
