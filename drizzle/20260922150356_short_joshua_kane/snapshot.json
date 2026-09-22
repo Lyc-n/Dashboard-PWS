@@ -1,0 +1,620 @@
+{
+  "version": "8",
+  "dialect": "postgres",
+  "id": "7f03499c-5240-44fc-a743-2dc2c5569609",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "ddl": [
+    {
+      "values": [
+        "Anak",
+        "Istri",
+        "Orang Tua",
+        "Kepala Keluarga",
+        "Cucu",
+        "Famili lain",
+        "Mertua",
+        "Menantu",
+        "Pembantu",
+        "Lainnya",
+        "Suami"
+      ],
+      "name": "hubungan_keluarga",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
+        "laki-laki",
+        "perempuan"
+      ],
+      "name": "jenis_kelamin",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
+        "SLTA/Sederajat",
+        "Tidak/Belum Sekolah",
+        "Belum Tamat SD/Sederajat",
+        "SLTP/Sederajat",
+        "Strata III",
+        "Diploma IV/Strata I",
+        "Akademi/Diploma III/ Sarjana Muda",
+        "Tamat SD/Sederajat",
+        "Strata-II"
+      ],
+      "name": "pendidikan",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
+        "belum kawin",
+        "kawin",
+        "cerai mati",
+        "cerai hidup"
+      ],
+      "name": "status_kawin",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "data_warga",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "riwayat_survey",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "surveyor",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "nik",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "nama_art",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "nama_kk",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "hubungan_keluarga",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "hubungan_keluarga",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "alamat",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "date",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "tgl_lahir",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "rt",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "rw",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "kecamatan",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "kelurahan",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "kota",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "status_kawin",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "status_kawin",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "petugas",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "jenis_kelamin",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "jenis_kelamin",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "wanita_usia_hamil",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "agama",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "pendidikan",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "pendidikan",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "pekerjaan",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "data_warga"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": {
+        "type": "always",
+        "name": "riwayat_survey_id_seq",
+        "increment": "1",
+        "startWith": "1",
+        "minValue": "1",
+        "maxValue": "2147483647",
+        "cache": 1,
+        "cycle": false
+      },
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "nama",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "type": "date",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "tgl_survei",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "nik_warga",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "type": "numeric",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "iks_inti",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "type": "numeric",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "iks_besar",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "petugas_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "jumlah_art_di_wawancara",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ada_air_bersih",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "sumber_air_terlindung",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ada_jamban_keluarga",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "jamban_saniter",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ada_art_gangguan_jiwa",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "minum_obat_gangguan_jiwa_teratur",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ada_art_dipasung",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": {
+        "type": "always",
+        "name": "surveyor_id_seq",
+        "increment": "1",
+        "startWith": "1",
+        "minValue": "1",
+        "maxValue": "2147483647",
+        "cache": 1,
+        "cycle": false
+      },
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "surveyor"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "nama",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "surveyor"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "nik_warga"
+      ],
+      "schemaTo": "public",
+      "tableTo": "data_warga",
+      "columnsTo": [
+        "nik"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "riwayat_survey_nik_warga_data_warga_nik_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "petugas_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "surveyor",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "riwayat_survey_petugas_id_surveyor_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "riwayat_survey"
+    },
+    {
+      "columns": [
+        "nik"
+      ],
+      "nameExplicit": false,
+      "name": "data_warga_pkey",
+      "schema": "public",
+      "table": "data_warga",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "riwayat_survey_pkey",
+      "schema": "public",
+      "table": "riwayat_survey",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "surveyor_pkey",
+      "schema": "public",
+      "table": "surveyor",
+      "entityType": "pks"
+    }
+  ],
+  "renames": []
+}

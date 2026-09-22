@@ -15,6 +15,7 @@ const config = defineConfig({
     // Externalize to avoid bundling issue; Node will resolve at runtime
     external: ["@tanstack/history"],
   },
+  envPrefix: 'VITE_'
 })
 
 export default config
