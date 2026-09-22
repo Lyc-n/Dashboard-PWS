@@ -1,5 +1,5 @@
-import { date, integer, pgTable, pgEnum,text, varchar } from "drizzle-orm/pg-core";
-
+import { date, integer, pgTable, pgEnum,text, varchar, numeric, boolean} from "drizzle-orm/pg-core";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const statusKawinEnum = pgEnum('status_kawin', ['belum kawin', 'kawin', 'cerai mati', 'cerai hidup']);
 export const jenisKelaminEnum = pgEnum('jenis_kelamin', ['laki-laki', 'perempuan']);
@@ -30,6 +30,7 @@ export const dataWargaTable = pgTable("data_warga", {
     status_kawin: statusKawinEnum().notNull(),
     petugas: text().notNull(),
     jenis_kelamin: jenisKelaminEnum().notNull(),
+    wanita_usia_hamil:boolean().notNull(),
     agama: text().notNull(),
     pendidikan: pendidikanEnum().notNull(),
     pekerjaan: text().notNull(),
@@ -40,8 +41,21 @@ export const surveyor = pgTable("surveyor", {
     nama: varchar({ length: 255 }).notNull(),
 });
 
-export const riawaySurvey = pgTable("riwayat_survey", {
+export const riawayatSurvey = pgTable("riwayat_survey", {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     nama: varchar({ length: 255 }).notNull(),
-    
+    tgl_survei: date().notNull() ,
+    nik_warga: integer().references(():AnyPgColumn => dataWargaTable.nik),
+    iks_inti: numeric({ scale: 2 }).notNull(),
+    iks_besar: numeric({ scale: 2 }).notNull(),
+    petugas_id: integer().references(():AnyPgColumn => surveyor.id),
+    jumlah_art_di_wawancara: integer().notNull(),
+    ada_air_bersih: boolean().notNull(),
+    sumber_air_terlindung: boolean().notNull(),
+    ada_jamban_keluarga: boolean().notNull(),
+    jamban_saniter: boolean().notNull(),
+    ada_art_gangguan_jiwa: boolean().notNull(),
+    minum_obat_gangguan_jiwa_teratur: boolean().notNull(),
+    ada_art_dipasung: boolean().notNull(),
+
 });
