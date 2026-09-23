@@ -41,7 +41,7 @@ export const surveyor = pgTable("surveyor", {
     nama: varchar({ length: 255 }).notNull(),
 });
 
-export const riawayatSurvey = pgTable("riwayat_survey", {
+export const riwayatSurvey = pgTable("riwayat_survey", {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     nama: varchar({ length: 255 }).notNull(),
     tgl_survei: date().notNull() ,
