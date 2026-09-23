@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState  } from "react";
 import type {ReactNode} from "react";
-import { login as authLogin, clearAuth, saveAuth, getAuth } from "@/lib/auth";
-import type {AuthUser} from "@/lib/auth";
+import { login as authLogin, clearAuth, saveAuth, getAuth } from "#/lib/auth.server";
+import type {AuthUser} from "#/lib/auth.server";
 
 interface AuthContextValue {
   user: AuthUser | null;

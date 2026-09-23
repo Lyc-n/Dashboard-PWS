@@ -10,7 +10,7 @@ import {
 } from "@/lib/mock-data";
 import { MONTHS } from "@/lib/constants";
 import { average, fmtDate } from "@/lib/utils";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "#/lib/auth.server";
 import { AppShell } from "@/components/organisms/AppShell";
 import { ChartCard } from "@/components/organisms/ChartCard";
 import { DataTable } from "@/components/organisms/DataTable";

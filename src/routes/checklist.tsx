@@ -10,7 +10,7 @@ import type { Step } from "@/components/molecules/Stepper";
 import { FillBar } from "@/components/molecules/FillBar";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { Button } from "@/components/atoms/Button";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "#/lib/auth.server";
 import { useToast } from "@/providers/toast";
 import { useChecklistForm } from "@/features/checklist/hooks/useChecklistForm";
 import type { KunjunganRecord } from "@/features/checklist/types";
