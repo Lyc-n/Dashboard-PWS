@@ -1,18 +1,40 @@
-import { date, integer, pgTable, pgEnum,text, varchar, numeric, boolean} from "drizzle-orm/pg-core";
+import { date, integer, pgTable, pgEnum,text, varchar, numeric, boolean, uuid} from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
-export const statusKawinEnum = pgEnum('status_kawin', ['belum kawin', 'kawin', 'cerai mati', 'cerai hidup']);
-export const jenisKelaminEnum = pgEnum('jenis_kelamin', ['laki-laki', 'perempuan']);
-export const hubunganKeluargaEnum = pgEnum('hubungan_keluarga',
-            ['Anak', 'Istri', 'Orang Tua', 'Kepala Keluarga',
-             'Cucu', 'Famili lain', 'Mertua', 'Menantu',
-             'Pembantu', 'Lainnya', 'Suami'
-            ]);
-export const pendidikanEnum = pgEnum('pendidikan', 
-            ['SLTA/Sederajat', 'Tidak/Belum Sekolah', 'Belum Tamat SD/Sederajat',
-             'SLTP/Sederajat', 'Strata III', 'Diploma IV/Strata I', 'Akademi/Diploma III/ Sarjana Muda',
-             'Tamat SD/Sederajat', 'Strata-II'
-            ]);
+export const statusKawinEnum = pgEnum('status_kawin', [
+  'belum kawin',
+  'kawin',
+  'cerai mati',
+  'cerai hidup',
+])
+export const jenisKelaminEnum = pgEnum('jenis_kelamin', [
+  'laki-laki',
+  'perempuan',
+])
+export const hubunganKeluargaEnum = pgEnum('hubungan_keluarga', [
+  'Anak',
+  'Istri',
+  'Orang Tua',
+  'Kepala Keluarga',
+  'Cucu',
+  'Famili lain',
+  'Mertua',
+  'Menantu',
+  'Pembantu',
+  'Lainnya',
+  'Suami',
+])
+export const pendidikanEnum = pgEnum('pendidikan', [
+  'SLTA/Sederajat',
+  'Tidak/Belum Sekolah',
+  'Belum Tamat SD/Sederajat',
+  'SLTP/Sederajat',
+  'Strata III',
+  'Diploma IV/Strata I',
+  'Akademi/Diploma III/ Sarjana Muda',
+  'Tamat SD/Sederajat',
+  'Strata-II',
+])
 
 export const dataWargaTable = pgTable("data_warga", {
     // id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -37,12 +59,12 @@ export const dataWargaTable = pgTable("data_warga", {
 });
 
 export const surveyor = pgTable("surveyor", {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    id: uuid().primaryKey().defaultRandom(),
     nama: varchar({ length: 255 }).notNull(),
 });
 
 export const riwayatSurvey = pgTable("riwayat_survey", {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    id: uuid().primaryKey().defaultRandom(),
     nama: varchar({ length: 255 }).notNull(),
     tgl_survei: date().notNull() ,
     nik_warga: integer().references(():AnyPgColumn => dataWargaTable.nik),
@@ -59,3 +81,8 @@ export const riwayatSurvey = pgTable("riwayat_survey", {
     ada_art_dipasung: boolean().notNull(),
 
 });
+
+export const validSession = pgTable("valid_session",{
+    uid: uuid().primaryKey().defaultRandom(),
+    token: text().notNull(),
+})
