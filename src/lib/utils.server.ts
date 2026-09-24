@@ -2,7 +2,7 @@ import { db } from './db.server'
 import { riwayatSurvey } from './schema'
 import { jwtVerify, SignJWT } from 'jose'
 import { randomBytes } from 'node:crypto';
-import { setCookie, getCookie } from '@tanstack/react-start/server';
+import { setCookie } from '@tanstack/react-start/server';
 
 
 /* TODO 
