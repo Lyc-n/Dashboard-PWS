@@ -1,8 +1,8 @@
 import { db } from './db.server'
-import { riwayatSurvey } from './schema'
+import { riwayatSurvey, validSession } from './schema'
 import { jwtVerify, SignJWT } from 'jose'
 import { randomBytes } from 'node:crypto';
-import { setCookie, getCookie } from '@tanstack/react-start/server';
+import { setCookie } from '@tanstack/react-start/server';
 
 
 /* TODO 
@@ -24,6 +24,7 @@ async function createSessionToken(){
         .setProtectedHeader({ alg: 'HS256' })
         .setExpirationTime('1h')
         .sign(secretKey);
+    await db.insert(validSession).values({ token })
     return token;
 }
 
@@ -38,6 +39,14 @@ export async function isValidPin(pin:number){
         return true
     } else{ return false }
 
+}
+
+export async function isValidSession(token: string){
+    await db.query.validSession.findFirst({
+        where: {
+            token: token
+        }
+    })
 }
 
 export async function getAllSurveyData() {
