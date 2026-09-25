@@ -22,12 +22,27 @@ function SasaranDetail() {
   const toast = useToast();
 
   const rows = sasaranRows();
-  let idx = Number.parseInt(id, 10);
-  if (Number.isNaN(idx) || idx < 0 || idx >= rows.length) idx = 0;
+  const parsed = Number.parseInt(id, 10);
+  const invalid = Number.isNaN(parsed) || parsed < 0 || parsed >= rows.length;
+  const idx = invalid ? 0 : parsed;
   const row = rows[idx];
 
   const [localStatus, setLocalStatus] = useState(row?.status ?? "Belum");
-  if (!row) return null;
+
+  if (invalid || !row) {
+    return (
+      <>
+        <PageHeader title="Sasaran tidak ditemukan" description={`ID sasaran "${id}" tidak valid.`} />
+        <div className="mt-3.5 rounded-[10px] border border-line bg-surface p-6 text-center">
+          <p className="text-sm font-bold text-ink">Data sasaran tidak ada.</p>
+          <p className="mt-1 text-xs text-muted">ID mungkin salah ketik atau data sudah dihapus.</p>
+          <Button variant="primary" onClick={() => navigate({ to: "/sasaran" })} >
+            Kembali ke Data Sasaran
+          </Button>
+        </div>
+      </>
+    );
+  }
 
   const markVisited = () => {
     if (localStatus === "Sudah") {

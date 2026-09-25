@@ -12,7 +12,16 @@ export interface PrepareResult {
   skipped: number;
 }
 
+const BLOCKED_MIME = new Set(["image/svg+xml", "image/svg"]);
+
+function isBlockedImage(file: File): boolean {
+  const mime = file.type.toLowerCase();
+  if (BLOCKED_MIME.has(mime)) return true;
+  return file.name.toLowerCase().endsWith(".svg");
+}
+
 function mimeOf(file: File): string {
+  if (isBlockedImage(file)) return "";
   return file.type.startsWith("image/") ? file.type : "";
 }
 

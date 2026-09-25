@@ -1,4 +1,4 @@
-import { date, integer, pgTable, pgEnum,text, varchar, numeric, boolean} from "drizzle-orm/pg-core";
+import { date, integer, pgTable, pgEnum,text, varchar, boolean, timestamp, uuid, jsonb} from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const statusKawinEnum = pgEnum('status_kawin', ['belum kawin', 'kawin', 'cerai mati', 'cerai hidup']);
@@ -14,9 +14,11 @@ export const pendidikanEnum = pgEnum('pendidikan',
              'Tamat SD/Sederajat', 'Strata-II'
             ]);
 
+export const agama = pgEnum('agama', ['Islam', 'Kristen', 'Katolik', 'Hindu', 'Budha', 'Konghucu', 'Lainnya']);
+
 export const dataWargaTable = pgTable("data_warga", {
     // id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    nik: integer().notNull().primaryKey(),
+    nik: varchar({ length: 16 }).notNull().primaryKey(),
     nama_art: varchar({ length: 255 }).notNull(),
     nama_kk: varchar({ length: 255 }).notNull(),
     hubungan_keluarga: hubunganKeluargaEnum().notNull(),
@@ -31,7 +33,7 @@ export const dataWargaTable = pgTable("data_warga", {
     petugas: text().notNull(),
     jenis_kelamin: jenisKelaminEnum().notNull(),
     wanita_usia_hamil:boolean().notNull(),
-    agama: text().notNull(),
+    agama: agama().notNull(),
     pendidikan: pendidikanEnum().notNull(),
     pekerjaan: text().notNull(),
 });
@@ -41,6 +43,7 @@ export const surveyor = pgTable("surveyor", {
     nama: varchar({ length: 255 }).notNull(),
 });
 
+/*
 export const riawayatSurvey = pgTable("riwayat_survey", {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     nama: varchar({ length: 255 }).notNull(),
@@ -58,4 +61,72 @@ export const riawayatSurvey = pgTable("riwayat_survey", {
     minum_obat_gangguan_jiwa_teratur: boolean().notNull(),
     ada_art_dipasung: boolean().notNull(),
 
+});
+*/
+
+
+// tabel untuk pilihan form, sehingga user bisa membuat atau menghapus form 
+export const forms = pgTable("forms", {
+    id: uuid().primaryKey().notNull().defaultRandom(),
+    nama: varchar({ length: 100 }).notNull(), // form default saat ini ada Form Kunjungan Rumah | Form Kegiatan Pemberdayaan
+    deskripsi: text(), // deskripsi form
+    aktif: boolean().notNull().default(true), // tampilkan form atau tidak, agar user bisa menonaktifkan form sementara sebelum hapus total
+    createdAt: timestamp().defaultNow().notNull(),
+    updatedAt: timestamp().defaultNow().notNull(),
+})
+
+// tabel untuk membagi form jadi beberapa bagian
+export const formSections = pgTable("form_sections", {
+    id: uuid().primaryKey().defaultRandom(),
+    formId: uuid().notNull().references(() => forms.id, { onDelete: "cascade", }), // selalu terhubung dengan form 
+    nama: varchar({ length: 100 }).notNull(), // contoh section Identitas | Sasaran | Tindak Lanjut | Dokumentasi 
+    deskripsi: text(),
+    urutan: integer().notNull(),
+    createdAt: timestamp().defaultNow().notNull(),
+    updatedAt: timestamp().defaultNow().notNull(),
+})
+
+// tabel pertanyaan tiap section 
+export const questions = pgTable("questions", {
+    id: uuid().primaryKey().defaultRandom(),
+    sectionId: uuid().notNull().references(() => formSections.id, { onDelete: "cascade", }), // selalu terhubung dengan section
+    parentId: uuid().references((): AnyPgColumn => questions.id, { onDelete: "cascade", }), // id untuk sub questions
+    /* Misalkan 
+      Q1. Apakah ada ibu hamil?
+        ├── { kosong }                      jika tanpa parentId
+        ├── Q2. Siapa nama ibu hamil?       muncul jika parentId Q1
+        ├── Q3. Berapa usia kehamilan?      muncul jika parentId Q1
+        └── Q4. Apakah rutin periksa?       muncul jika parentId Q1
+    */
+    pertanyaan: text().notNull(),
+    tipe: varchar({ length: 30 }).notNull(), // text | number | date | select | radio | checkbox
+    wajib: boolean().notNull().default(false), // wajib diisi atau tidak
+    urutan: integer().notNull(), // urutan tampilan
+    aktif: boolean().notNull().default(true), // tampilkan atau tidak
+    createdAt: timestamp().defaultNow().notNull(),
+    updatedAt: timestamp().defaultNow().notNull(),
+})
+
+// tabel untuk menangani input image
+export const surveyImages = pgTable("survey_images", {
+    id: uuid().primaryKey().defaultRandom(),
+    surveyId: uuid().notNull().references(() => surveys.id, { onDelete: "cascade", }), // penanda terhubung dengan survey yang mana
+    questionId: uuid().notNull().references(() => questions.id, { onDelete: "cascade", }), // penanda terhubung dengan question apa
+    fileUrl: text().notNull(), // simpan url, file disimpan di supabase storage
+    fileName: varchar({ length: 255 }),
+    mimeType: varchar({ length: 100 }),
+    fileSize: integer(),
+    createdAt: timestamp().defaultNow().notNull(),
+});
+
+// tabel riwayat survey
+export const surveys = pgTable("surveys", {
+    id: uuid().primaryKey().defaultRandom(),
+    formId: uuid().notNull().references(() => forms.id), // penanda terhubung dengan form apa
+    nik: varchar({ length: 16 }).notNull().references(() => dataWargaTable.nik), // penanda terhubung dengan data warga apa
+    petugasId: integer().notNull().references(() => surveyor.id), // penanda terhubung dengan petugas atau surveyor
+    tanggal: date().notNull(), // tanggal pelaksanaan survey
+    jawaban: jsonb().notNull(), // jawaban survey
+    createdAt: timestamp().defaultNow().notNull(),
+    updatedAt: timestamp().defaultNow().notNull(),
 });

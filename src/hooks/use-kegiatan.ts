@@ -87,7 +87,9 @@ export function useKegiatan() {
     const next: Foto[] = [];
     // baca via ref agar panggilan cepat beruntun tidak pakai length basi
     for (const file of files) {
-      if (fotosRef.current.length + next.length >= MAX_FOTO || file.size > MAX_SIZE || !file.type.startsWith("image/")) {
+      const mime = file.type.toLowerCase();
+      const isSvg = mime === "image/svg+xml" || mime === "image/svg" || file.name.toLowerCase().endsWith(".svg");
+      if (fotosRef.current.length + next.length >= MAX_FOTO || file.size > MAX_SIZE || file.size <= 0 || !file.type.startsWith("image/") || isSvg) {
         skipped++;
         continue;
       }
