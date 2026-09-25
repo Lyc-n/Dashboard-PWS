@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Download, Printer } from "lucide-react";
 import { laporanRows } from "@/lib/mock-data";
 import type { KegiatanRecord } from "@/hooks/use-kegiatan";
@@ -21,12 +21,17 @@ import { StatusBadge } from "@/components/atoms/StatusBadge";
 import { Tag } from "@/components/atoms/Tag";
 import { LogoEmblem } from "@/components/atoms/LogoEmblem";
 import { Tab } from "@/components/atoms/Tab";
-import { requireAuth, isAdminUser } from "@/lib/auth.server";
-import { useAuth } from "@/providers/auth";
-import { RekapKunjunganSection } from "@/features/laporan/RekapKunjunganSection";
+// import { requireAuth } from "#/lib/auth.server";
+import { getSessionToken } from "#/lib/utils.functions";
 
 export const Route = createFileRoute("/laporan")({
-  beforeLoad: requireAuth,
+  beforeLoad: async ()=>{
+    try {
+      await getSessionToken()
+    } catch (error) {
+      throw redirect({ to: '/pin'})
+    }
+  },
   component: Laporan,
 })
 

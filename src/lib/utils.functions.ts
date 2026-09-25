@@ -1,6 +1,6 @@
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
-import { isValidPin } from "./utils.server";
+import { getSessionHelper, isValidPin, queryAllSurveyData, verifyTokenHelper } from "./utils.server";
 
 
 /* ALUR LOGIN
@@ -13,12 +13,12 @@ import { isValidPin } from "./utils.server";
 
 
 /* TODO 
-1. bikin server function buat load semua data survey
+1. bikin server function buat load semua data survey [X]
 2. bikin login function
-3. ngambi session token yang udah ada di cookie
-4. cek session token ke db
+3. ngambil session token yang udah ada di cookie [X]
+4. cek session token ke db [X]
 5. if token valid, update expire time
-6. kalo pin valid, kasih akses form 
+6. kalo pin valid, kasih akses form [X]
 7. crosscheck sesionToken waktu form submmision dengan valid session di db (authMiddleware) 
 */
 
@@ -26,27 +26,33 @@ export const pinLogin = createServerFn({ method:"GET" })
     .validator((data: { pin: number }) => data)
     .handler(
         async ({ data }) => {
-            if (await isValidPin(data.pin)){
-                return true
-            }
+            if (await isValidPin(data.pin)){ return true }
         }
 )
 
-
-export const checkSessionToken = createServerFn({ method:"GET" })
-    .validator((data: { sessionToken: string }) => data)
+export const getSessionToken = createServerFn({ method: "GET" })
     .handler(
-        async ({ data }) => {
+        async ()=>{
+            const sessionToken = getCookie('session')
+            if(!sessionToken) throw new Error('Session dont exist') // gak pernah login
             
-        
-        }
+            return await getSessionHelper(sessionToken)
+        }    
 )
 
-export const authMiddleware = createMiddleware({ type: "function" }).server(
-    async ({ next, context }) =>{
-        // sessionId dibuat setiap kali masukkkin pin
-        const sessionToken = getCookie("session");
-        if (!sessionToken) throw new Error("Unauthorized");
-        return next({ context: { sessionToken } });
+
+
+export const authSessionToken = createMiddleware({ type: "function" }).server(
+    async ({ next }) =>{
+        const sessionToken = await getSessionHelper(getCookie('session')!)
+        return next({ context: { sessionToken } })
     }
+)
+
+export const getAllSurveyData = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .handler(
+        async () => {
+            return await queryAllSurveyData()
+        }
 )
