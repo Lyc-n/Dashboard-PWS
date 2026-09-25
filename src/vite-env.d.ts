@@ -4,8 +4,8 @@ interface ImportMetaEnv {
   // agar tidak terbundel ke client — akses via process.env di server only.
   // API Configuration
   readonly DATABASE_URL: string
-  readonly VITE_PIN: number
-  readonly VITE_SECRET_KEY: string
+  readonly PIN: number
+  readonly SECRET_KEY: string
 }
 
 interface ImportMeta {

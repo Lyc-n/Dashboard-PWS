@@ -22,7 +22,7 @@ import { isValidPin } from "./utils.server";
 7. crosscheck sesionToken waktu form submmision dengan valid session di db (authMiddleware) 
 */
 
-const pinLogin = createServerFn({ method:"GET" })
+export const pinLogin = createServerFn({ method:"GET" })
     .validator((data: { pin: number }) => data)
     .handler(
         async ({ data }) => {
@@ -33,7 +33,7 @@ const pinLogin = createServerFn({ method:"GET" })
 )
 
 
-const checkSessionToken = createServerFn({ method:"GET" })
+export const checkSessionToken = createServerFn({ method:"GET" })
     .validator((data: { sessionToken: string }) => data)
     .handler(
         async ({ data }) => {
@@ -42,18 +42,11 @@ const checkSessionToken = createServerFn({ method:"GET" })
         }
 )
 
-const authMiddleware = createMiddleware({ type: "function" }).server(
+export const authMiddleware = createMiddleware({ type: "function" }).server(
     async ({ next, context }) =>{
         // sessionId dibuat setiap kali masukkkin pin
         const sessionToken = getCookie("session");
         if (!sessionToken) throw new Error("Unauthorized");
         return next({ context: { sessionToken } });
-    }
-)
-
-const getAllSurveyData = createServerFn({ method: "GET" }).handler(
-    async () => {
-
-        return
     }
 )

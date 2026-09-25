@@ -1,6 +1,6 @@
 import { db } from './db.server'
-import { riwayatSurvey } from './schema'
-import { jwtVerify, SignJWT } from 'jose'
+import { surveys } from './schema'
+import { SignJWT } from 'jose'
 import { randomBytes } from 'node:crypto';
 import { setCookie } from '@tanstack/react-start/server';
 
@@ -18,7 +18,7 @@ async function createSessionToken(){
         loggedInAt: new Date().toISOString,
     };
 
-    const secretKey = Buffer.from(import.meta.env.VITE_SECRET_KEY,"base64")
+    const secretKey = Buffer.from(import.meta.env.SECRET_KEY,"base64")
     
     const token = await new SignJWT(tokenPayload)
         .setProtectedHeader({ alg: 'HS256' })
@@ -28,7 +28,7 @@ async function createSessionToken(){
 }
 
 export async function isValidPin(pin:number){
-    if(pin === import.meta.env.VITE_PIN){
+    if(pin === import.meta.env.PIN){
         setCookie('session', await createSessionToken(), {
             httpOnly: true,
             secure: true,
@@ -41,13 +41,13 @@ export async function isValidPin(pin:number){
 }
 
 export async function getAllSurveyData() {
-  return await db.query.riwayatSurvey.findMany()
+  return await db.query.surveys.findMany()
 }
 
 export async function getPetugasByName(queryName: string){
     return await db.query.surveyor.findFirst({where: {nama: queryName }}) 
 }
 
-export async function putSurveyData( newData: typeof riwayatSurvey.$inferInsert ) {
-    await db.insert(riwayatSurvey).values(newData).onConflictDoNothing({ target: riwayatSurvey.nik_warga })
+export async function putSurveyData( newData: typeof surveys.$inferInsert ) {
+    await db.insert(surveys).values(newData).onConflictDoNothing({ target: surveys.nik })
 }

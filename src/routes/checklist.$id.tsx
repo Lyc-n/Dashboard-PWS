@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth.server";
 import { getKunjunganRepository } from "@/lib/repositories";
 import { ChecklistFormScene } from "@/features/checklist/components/ChecklistFormScene";
 import type { KunjunganRecord } from "@/features/checklist/types";

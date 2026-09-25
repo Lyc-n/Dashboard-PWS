@@ -155,5 +155,6 @@ export const surveys = pgTable("surveys", {
 
 export const validSession = pgTable("valid_session",{
     uid: uuid().primaryKey().defaultRandom(),
-    token: text().notNull(),
+    token: text().notNull().unique(),
+    expiresAt: timestamp().notNull(),
 })

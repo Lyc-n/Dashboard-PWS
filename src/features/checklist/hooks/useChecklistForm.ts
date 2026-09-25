@@ -15,7 +15,7 @@ import {
 } from '../store/kunjunganSelectors'
 import { CHECKLIST_SCHEMA_VERSION, createRecordId } from '../types'
 import type { KunjunganRecord } from '../types'
-import { getAuth, isAdminUser } from '@/lib/auth'
+import { getAuth, isAdminUser } from '@/lib/auth.server'
 import type { KunjunganState } from '../store/kunjunganReducer'
 
 export interface UseChecklistFormOptions {
