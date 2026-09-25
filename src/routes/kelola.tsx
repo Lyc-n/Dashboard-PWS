@@ -9,7 +9,7 @@ import { AppShell } from "@/components/organisms/AppShell";
 import { StatCard } from "@/components/molecules/StatCard";
 import { PageHeader } from "@/components/molecules/PageHeader";
 import { Tab } from "@/components/atoms/Tab";
-import { requireAuth, isAdminUser, getAuth } from "@/lib/auth";
+import { requireAuth, isAdminUser, getAuth } from "@/lib/auth.server";
 import { TABS } from "@/features/kelola/types";
 import type { KelolaTab } from "@/features/kelola/types";
 import { FormKrSection } from "@/features/kelola/components/FormKrSection";

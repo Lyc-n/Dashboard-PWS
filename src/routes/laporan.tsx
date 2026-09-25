@@ -21,7 +21,7 @@ import { StatusBadge } from "@/components/atoms/StatusBadge";
 import { Tag } from "@/components/atoms/Tag";
 import { LogoEmblem } from "@/components/atoms/LogoEmblem";
 import { Tab } from "@/components/atoms/Tab";
-import { requireAuth, isAdminUser } from "@/lib/auth";
+import { requireAuth, isAdminUser } from "@/lib/auth.server";
 import { useAuth } from "@/providers/auth";
 import { RekapKunjunganSection } from "@/features/laporan/RekapKunjunganSection";
 

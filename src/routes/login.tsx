@@ -3,7 +3,7 @@ import type {FormEvent} from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Eye, EyeOff } from "lucide-react";
 import { APP_BRAND } from "@/lib/constants";
-import { getAuth } from "@/lib/auth";
+import { getAuth } from "@/lib/auth.server";
 import { useAuth } from "@/providers/auth";
 import { useToast } from "@/providers/toast";
 import { LogoEmblem } from "@/components/atoms/LogoEmblem";

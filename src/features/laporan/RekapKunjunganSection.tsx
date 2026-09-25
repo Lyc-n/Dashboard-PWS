@@ -9,7 +9,7 @@ import { useRekapKunjungan } from "@/hooks/use-rekap-kunjungan";
 import type { RekapField } from "@/hooks/use-rekap-kunjungan";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useAuth } from "@/providers/auth";
-import { isAdminUser } from "@/lib/auth";
+import { isAdminUser } from "@/lib/auth.server";
 import { useToast } from "@/providers/toast";
 import { SectionCard } from "@/components/molecules/SectionCard";
 import { Toolbar } from "@/components/molecules/Toolbar";
