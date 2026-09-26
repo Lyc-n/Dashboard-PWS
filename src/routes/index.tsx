@@ -69,18 +69,18 @@ function Dashboard() {
       <div className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-1">
         <StatCard caption="Warga terdata" value={data.totals.warga} sub="data_warga" />
         <StatCard caption="Sudah dikunjungi" value={data.totals.dikunjungi} sub="punya ≥1 survei" />
-        <StatCard caption="Total kunjungan" value={data.totals.kunjungan} sub="baris surveys" />
+        <StatCard caption="Total kunjungan rumah" value={data.totals.kunjunganRumah} sub="baris surveys" />
       </div>
 
       <KelurahanSection items={items} />
 
       <SectionCard
-        title="Kunjungan Terbaru"
+        title="Kunjungan Rumah Terbaru"
         sub="50 survei terakhir dari database."
       >
         {filtered.length === 0 ? (
           <p className="px-1 py-6 text-center text-sm text-muted">
-            Belum ada data kunjungan di database. Isi lewat form checklist atau jalankan seed.
+            Belum ada data kunjungan di database. Isi lewat form kunjungan rumah atau jalankan seed.
           </p>
         ) : (
           <DataTable
@@ -152,7 +152,7 @@ function Dashboard() {
                     <option key={p}>{p}</option>
                   ))}
                 </Select>
-                <span className="ml-auto text-xs font-semibold text-muted">{filtered.length} kunjungan</span>
+                <span className="ml-auto text-xs font-semibold text-muted">{filtered.length} kunjungan rumah</span>
               </Toolbar>
             }
             info={`Hal ${pageClamped} · ${(pageClamped - 1) * PAGE_SIZE + 1}–${Math.min(pageClamped * PAGE_SIZE, filtered.length)} dari ${filtered.length}`}

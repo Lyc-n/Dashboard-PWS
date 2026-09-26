@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Download, Printer } from "lucide-react";
-import { getLaporanKunjungan, listKegiatan } from "@/lib/utils.functions";
+import { getLaporanKunjunganRumah, listKegiatan } from "@/lib/utils.functions";
 import type { KegiatanRecord } from "@/hooks/use-kegiatan";
 import { APP_BRAND, JENIS_KEGIATAN, KELS, POSY } from "@/lib/constants";
 import { downloadCsv, fmtDate } from "@/lib/utils";
@@ -13,13 +13,13 @@ import { Button, Input, LogoEmblem, ProgressBar, Select, StatusBadge, Tab } from
 //   expect: tanpa sesi valid → redirect /pin (dulu /login); import yang hilang dipulihkan.
 import { requireAuth, isAdminUser } from "@/lib/auth";
 import { useAuth } from "@/providers/auth";
-import { RekapKunjunganSection } from "@/features/laporan/RekapKunjunganSection";
+import { RekapKunjunganRumahSection } from "@/features/laporan/RekapKunjunganRumahSection";
 
 export const Route = createFileRoute("/laporan")({
   beforeLoad: requireAuth,
   loader: async () => {
-    const [kunjungan, kegiatan] = await Promise.all([getLaporanKunjungan(), listKegiatan()]);
-    return { kunjungan, kegiatan };
+    const [kunjunganRumah, kegiatan] = await Promise.all([getLaporanKunjunganRumah(), listKegiatan()]);
+    return { kunjunganRumah, kegiatan };
   },
   pendingComponent: () => <p className="p-4 text-sm text-muted">Memuat laporan…</p>,
   component: Laporan,
@@ -33,19 +33,19 @@ const TODAY = new Date().toLocaleDateString("id-ID", {
 const PAGE_SIZE = 10;
 
 function Laporan() {
-  const { kunjungan: rows, kegiatan: kegiatanRaw } = Route.useLoaderData();
+  const { kunjunganRumah: rows, kegiatan: kegiatanRaw } = Route.useLoaderData();
   const kegiatanRows = kegiatanRaw as unknown as KegiatanRecord[];
   const toast = useToast();
   const { user } = useAuth();
   const admin = isAdminUser(user);
 
-  const [tab, setTab] = useState<"kunjungan" | "kegiatan" | "rekap">("kunjungan");
+  const [tab, setTab] = useState<"kunjungan-rumah" | "kegiatan" | "rekap">("kunjungan-rumah");
 
   const [dari, setDari] = useState("2026-01-01");
   const [sampai, setSampai] = useState("2026-12-31");
   const [kel, setKel] = useState("all");
   const [cari, setCari] = useState("");
-  const [judul, setJudul] = useState("LAPORAN KUNJUNGAN LAPANGAN PWS — KOTA PASURUAN");
+  const [judul, setJudul] = useState("LAPORAN KUNJUNGAN RUMAH PWS — KOTA PASURUAN");
   const [ttdNama, setTtdNama] = useState("dr. Ayu Rahmawati");
   const [ttdJabatan, setTtdJabatan] = useState("Kepala Puskesmas Trajeng");
   const [page, setPage] = useState(1);
@@ -61,9 +61,9 @@ function Laporan() {
   const [gPage, setGPage] = useState(1);
 
   // rekap state
-  const [judulRekap, setJudulRekap] = useState("REKAPITULASI KUNJUNGAN RUMAH (KR) — KOTA PASURUAN");
+  const [judulRekap, setJudulRekap] = useState("REKAPITULASI KUNJUNGAN RUMAH — KOTA PASURUAN");
 
-  // non-admin: wilayah tab kunjungan terkunci ke wilayah kader
+  // non-admin: wilayah tab kunjungan rumah terkunci ke wilayah kader
   const effKel = admin ? kel : (user?.kel ?? "all");
 
   const filtered = useMemo(() => {
@@ -117,11 +117,11 @@ function Laporan() {
   const gPageRows = filteredKegiatan.slice((gPageClamped - 1) * PAGE_SIZE, gPageClamped * PAGE_SIZE);
   const gKopRows = filteredKegiatan.slice(0, 60);
 
-  const downloadCsvKunjungan = () => {
+  const downloadCsvKunjunganRumah = () => {
     const head = ["No", "Tanggal", "Nama", "NIK", "Kelurahan", "Petugas"];
     const csvRows = filtered.map((r, i) => [i + 1, r.tanggal, r.nama, r.nik, r.kelurahan, r.petugas]);
-    downloadCsv("laporan-kunjungan.csv", head, csvRows);
-    toast("Laporan kunjungan CSV diunduh.");
+    downloadCsv("laporan-kunjungan-rumah.csv", head, csvRows);
+    toast("Laporan kunjungan rumah CSV diunduh.");
   };
 
   const downloadKegiatanCsv = () => {
@@ -135,9 +135,9 @@ function Laporan() {
 
   const copySummary = () => {
     const text = [
-      `Laporan Kunjungan PWS — Kota Pasuruan`,
+      `Laporan Kunjungan Rumah PWS — Kota Pasuruan`,
       `Periode ${fmtDate(dari)} – ${fmtDate(sampai)}`,
-      `Total ${filtered.length} kunjungan · ${wargaUnik} warga unik`,
+      `Total ${filtered.length} kunjungan rumah · ${wargaUnik} warga unik`,
       `${kelStats.map((s) => `Kel. ${s.kel}: ${s.n}`).join(" · ")}`,
     ].join("\n");
     navigator.clipboard
@@ -164,12 +164,12 @@ function Laporan() {
     <AppShell>
       <PageHeader
         title="Laporan & Export"
-        description="Rekap kunjungan dan kegiatan pemberdayaan, cetak kop laporan resmi, dan unduh CSV."
+        description="Rekap kunjungan rumah dan kegiatan pemberdayaan, cetak kop laporan resmi, dan unduh CSV."
       />
 
       <div role="tablist" aria-label="Laporan" className="mt-4 flex flex-wrap gap-2">
-        <Tab active={tab === "kunjungan"} onClick={() => setTab("kunjungan")} role="tab" aria-selected={tab === "kunjungan"}>
-          Kunjungan
+        <Tab active={tab === "kunjungan-rumah"} onClick={() => setTab("kunjungan-rumah")} role="tab" aria-selected={tab === "kunjungan-rumah"}>
+          Kunjungan Rumah
         </Tab>
         <Tab active={tab === "kegiatan"} onClick={() => setTab("kegiatan")} role="tab" aria-selected={tab === "kegiatan"}>
           Kegiatan Pemberdayaan
@@ -180,7 +180,7 @@ function Laporan() {
       </div>
 
       {tab === "rekap" ? (
-        <RekapKunjunganSection
+        <RekapKunjunganRumahSection
           judul={judulRekap}
           setJudul={setJudulRekap}
           ttdNama={ttdNama}
@@ -188,7 +188,7 @@ function Laporan() {
           ttdJabatan={ttdJabatan}
           setTtdJabatan={setTtdJabatan}
         />
-      ) : tab === "kunjungan" ? (
+      ) : tab === "kunjungan-rumah" ? (
         <>
           <SectionCard className="no-print" title="Saring Laporan" sub="Filter ikut memperbarui ringkasan, kop, dan pratinjau di bawah.">
             <Toolbar>
@@ -206,7 +206,7 @@ function Laporan() {
 
           <SectionCard className="no-print" title="Ringkasan" sub="Rekap otomatis dari filter di atas.">
             <div className="grid grid-cols-3 gap-3 max-md:grid-cols-2 max-sm:grid-cols-1">
-              <StatCard caption="Total kunjungan" value={filtered.length} />
+              <StatCard caption="Total kunjungan rumah" value={filtered.length} />
               <StatCard caption="Warga unik" value={wargaUnik} />
               <StatCard caption="Kelurahan tercakup" value={kelStats.filter((s) => s.n > 0).length} />
             </div>
@@ -231,7 +231,7 @@ function Laporan() {
             </div>
             <Toolbar className="mt-3">
               <span className="text-xs text-muted">{filtered.length} baris · 1–{Math.min(kopRows.length, 60)} ditampilkan di kop.</span>
-              <Button variant="export" onClick={downloadCsvKunjungan} className="ml-auto">
+              <Button variant="export" onClick={downloadCsvKunjunganRumah} className="ml-auto">
                 <Download size={14} />
                 Unduh CSV
               </Button>
@@ -262,7 +262,7 @@ function Laporan() {
             <div className="mt-5 text-center">
               <b className="text-sm text-ink">{judul}</b>
               <div className="mt-1 text-muted">
-                Periode {fmtDate(dari)} – {fmtDate(sampai)} · {filtered.length} kunjungan · {wargaUnik} warga
+                Periode {fmtDate(dari)} – {fmtDate(sampai)} · {filtered.length} kunjungan rumah · {wargaUnik} warga
               </div>
             </div>
 
@@ -319,7 +319,7 @@ function Laporan() {
           <SectionCard className="no-print" title="Pratinjau Data" sub="Lihat daftar lengkap dengan navigasi halaman.">
             {filtered.length === 0 ? (
               <p className="px-1 py-6 text-center text-sm text-muted">
-                Belum ada kunjungan di database untuk filter ini.
+                Belum ada kunjungan rumah di database untuk filter ini.
               </p>
             ) : (
             <DataTable
@@ -366,7 +366,7 @@ function Laporan() {
               )}
               toolbar={
                 <span className="text-xs font-semibold text-muted">
-                  Menampilkan {filtered.length} kunjungan · {wargaUnik} warga
+                  Menampilkan {filtered.length} kunjungan rumah · {wargaUnik} warga
                 </span>
               }
               info={`Hal ${pageClamped} · ${(pageClamped - 1) * PAGE_SIZE + 1}–${Math.min(pageClamped * PAGE_SIZE, filtered.length)} dari ${filtered.length}`}

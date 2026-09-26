@@ -49,8 +49,8 @@ function Sasaran() {
   };
 
   const exportCsv = () => {
-    const head = ["No", "Tanggal Terakhir", "Nama", "NIK", "Kelurahan", "Kunjungan", "Status"];
-    const csvRows = filtered.map((r, i) => [i + 1, r.tgl ?? "—", r.nama, r.nik, r.kelurahan, r.kunjungan, r.status]);
+    const head = ["No", "Tanggal Terakhir", "Nama", "NIK", "Kelurahan", "Kunjungan Rumah", "Status"];
+    const csvRows = filtered.map((r, i) => [i + 1, r.tgl ?? "—", r.nama, r.nik, r.kelurahan, r.kunjunganRumah, r.status]);
     downloadCsv("data-sasaran.csv", head, csvRows);
   };
 
@@ -58,7 +58,7 @@ function Sasaran() {
     <>
       <PageHeader
         title="Data Sasaran"
-        description="Daftar warga dari database beserta status kunjungannya."
+        description="Daftar warga dari database beserta status kunjungan rumahnya."
       />
 
       <FilterCard title="Saring Data" sub="Temukan sasaran tertentu dengan cepat.">
@@ -128,7 +128,7 @@ function Sasaran() {
           columns={[
             { key: "sasaran", label: "Sasaran" },
             { key: "wilayah", label: "Kelurahan" },
-            { key: "kunjungan", label: "Kunjungan" },
+            { key: "kunjunganRumah", label: "Kunjungan Rumah" },
             { key: "status", label: "Status" },
             { key: "tgl", label: "Terakhir", sortable: true },
             { key: "aksi", label: "Aksi" },
@@ -149,7 +149,7 @@ function Sasaran() {
               <td className="px-3 py-2.5">
                 <div className="font-semibold text-ink">Kel. {row.kelurahan}</div>
               </td>
-              <td className="px-3 py-2.5 text-muted">{row.kunjungan}×</td>
+              <td className="px-3 py-2.5 text-muted">{row.kunjunganRumah}×</td>
               <td className="px-3 py-2.5">
                 <StatusBadge value={row.status} />
               </td>
@@ -179,7 +179,7 @@ function Sasaran() {
               </div>
               <div className="text-[11px] text-muted">NIK {row.nik}</div>
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] text-muted">Kel. {row.kelurahan} · {row.kunjungan}× kunjungan</span>
+                <span className="text-[11px] text-muted">Kel. {row.kelurahan} · {row.kunjunganRumah}× kunjungan rumah</span>
               </div>
               <div className="mt-1.5 flex items-center justify-between gap-2">
                 <span className="text-[11px] text-muted">{row.tgl ? fmtDate(row.tgl) : "Belum dikunjungi"}</span>

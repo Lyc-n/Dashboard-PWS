@@ -10,24 +10,19 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ChecklistRouteImport } from './routes/checklist'
 import { Route as KegiatanRouteImport } from './routes/kegiatan'
 import { Route as KelolaRouteImport } from './routes/kelola'
+import { Route as KunjunganRumahRouteImport } from './routes/kunjungan-rumah'
 import { Route as LaporanRouteImport } from './routes/laporan'
 import { Route as PinRouteImport } from './routes/pin'
 import { Route as SasaranRouteImport } from './routes/sasaran'
-import { Route as ChecklistIdRouteImport } from './routes/checklist.$id'
+import { Route as KunjunganRumahIdRouteImport } from './routes/kunjungan-rumah.$id'
 import { Route as SasaranIndexRouteImport } from './routes/sasaran.index'
 import { Route as SasaranIdRouteImport } from './routes/sasaran.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChecklistRoute = ChecklistRouteImport.update({
-  id: '/checklist',
-  path: '/checklist',
   getParentRoute: () => rootRouteImport,
 } as any)
 const KegiatanRoute = KegiatanRouteImport.update({
@@ -38,6 +33,11 @@ const KegiatanRoute = KegiatanRouteImport.update({
 const KelolaRoute = KelolaRouteImport.update({
   id: '/kelola',
   path: '/kelola',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KunjunganRumahRoute = KunjunganRumahRouteImport.update({
+  id: '/kunjungan-rumah',
+  path: '/kunjungan-rumah',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LaporanRoute = LaporanRouteImport.update({
@@ -55,10 +55,10 @@ const SasaranRoute = SasaranRouteImport.update({
   path: '/sasaran',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ChecklistIdRoute = ChecklistIdRouteImport.update({
+const KunjunganRumahIdRoute = KunjunganRumahIdRouteImport.update({
   id: '/$id',
   path: '/$id',
-  getParentRoute: () => ChecklistRoute,
+  getParentRoute: () => KunjunganRumahRoute,
 } as any)
 const SasaranIndexRoute = SasaranIndexRouteImport.update({
   id: '/',
@@ -73,37 +73,37 @@ const SasaranIdRoute = SasaranIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/checklist': typeof ChecklistRouteWithChildren
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
+  '/kunjungan-rumah': typeof KunjunganRumahRouteWithChildren
   '/laporan': typeof LaporanRoute
   '/pin': typeof PinRoute
   '/sasaran': typeof SasaranRouteWithChildren
-  '/checklist/$id': typeof ChecklistIdRoute
+  '/kunjungan-rumah/$id': typeof KunjunganRumahIdRoute
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran/': typeof SasaranIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/checklist': typeof ChecklistRouteWithChildren
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
+  '/kunjungan-rumah': typeof KunjunganRumahRouteWithChildren
   '/laporan': typeof LaporanRoute
   '/pin': typeof PinRoute
-  '/checklist/$id': typeof ChecklistIdRoute
+  '/kunjungan-rumah/$id': typeof KunjunganRumahIdRoute
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran': typeof SasaranIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/checklist': typeof ChecklistRouteWithChildren
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
+  '/kunjungan-rumah': typeof KunjunganRumahRouteWithChildren
   '/laporan': typeof LaporanRoute
   '/pin': typeof PinRoute
   '/sasaran': typeof SasaranRouteWithChildren
-  '/checklist/$id': typeof ChecklistIdRoute
+  '/kunjungan-rumah/$id': typeof KunjunganRumahIdRoute
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran/': typeof SasaranIndexRoute
 }
@@ -111,45 +111,45 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/checklist'
     | '/kegiatan'
     | '/kelola'
+    | '/kunjungan-rumah'
     | '/laporan'
     | '/pin'
     | '/sasaran'
-    | '/checklist/$id'
+    | '/kunjungan-rumah/$id'
     | '/sasaran/$id'
     | '/sasaran/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/checklist'
     | '/kegiatan'
     | '/kelola'
+    | '/kunjungan-rumah'
     | '/laporan'
     | '/pin'
-    | '/checklist/$id'
+    | '/kunjungan-rumah/$id'
     | '/sasaran/$id'
     | '/sasaran'
   id:
     | '__root__'
     | '/'
-    | '/checklist'
     | '/kegiatan'
     | '/kelola'
+    | '/kunjungan-rumah'
     | '/laporan'
     | '/pin'
     | '/sasaran'
-    | '/checklist/$id'
+    | '/kunjungan-rumah/$id'
     | '/sasaran/$id'
     | '/sasaran/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ChecklistRoute: typeof ChecklistRouteWithChildren
   KegiatanRoute: typeof KegiatanRoute
   KelolaRoute: typeof KelolaRoute
+  KunjunganRumahRoute: typeof KunjunganRumahRouteWithChildren
   LaporanRoute: typeof LaporanRoute
   PinRoute: typeof PinRoute
   SasaranRoute: typeof SasaranRouteWithChildren
@@ -164,13 +164,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/checklist': {
-      id: '/checklist'
-      path: '/checklist'
-      fullPath: '/checklist'
-      preLoaderRoute: typeof ChecklistRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/kegiatan': {
       id: '/kegiatan'
       path: '/kegiatan'
@@ -183,6 +176,13 @@ declare module '@tanstack/react-router' {
       path: '/kelola'
       fullPath: '/kelola'
       preLoaderRoute: typeof KelolaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kunjungan-rumah': {
+      id: '/kunjungan-rumah'
+      path: '/kunjungan-rumah'
+      fullPath: '/kunjungan-rumah'
+      preLoaderRoute: typeof KunjunganRumahRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/laporan': {
@@ -206,12 +206,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SasaranRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/checklist/$id': {
-      id: '/checklist/$id'
+    '/kunjungan-rumah/$id': {
+      id: '/kunjungan-rumah/$id'
       path: '/$id'
-      fullPath: '/checklist/$id'
-      preLoaderRoute: typeof ChecklistIdRouteImport
-      parentRoute: typeof ChecklistRoute
+      fullPath: '/kunjungan-rumah/$id'
+      preLoaderRoute: typeof KunjunganRumahIdRouteImport
+      parentRoute: typeof KunjunganRumahRoute
     }
     '/sasaran/': {
       id: '/sasaran/'
@@ -230,16 +230,16 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface ChecklistRouteChildren {
-  ChecklistIdRoute: typeof ChecklistIdRoute
+interface KunjunganRumahRouteChildren {
+  KunjunganRumahIdRoute: typeof KunjunganRumahIdRoute
 }
 
-const ChecklistRouteChildren: ChecklistRouteChildren = {
-  ChecklistIdRoute: ChecklistIdRoute,
+const KunjunganRumahRouteChildren: KunjunganRumahRouteChildren = {
+  KunjunganRumahIdRoute: KunjunganRumahIdRoute,
 }
 
-const ChecklistRouteWithChildren = ChecklistRoute._addFileChildren(
-  ChecklistRouteChildren,
+const KunjunganRumahRouteWithChildren = KunjunganRumahRoute._addFileChildren(
+  KunjunganRumahRouteChildren,
 )
 
 interface SasaranRouteChildren {
@@ -257,9 +257,9 @@ const SasaranRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ChecklistRoute: ChecklistRouteWithChildren,
   KegiatanRoute: KegiatanRoute,
   KelolaRoute: KelolaRoute,
+  KunjunganRumahRoute: KunjunganRumahRouteWithChildren,
   LaporanRoute: LaporanRoute,
   PinRoute: PinRoute,
   SasaranRoute: SasaranRouteWithChildren,

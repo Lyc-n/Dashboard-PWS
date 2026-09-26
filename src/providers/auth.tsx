@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { getSessionToken, logoutSession } from "#/lib/utils.functions";
-import type { AuthUser } from "#/lib/auth";
+import { getSessionToken, logoutSession } from "@/lib/utils.functions";
+import type { AuthUser } from "@/lib/auth";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -29,10 +29,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // kunci "pws-auth" dari versi login lama hilang dari browser pengguna.
+  // sesi dibaca dari cookie httpOnly via server; tidak ada state auth di storage.
   useEffect(() => {
     void refresh();
-    window.localStorage.removeItem("pws-auth");
   }, [refresh]);
 
   const logout = useCallback(async () => {

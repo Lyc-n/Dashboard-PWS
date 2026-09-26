@@ -1,6 +1,6 @@
 export type HasilKind = "selesai" | "jadwal" | "rujuk";
 
-/** Kategorikan hasil kunjungan dari label opsi, tanpa bergantung urutan array (tahan terhadap perubahan urutan opsi oleh admin). */
+/** Kategorikan hasil kunjungan rumah dari label opsi, tanpa bergantung urutan array (tahan terhadap perubahan urutan opsi oleh admin). */
 export function hasilKind(h: string): HasilKind {
   const t = h.toLowerCase();
   if (t.includes("rujuk")) return "rujuk";

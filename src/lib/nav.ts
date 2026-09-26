@@ -12,7 +12,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", to: "/", Icon: LayoutDashboard },
   { label: "Data Sasaran", to: "/sasaran", Icon: FileText },
-  { label: "Input Checklist", to: "/checklist", Icon: ClipboardCheck },
+  { label: "Kunjungan Rumah", to: "/kunjungan-rumah", Icon: ClipboardCheck },
   { label: "Laporan", to: "/laporan", Icon: ScrollText },
   { label: "Kegiatan", to: "/kegiatan", Icon: PersonStanding },
   { label: "Kelola", to: "/kelola", Icon: Settings, adminOnly: true },
