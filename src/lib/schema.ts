@@ -155,6 +155,24 @@ export const surveys = pgTable("surveys", {
     updatedAt: timestamp().defaultNow().notNull(),
 });
 
+// kunjungan rumah — pengganti localStorage `pws-kunjungan-rumah`.
+// payload = KunjunganRumahRecord penuh (fotos berisi fileUrl Supabase Storage, bukan base64).
+export const kunjunganRumahRecords = pgTable("kunjungan_records", {
+    id: uuid().primaryKey().defaultRandom(),
+    payload: jsonb().notNull(),
+    createdAt: timestamp().defaultNow().notNull(),
+    updatedAt: timestamp().defaultNow().notNull(),
+});
+
+// kegiatan pemberdayaan — pengganti localStorage `pws-kegiatan`.
+// payload = KegiatanRecord + peserta[] (nama/kel/hadir) agar laporan bisa audit.
+export const kegiatanRecords = pgTable("kegiatan_records", {
+    id: uuid().primaryKey().defaultRandom(),
+    payload: jsonb().notNull(),
+    createdAt: timestamp().defaultNow().notNull(),
+    updatedAt: timestamp().defaultNow().notNull(),
+});
+
 export const validSession = pgTable("valid_session",{
     uid: uuid().primaryKey().defaultRandom(),
     token: text().notNull().unique(),
