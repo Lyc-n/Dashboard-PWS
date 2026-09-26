@@ -5,9 +5,7 @@ import { dataWargaTable, forms, surveyor } from "../src/lib/schema";
 import { sasaranRows } from "../src/lib/mock-data";
 import { seedAdminStaff } from "../src/lib/seeds";
 
-/* [perbaikan] seed data master ke Postgres — expect: /sasaran-DB, dropdown petugas, dan FK
-   surveys.formId punya isi; `pnpm db:seed` aman dijalankan berulang (idempoten).
-   Hanya data master: surveyor, data_warga, 1 form. Tabel survei TIDAK disentuh. */
+// seed data master ke Postgres 
 
 const FORM_NAMA = "Formulir KR PWS";
 
@@ -27,7 +25,7 @@ function hubungan(nama: string): "Anak" | "Istri" | "Kepala Keluarga" {
 async function seedSurveyor() {
   const staff = seedAdminStaff();
   const namaSemua = staff.map((s) => s.nama);
-  // [perbaikan] hapus dulu baris dengan nama yang sama — expect: rerun tak menggandakan petugas.
+  // hapus dulu baris dengan nama yang sama 
   await db.delete(surveyor).where(inArray(surveyor.nama, namaSemua));
   await db.insert(surveyor).values(staff.map((s) => ({ nama: s.nama })));
   console.log(`surveyor: ${staff.length} baris`);
@@ -41,8 +39,6 @@ async function seedWarga() {
       nama_art: r.nama,
       nama_kk: r.nama.replace(/^(Ny\.|Tn\.|An\.)\s*/, ""),
       hubungan_keluarga: hubungan(r.nama),
-      // [perbaikan] alamat/tgl lahir dummy wajar — expect: semua kolom NOT NULL terisi
-      //   tanpa harus menyiapkan data kependudukan asli.
       alamat: `Jl. ${r.kel} No. ${i + 1}`,
       tgl_lahir: anak ? "2024-01-10" : "1990-05-15",
       rt: (i % 8) + 1,
@@ -59,13 +55,11 @@ async function seedWarga() {
       pekerjaan: anak ? "Pelajar" : "Ibu rumah tangga",
     };
   });
-  // NIK = PK → onConflictDoNothing: rerun tidak menabrak, data lama tidak diganti.
-  await db.insert(dataWargaTable).values(rows).onConflictDoNothing({ target: dataWargaTable.nik });
+  await db.insert(dataWargaTable).values(rows).onConflictDoNothing({ target: dataWargaTable.nik }); // nik = pk
   console.log(`data_warga: ${rows.length} baris`);
 }
 
 async function seedForm() {
-  // ON DELETE CASCADE: sisa form_sections ikut terhapus kalau form seed lama ada.
   await db.delete(forms).where(eq(forms.nama, FORM_NAMA));
   await db.insert(forms).values({
     nama: FORM_NAMA,

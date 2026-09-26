@@ -3,7 +3,7 @@ import { surveys, validSession } from './schema' // coba pakai tabel surveys unt
 import { jwtVerify, SignJWT } from 'jose'
 import { createHash, randomBytes } from 'node:crypto';
 import { setCookie } from '@tanstack/react-start/server';
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { SESSION_IDLE_MS, SESSION_PROFILE, SESSION_TTL_MS } from './constants'
 import type { AuthUser } from './auth'
 
@@ -24,18 +24,15 @@ function hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex') // generate token dengan hash SHA-256
 }
 
-// [perbaikan] jeda tetap 1 detik per percobaan PIN — expect: brute-force 6 digit butuh ±58 hari
-//   utk 1 juta percobaan; durasi sama untuk benar/salah sehingga latency tak membocorkan PIN.
+// tambahkan jeda tetap 1 detik per percobaan PIN untuk menangani bruteforce
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 export async function isValidPin(pin: number) {
     await sleep(1000)
-    if (String(pin) !== process.env.PIN) return false // expect: client terima `false` biasa, jadi alur form tak terputus oleh error mentah.
-    // [perbaikan] satu sesi aktif: hapus SEMUA row valid_session sebelum membuat sesi baru —
-    //   expect: login baru membunuh token lama di device lain; row expired ikut terbuang tiap login.
-    await db.delete(validSession)
+    if (String(pin) !== process.env.PIN) return false // expect client terima `false` biasa, jadi alur form tak terputus oleh error mentah.
+    await db.delete(validSession) // hanya satu sesi aktif tiap akun -> login ke device lain dengan akun sama, maka device sebelumnya logout
     setCookie('session', await createSessionHelper(), { // umur cookie 12 jam
         httpOnly: true,
         secure: true,
@@ -66,6 +63,8 @@ async function createSessionHelper() {
     return token;
 }
 
+const EXTEND_BEFORE_MS = 5 * 60 * 1000 // hanya extend session sebelum 5 menit session habis
+
 // session hanya 1 jam. token palsu/kedaluwarsa/sudah dihapus = logout
 export async function touchSession(sessionToken: string): Promise<{ profile: AuthUser; expiresAt: Date }> {
     try {
@@ -73,22 +72,28 @@ export async function touchSession(sessionToken: string): Promise<{ profile: Aut
         const profile = payload.profile as AuthUser | undefined
         if (!profile) throw new Error('Unauthorized')
 
-        const row = await db.query.validSession.findFirst({
-            where: { token: hashToken(sessionToken) }
-        })
-        if (!row) throw new Error('Unauthorized')
-        if (row.expiresAt.getTime() < Date.now()) {
-            // [perbaikan] row kedaluwarsa ikut dihapus, bukan cuma ditolak —
-            //   expect: sesi yang ditinggal mati tak menumpuk selamanya di valid_session.
-            await db.delete(validSession).where(eq(validSession.uid, row.uid))
+        const tokenHash = hashToken(sessionToken)
+        const rows = await db.execute(sql`
+            WITH extend AS (
+                UPDATE valid_session
+                SET "expiresAt" = now() + ${SESSION_IDLE_MS / 1000} * interval '1 second'
+                WHERE token = ${tokenHash}
+                  AND "expiresAt" > now()
+                  AND "expiresAt" < now() + ${EXTEND_BEFORE_MS / 1000} * interval '1 second'
+                RETURNING "expiresAt"
+            )
+            SELECT COALESCE(
+                (SELECT extract(epoch from "expiresAt") FROM extend),
+                (SELECT extract(epoch from "expiresAt") FROM valid_session
+                 WHERE token = ${tokenHash} AND "expiresAt" > now())
+            ) AS exp
+        `)
+        const exp = (rows as unknown as Array<{ exp: number | null }>)[0]?.exp
+        if (!exp) {
+            await db.delete(validSession).where(eq(validSession.token, tokenHash)) // buang baris kedaluwarsa saat token ditolak
             throw new Error('Unauthorized')
         }
-
-        const expiresAt = new Date(Date.now() + SESSION_IDLE_MS)
-        await db.update(validSession)
-            .set({ expiresAt })
-            .where(eq(validSession.uid, row.uid))
-        return { profile, expiresAt }
+        return { profile, expiresAt: new Date(exp * 1000) }
     } catch {
         throw new Error('Unauthorized')
     }
