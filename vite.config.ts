@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import { devtools } from '@tanstack/devtools-vite'
 
@@ -8,7 +9,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { nitro } from 'nitro/vite'
 
 const config = defineConfig({
-  resolve: { tsconfigPaths: true },
+  resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   plugins: [devtools(), nitro(), tailwindcss(), tanstackStart(), viteReact()],
   ssr: {
     // Fix rolldown MISSING_EXPORT for @tanstack/history in nitro build (upstream mismatch)
