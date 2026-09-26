@@ -1,4 +1,4 @@
-import { date, integer, pgTable, pgEnum,text, varchar, boolean, timestamp, uuid, jsonb} from "drizzle-orm/pg-core";
+import { date, integer, pgTable, pgEnum,text, varchar, boolean, timestamp, uuid, jsonb, smallint, numeric} from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const statusKawinEnum = pgEnum('status_kawin', [
@@ -34,9 +34,10 @@ export const pendidikanEnum = pgEnum('pendidikan', [
   'Akademi/Diploma III/ Sarjana Muda',
   'Tamat SD/Sederajat',
   'Strata-II',
+  'Diploma I/II',
 ])
 
-export const agama = pgEnum('agama', ['Islam', 'Kristen', 'Katolik', 'Hindu', 'Budha', 'Konghucu', 'Lainnya']);
+export const agama = pgEnum('agama', ['Budha', 'Hindu', 'Islam', 'Katholik', 'Kristen', 'Konghucu']);
 
 export const dataWargaTable = pgTable("data_warga", {
     // id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -58,6 +59,57 @@ export const dataWargaTable = pgTable("data_warga", {
     agama: agama().notNull(),
     pendidikan: pendidikanEnum().notNull(),
     pekerjaan: text().notNull(),
+});
+
+export const dataWargaImport = pgTable("data_warga_import", {
+  rawId: varchar("raw_id").primaryKey(),
+  namaKk: varchar("nama_kk"),
+  nik: varchar("nik"),
+  jumlahArt: smallint("jumlah_art"),
+  namaArt: varchar("nama_art"),
+  hubunganKeluarga: hubunganKeluargaEnum(),
+  tglLahir: date("tgl_lahir", { mode: "string", }),
+  jenisKelamin: jenisKelaminEnum(),
+  statusKawin: statusKawinEnum(),
+  agama: agama(),
+  pendidikan: pendidikanEnum(),
+  pekerjaan: text(),
+  alamat: text(),
+  provinsi: text(),
+  kabKota: text(),
+  kecamatan: text(),
+  kelurahan: text(),
+  rw: smallint(),
+  rt: smallint(),
+  iksBesar: numeric(),
+});
+
+export const riwayatKsImport = pgTable("riwayat_ks_import", {
+  rawId: varchar("raw_id").primaryKey().references(() => dataWargaImport.rawId, { onUpdate: "cascade", onDelete: "cascade", }),
+  kepesertaanJkn: boolean(),
+  merokok: boolean(),
+  tersediaSaranaAirBersih: boolean(),
+  jenisSumberAirTerlindung: text(),
+  tersediaJambanKeluarga: boolean(),
+  jenisJambanSaniter: text(),
+  diagnosisOdgj: boolean(),
+  minumObatOdgjTeratur: boolean(),
+  adaArtDipasung: boolean(),
+  perilakuBabDijamban: text(),
+  perilakuPenggunaanAirBersih: text(),
+  diagnosisTbParu: boolean(),
+  minumObatTbTeratur: boolean(),
+  batukBerdahakLebihDari2Minggu: boolean(),
+  diagnosisHipertensi: boolean(),
+  pengkuranTekananDarah: boolean(),
+  minumObatHipertensiTeratur: boolean(),
+  sistolik: smallint(),
+  diastolik: smallint(),
+  pakaiKb: boolean(),
+  ketKb: text(),
+  persalinanDiFaskes: boolean(),
+  asiEksklusif: boolean(),
+  imunisasiLengkap: boolean(),
 });
 
 export const surveyor = pgTable("surveyor", {
