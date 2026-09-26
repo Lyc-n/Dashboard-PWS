@@ -44,7 +44,7 @@ export function PwsChart({ data, labels, renderTooltip, scale = 25, max = 6000 }
 
   return (
     <div className="relative mt-3 rounded-lg border border-line-2 bg-surface p-3">
-      <svg viewBox="0 0 860 220" preserveAspectRatio="none" className="block h-45 w-full" role="img" aria-label="Grafik tren kunjungan per bulan">
+      <svg viewBox="0 0 860 220" preserveAspectRatio="none" className="block h-45 w-full" role="img" aria-label="Grafik tren kunjungan rumah per bulan">
         <defs>
           <clipPath id="chart-plot">
             <rect x={PAD_L} y={PAD_T} width={W - PAD_L - PAD_R} height={H - PAD_T - PAD_B} />
@@ -82,7 +82,7 @@ export function PwsChart({ data, labels, renderTooltip, scale = 25, max = 6000 }
               className="cursor-pointer"
               tabIndex={0}
               role="button"
-              aria-label={`${labels[i] ?? `titik ${i + 1}`}: ${data[i] ?? 0} kunjungan`}
+              aria-label={`${labels[i] ?? `titik ${i + 1}`}: ${data[i] ?? 0} kunjungan rumah`}
               onMouseEnter={() => setActive({ i, x, y })}
               onMouseLeave={() => setActive(null)}
               onFocus={() => setActive({ i, x, y })}

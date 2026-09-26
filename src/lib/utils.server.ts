@@ -1,5 +1,5 @@
 import { db } from './db.server'
-import { surveys, validSession } from './schema' // coba pakai tabel surveys untuk form
+import { kegiatanRecords, kunjunganRumahRecords, surveys, validSession } from './schema' // coba pakai tabel surveys untuk form
 import { jwtVerify, SignJWT } from 'jose'
 import { createHash, randomBytes } from 'node:crypto';
 import { setCookie } from '@tanstack/react-start/server';
@@ -112,7 +112,7 @@ export async function queryAllSurveyData() {
     return await db.query.surveys.findMany()
 }
 
-// [perbaikan] daftar petugas dari tabel surveyor — expect: dropdown Petugas di form checklist
+// [perbaikan] daftar petugas dari tabel surveyor — expect: dropdown Petugas di form kunjungan rumah
 //   selalu sinkron dengan isi DB (ikut diisi seed).
 export async function querySurveyors() {
     return await db.query.surveyor.findMany({ columns: { id: true, nama: true } })
@@ -125,4 +125,140 @@ export async function getPetugasByName(queryName: string) {
 // satu NIK boleh punya banyak survei
 export async function putSurveyData(newData: typeof surveys.$inferInsert) {
     await db.insert(surveys).values(newData)
+}
+
+// ---- kunjungan rumah langsung ke DB — pengganti localStorage `pws-kunjungan-rumah` ----
+type JsonRecord = Record<string, unknown>;
+
+function asJsonRecord(v: unknown): JsonRecord {
+    if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error("Payload tidak valid");
+    return v as JsonRecord;
+}
+
+/** Foto untuk DB: teruskan id/name/fileUrl/dataUrl/caption/takenAt.
+ *  dataUrl (base64) disimpan inline di jsonb — Postgres/TOAST menanganinya
+ *  (batas kuota hanya berlaku untuk localStorage, bukan DB).
+ *  fileUrl Supabase Storage siap dipakai setelah bucket `dokumentasi` tersedia
+ *  di proyek yang sama dengan VITE_SUPABASE_URL (saat ini DB dan API beda proyek).
+ */
+function cleanFotos(fotos: unknown): Array<Record<string, unknown>> {
+    if (!Array.isArray(fotos)) return [];
+    return fotos.map((f) => {
+        const o = (f ?? {}) as Record<string, unknown>;
+        const out: Record<string, unknown> = {
+            id: typeof o.id === "string" ? o.id : "",
+            name: typeof o.name === "string" ? o.name : "foto.jpg",
+            caption: typeof o.caption === "string" ? o.caption : "",
+            takenAt: typeof o.takenAt === "string" ? o.takenAt : new Date().toISOString(),
+        };
+        if (typeof o.fileUrl === "string" && o.fileUrl) out.fileUrl = o.fileUrl;
+        if (typeof o.dataUrl === "string" && o.dataUrl) out.dataUrl = o.dataUrl;
+        return out;
+    });
+}
+
+export async function listKunjunganRumahRecords() {
+    const rows = await db.query.kunjunganRumahRecords.findMany({ orderBy: (t, { desc }) => [desc(t.createdAt)] });
+    return rows.map((r) => ({ id: r.id, ...(r.payload as JsonRecord) }));
+}
+
+export async function getKunjunganRumahRecord(id: string) {
+    const row = await db.query.kunjunganRumahRecords.findFirst({ where: { id } });
+    if (!row) return null;
+    return { id: row.id, ...(row.payload as JsonRecord) };
+}
+
+export async function saveKunjunganRumahRecord(payload: unknown) {
+    const rec = asJsonRecord(payload);
+    if (typeof rec.waktuSimpan !== "string" || !rec.waktuSimpan) throw new Error("waktuSimpan wajib diisi");
+    if (!rec.info || typeof rec.info !== "object") throw new Error("info keluarga wajib diisi");
+    const clean: JsonRecord = { ...rec, fotos: cleanFotos(rec.fotos) };
+    const [row] = await db.insert(kunjunganRumahRecords).values({ payload: clean }).returning();
+    if (!row) throw new Error("Gagal menyimpan kunjungan rumah");
+    return { id: row.id, ...(row.payload as JsonRecord) };
+}
+
+export async function updateKunjunganRumahRecord(id: string, payload: unknown) {
+    const rec = asJsonRecord(payload);
+    const clean: JsonRecord = { ...rec, fotos: cleanFotos(rec.fotos) };
+    const [row] = await db
+        .update(kunjunganRumahRecords)
+        .set({ payload: clean, updatedAt: new Date() })
+        .where(eq(kunjunganRumahRecords.id, id))
+        .returning();
+    if (!row) throw new Error("Kunjungan rumah tidak ditemukan");
+    return { id: row.id, ...(row.payload as JsonRecord) };
+}
+
+export async function removeKunjunganRumahRecord(id: string) {
+    await db.delete(kunjunganRumahRecords).where(eq(kunjunganRumahRecords.id, id));
+}
+
+// ---- kegiatan pemberdayaan langsung ke DB — pengganti localStorage `pws-kegiatan` ----
+const KEGIATAN_REQUIRED = ["nama", "pj", "tgl", "kel", "lokasi"] as const;
+
+export async function listKegiatanRecords() {
+    const rows = await db.query.kegiatanRecords.findMany({ orderBy: (t, { desc }) => [desc(t.createdAt)] });
+    return rows.map((r) => ({ id: r.id, ...(r.payload as JsonRecord) }));
+}
+
+export async function saveKegiatanRecord(payload: unknown) {
+    const rec = asJsonRecord(payload);
+    for (const k of KEGIATAN_REQUIRED) {
+        const v = rec[k];
+        if (typeof v !== "string" || !v.trim()) throw new Error(`Field ${k} wajib diisi`);
+    }
+    const [row] = await db.insert(kegiatanRecords).values({ payload: rec }).returning();
+    if (!row) throw new Error("Gagal menyimpan kegiatan");
+    return { id: row.id, ...(row.payload as JsonRecord) };
+}
+
+export async function removeKegiatanRecord(id: string) {
+    await db.delete(kegiatanRecords).where(eq(kegiatanRecords.id, id));
+}
+
+// ---- read model DB (sumber tunggal UI; tanpa data dummy) ----
+export async function queryWargaList() {
+    return await db.query.dataWargaTable.findMany({
+        columns: {
+            nik: true,
+            nama_art: true,
+            nama_kk: true,
+            kelurahan: true,
+            kecamatan: true,
+            kota: true,
+            rt: true,
+            rw: true,
+            alamat: true,
+            tgl_lahir: true,
+            jenis_kelamin: true,
+        },
+        orderBy: (t, { asc }) => [asc(t.nama_art)],
+    })
+}
+
+export async function querySurveyStatsByNik(): Promise<Array<{ nik: string; total: number; terakhir: string | null }>> {
+    const rows = await db.execute(sql`
+        SELECT nik AS "nik", COUNT(*)::int AS "total", MAX(tanggal)::text AS "terakhir"
+        FROM surveys GROUP BY nik
+    `)
+    return rows as unknown as Array<{ nik: string; total: number; terakhir: string | null }>
+}
+
+export async function querySurveysWithWarga(limit = 500) {
+    const [surveyList, wargaList, staff] = await Promise.all([
+        db.query.surveys.findMany({ orderBy: (t, { desc }) => [desc(t.tanggal)], limit }),
+        db.query.dataWargaTable.findMany({ columns: { nik: true, nama_art: true, kelurahan: true } }),
+        db.query.surveyor.findMany({ columns: { id: true, nama: true } }),
+    ])
+    const wargaByNik = new Map(wargaList.map((w) => [w.nik, w]))
+    const staffById = new Map(staff.map((s) => [s.id, s.nama]))
+    return surveyList.map((s) => ({
+        id: s.id,
+        tanggal: s.tanggal,
+        nik: s.nik,
+        nama: wargaByNik.get(s.nik)?.nama_art ?? s.nik,
+        kelurahan: wargaByNik.get(s.nik)?.kelurahan ?? "—",
+        petugas: staffById.get(s.petugasId) ?? "—",
+    }))
 }

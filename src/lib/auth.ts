@@ -1,5 +1,5 @@
 import { redirect } from "@tanstack/react-router";
-import { getSessionToken } from "#/lib/utils.functions";
+import { getSessionToken } from "@/lib/utils.functions";
 
 export interface AuthUser {
   username: string;

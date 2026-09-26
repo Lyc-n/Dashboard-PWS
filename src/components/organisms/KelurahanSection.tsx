@@ -1,7 +1,17 @@
 import type { ReactNode } from "react";
-import type { SummaryCardData } from "@/lib/mock-data";
 import { EmptyState } from "@/components/atoms/EmptyState";
 import { StatCard } from "@/components/molecules/StatCard";
+
+export interface SummaryCardData {
+  name: string;
+  title: string;
+  jiwa: number;
+  terlayani: number;
+  pct: number;
+  sub: string;
+  bg?: string;
+  barColor?: string;
+}
 
 export interface KelurahanSectionProps {
   items: SummaryCardData[];

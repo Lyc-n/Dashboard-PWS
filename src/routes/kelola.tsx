@@ -4,17 +4,16 @@ import { seedAdminItems, seedAdminPrios, seedAdminStaff } from "@/lib/seeds";
 import type { AdminItem, Priority, Staff } from "@/lib/seeds";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { STORAGE_KEYS } from "@/lib/constants";
-import { useKrTemplates } from "@/hooks/use-kr-templates";
-import { AppShell } from "@/components/organisms/AppShell";
-import { StatCard } from "@/components/molecules/StatCard";
-import { PageHeader } from "@/components/molecules/PageHeader";
-import { Tab } from "@/components/atoms/Tab";
+import { useKunjunganRumahTemplates } from "@/hooks/use-kunjungan-rumah-templates";
+import { AppShell } from "@/components/organisms";
+import { PageHeader, StatCard } from "@/components/molecules";
+import { Tab } from "@/components/atoms";
 // [perbaikan] guard pindah ke requireAdmin (verifikasi cookie+JWT di server, role dari payload) —
 //   expect: tanpa sesi → /pin; sesi non-admin → /laporan; localStorage auth tak dipakai lagi.
 import { requireAdmin } from "@/lib/auth";
 import { TABS } from "@/features/kelola/types";
 import type { KelolaTab } from "@/features/kelola/types";
-import { FormKrSection } from "@/features/kelola/components/FormKrSection";
+import { FormKunjunganRumahSection } from "@/features/kelola/components/FormKunjunganRumahSection";
 import { PrioritasSection } from "@/features/kelola/components/PrioritasSection";
 import { StaffSection } from "@/features/kelola/components/StaffSection";
 
@@ -27,9 +26,9 @@ function Kelola() {
   const [items, setItems] = useLocalStorage<AdminItem[]>(STORAGE_KEYS.adminItems, seedAdminItems());
   const [prios, setPrios] = useLocalStorage<Priority[]>(STORAGE_KEYS.adminPrios, seedAdminPrios());
   const [staff, setStaff] = useLocalStorage<Staff[]>(STORAGE_KEYS.adminStaff, seedAdminStaff());
-  const { templates, setTemplates, resetTemplates, exportJson, importJson } = useKrTemplates();
+  const { templates, setTemplates, resetTemplates, exportJson, importJson } = useKunjunganRumahTemplates();
 
-  const [tab, setTab] = useState<KelolaTab>("formkr");
+  const [tab, setTab] = useState<KelolaTab>("form-kunjungan-rumah");
 
   const activeFieldCount =
     templates.keluargaInfo.filter((f) => f.active).length +
@@ -44,11 +43,11 @@ function Kelola() {
     <AppShell>
       <PageHeader
         title="Kelola Master Data"
-        description="Admin mengatur template checklist KR fleksibel, prioritas, dan akun staff. Perubahan langsung sinkron ke form kader."
+        description="Admin mengatur template kunjungan rumah fleksibel, prioritas, dan akun staff. Perubahan langsung sinkron ke form kader."
       />
 
       <div className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-1">
-        <StatCard caption="Field KR aktif" value={activeFieldCount} />
+        <StatCard caption="Field Kunjungan Rumah aktif" value={activeFieldCount} />
         <StatCard caption="Prioritas aktif" value={prioOn} />
         <StatCard caption="Staff aktif" value={staffOn} />
       </div>
@@ -61,8 +60,8 @@ function Kelola() {
         ))}
       </div>
 
-      {tab === "formkr" ? (
-        <FormKrSection
+      {tab === "form-kunjungan-rumah" ? (
+        <FormKunjunganRumahSection
           templates={templates}
           setTemplates={setTemplates}
           resetTemplates={resetTemplates}

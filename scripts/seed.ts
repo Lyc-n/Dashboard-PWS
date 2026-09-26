@@ -2,10 +2,31 @@ import "dotenv/config";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "../src/lib/db.server";
 import { dataWargaTable, forms, surveyor } from "../src/lib/schema";
-import { sasaranRows } from "../src/lib/mock-data";
 import { seedAdminStaff } from "../src/lib/seeds";
+// Awal seed warga. Disalin dari dataset awal agar scripts/seed.ts mandiri
+// (tidak ada lagi impor data demo dari src).
+const SASARAN_SEED: { nama: string; nik: string; kel: string; prior: string }[] = [
+  { nama: "Ny. Siti Aminah", nik: "3573014203820001", kel: "Trajeng", prior: "Bumil Risti" },
+  { nama: "An. Rafi Ahmad", nik: "3573011201240002", kel: "Ngemplakrejo", prior: "Stunting" },
+  { nama: "Tn. Slamet Riyadi", nik: "3573011505800003", kel: "Tambaan", prior: "TB" },
+  { nama: "Tn. Wahyu Hidayat", nik: "3573011009850004", kel: "Trajeng", prior: "ODGJ" },
+  { nama: "An. Kirana Putri", nik: "3573012208250005", kel: "Mayangan", prior: "Balita Risti" },
+  { nama: "Ny. Lestari Dewi", nik: "3573014802900006", kel: "Ngemplakrejo", prior: "Bumil Risti" },
+  { nama: "Ny. Mariyah", nik: "3573015509700007", kel: "Tambaan", prior: "ODGJ" },
+  { nama: "An. Bagas Pratama", nik: "3573011803240008", kel: "Mayangan", prior: "Balita Risti" },
+  { nama: "An. Dinda Ayu", nik: "3573016408230009", kel: "Trajeng", prior: "Stunting" },
+  { nama: "Ny. Yuni Astuti", nik: "3573016207900010", kel: "Mayangan", prior: "TB" },
+];
 
-// seed data master ke Postgres 
+function sasaranRows(): { nama: string; nik: string; kel: string; prior: string }[] {
+  const rows = [...SASARAN_SEED];
+  while (rows.length < 36) {
+    const b = rows[rows.length % 10];
+    if (!b) break;
+    rows.push({ ...b, nik: b.nik.slice(0, 12) + (1000 + rows.length), nama: `${b.nama} #${rows.length}` });
+  }
+  return rows;
+}
 
 const FORM_NAMA = "Formulir KR PWS";
 

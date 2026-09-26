@@ -1,6 +1,6 @@
 import type { Priority, Staff } from "@/lib/seeds";
-import type { KrSection } from "@/lib/kr-templates";
-import type { SasaranKey } from "@/lib/kr-form";
+import type { KunjunganRumahSection } from "@/lib/kunjungan-rumah-templates";
+import type { SasaranKey } from "@/lib/kunjungan-rumah-form";
 import type { TagVariant } from "@/lib/utils";
 
 export type DlgKind = "prio" | "staff";
@@ -15,7 +15,7 @@ export interface DlgState {
 
 export interface FieldDlgState {
   mode: "add" | "edit";
-  section: KrSection;
+  section: KunjunganRumahSection;
   sasaranKey?: SasaranKey;
   editId?: string;
   form: {
@@ -31,7 +31,7 @@ export interface FieldDlgState {
 }
 
 export const TABS = [
-  { key: "formkr", label: "Form KR" },
+  { key: "form-kunjungan-rumah", label: "Form Kunjungan Rumah" },
   { key: "prioritas", label: "Prioritas" },
   { key: "staff", label: "Staff" },
 ] as const;
@@ -49,7 +49,7 @@ export const FORM_SUB_TABS = [
 
 export type FormSubTab = (typeof FORM_SUB_TABS)[number]["key"];
 
-export const SASARAN_SECTION_OPTS: { value: KrSection; label: string }[] = [
+export const SASARAN_SECTION_OPTS: { value: KunjunganRumahSection; label: string }[] = [
   { value: "sasaran:identitas", label: "Identitas" },
   { value: "sasaran:kolom", label: "Kolom pemantauan" },
   { value: "sasaran:bools", label: "Kondisi / pelayanan" },

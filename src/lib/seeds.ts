@@ -1,6 +1,6 @@
-export type ChecklistItem = [string, string];
+export type KunjunganRumahItem = [string, string];
 
-export const CHECKLIST_ITEMS: Partial<Record<string, ChecklistItem[]>> = {
+export const KUNJUNGAN_RUMAH_ITEMS: Partial<Record<string, KunjunganRumahItem[]>> = {
   ODGJ: [
     ["Minum obat rutin", "Obat diminum sesuai jadwal, sisa obat dihitung."],
     ["Kontrol terjadwal", "Jadwal kontrol berikutnya sudah dipegang keluarga."],
@@ -83,7 +83,7 @@ export interface AdminItem {
 
 export function seedAdminItems(): AdminItem[] {
   const items: AdminItem[] = [];
-  Object.entries(CHECKLIST_ITEMS).forEach(([prio, rows]) => {
+  Object.entries(KUNJUNGAN_RUMAH_ITEMS).forEach(([prio, rows]) => {
     rows?.forEach((row, i) => {
       items.push({ id: `${prio}-${i}`, prio, judul: row[0], desk: row[1], on: true });
     });

@@ -1,13 +1,12 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { pinLogin, getSessionToken } from "#/lib/utils.functions";
+import { pinLogin, getSessionToken } from "@/lib/utils.functions";
 import { APP_BRAND } from "@/lib/constants";
 import { useToast } from "@/providers/toast";
 import brandIcon from "@/assets/brandIcon.png";
-import { Button } from "@/components/atoms/Button";
-import { Input } from "@/components/atoms/Input";
-import { FormField } from "@/components/molecules/FormField";
+import { Button, Input } from "@/components/atoms";
+import { FormField } from "@/components/molecules";
 import ThemeToggle from "@/components/ThemeToggle";
 
 /* ALUR LOGIN
@@ -68,7 +67,7 @@ function RouteComponent() {
 
       <main className="max-w-xl w-lg">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <img src={brandIcon} alt="KR" width={64}/>
+          <img src={brandIcon} alt="Kunjungan Rumah" width={64}/>
           <div>
             <h1 className="text-lg font-bold leading-tight text-ink">{APP_BRAND.name}</h1>
             <p className="text-xs font-semibold tracking-[0.22em] text-muted">{APP_BRAND.region}</p>
