@@ -1,0 +1,53 @@
+import { describe, expect, it } from "vitest";
+import { buildConditionalMap, isConditionalActive } from "@/features/kunjungan-rumah/services/conditional";
+import type { ConditionalRule } from "@/lib/kunjungan-rumah-form";
+
+const checksRule: ConditionalRule = {
+  trigger: "skriningJiwa",
+  kind: "checks",
+  dependents: ["skriningJiwaTempat", "skriningJiwaTanggal"],
+};
+
+const valueRule: ConditionalRule = {
+  trigger: "merokok",
+  kind: "values",
+  when: "Aktif",
+  dependents: ["konselingBerhenti"],
+};
+
+const nonEmptyRule: ConditionalRule = {
+  trigger: "keluhan",
+  kind: "values",
+  whenNonEmpty: true,
+  dependents: ["keluhanDetail"],
+};
+
+describe("isConditionalActive", () => {
+  it("checks kind mengikuti status centang", () => {
+    expect(isConditionalActive(checksRule, {}, { skriningJiwa: true })).toBe(true);
+    expect(isConditionalActive(checksRule, {}, { skriningJiwa: false })).toBe(false);
+    expect(isConditionalActive(checksRule, {}, {})).toBe(false);
+  });
+
+  it("values kind cocok dengan when", () => {
+    expect(isConditionalActive(valueRule, { merokok: "Aktif" }, {})).toBe(true);
+    expect(isConditionalActive(valueRule, { merokok: "Pasif" }, {})).toBe(false);
+    expect(isConditionalActive(valueRule, {}, {})).toBe(false);
+  });
+
+  it("whenNonEmpty true saat ada isi", () => {
+    expect(isConditionalActive(nonEmptyRule, { keluhan: "batuk" }, {})).toBe(true);
+    expect(isConditionalActive(nonEmptyRule, { keluhan: "   " }, {})).toBe(false);
+    expect(isConditionalActive(nonEmptyRule, {}, {})).toBe(false);
+  });
+});
+
+describe("buildConditionalMap", () => {
+  it("petakan tiap dependent ke rule-nya", () => {
+    const m = buildConditionalMap([checksRule, valueRule]);
+    expect(m.get("skriningJiwaTempat")).toBe(checksRule);
+    expect(m.get("skriningJiwaTanggal")).toBe(checksRule);
+    expect(m.get("konselingBerhenti")).toBe(valueRule);
+    expect(m.get("tidak-ada")).toBeUndefined();
+  });
+});
