@@ -1,31 +1,16 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useKegiatan  } from "@/hooks/use-kegiatan";
-import type {KegiatanRecord} from "@/hooks/use-kegiatan";
-import { useLocalStorage } from "@/hooks/use-local-storage";
-import { JENIS_KEGIATAN, KELS, POSY, STORAGE_KEYS } from "@/lib/constants";
+import { useKegiatanRecords } from "@/hooks/use-kegiatan-records";
+import type { KegiatanRow } from "@/hooks/use-kegiatan-records";
+import { JENIS_KEGIATAN, KELS, POSY } from "@/lib/constants";
 import { fmtDate } from "@/lib/utils";
 import { useToast } from "@/providers/toast";
-import { AppShell } from "@/components/organisms/AppShell";
-import { DokumentasiPanel } from "@/components/organisms/DokumentasiPanel";
-import { HistoryPanel } from "@/components/organisms/HistoryPanel";
-import { PesertaPanel } from "@/components/organisms/PesertaPanel";
-import { SuccessPanel } from "@/components/organisms/SuccessPanel";
-import { SectionCard } from "@/components/molecules/SectionCard";
-import { Stepper  } from "@/components/molecules/Stepper";
-import type {Step} from "@/components/molecules/Stepper";
-import { FillBar } from "@/components/molecules/FillBar";
-import { HistoryRow } from "@/components/molecules/HistoryRow";
-
-import { FormField } from "@/components/molecules/FormField";
-import { Toolbar } from "@/components/molecules/Toolbar";
-import { PageHeader } from "@/components/molecules/PageHeader";
-import { Input } from "@/components/atoms/Input";
-import { Select } from "@/components/atoms/Select";
-import { Textarea } from "@/components/atoms/Textarea";
-import { Badge } from "@/components/atoms/Badge";
-import { Button } from "@/components/atoms/Button";
-import { requireAuth } from "#/lib/auth";
+import { AppShell, DokumentasiPanel, HistoryPanel, PesertaPanel, SuccessPanel } from "@/components/organisms";
+import { FillBar, FormField, HistoryRow, PageHeader, SectionCard, Stepper, Toolbar } from "@/components/molecules";
+import type { Step } from "@/components/molecules";
+import { Badge, Button, Input, Select, Textarea } from "@/components/atoms";
+import { requireAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/kegiatan")({
   beforeLoad: requireAuth,
@@ -35,9 +20,10 @@ export const Route = createFileRoute("/kegiatan")({
 function Kegiatan() {
   const k = useKegiatan();
   const toast = useToast();
-  const [records, setRecords] = useLocalStorage<KegiatanRecord[]>(STORAGE_KEYS.kegiatan, []);
-  const [saved, setSaved] = useState<KegiatanRecord | null>(null);
+  const { records, loading: recordsLoading, saveRecord } = useKegiatanRecords();
+  const [saved, setSaved] = useState<KegiatanRow | null>(null);
   const [fotoErr, setFotoErr] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const n = k.peserta.length ? 3 : k.fields.nama ? 2 : 1;
   const steps: Step[] = [
@@ -63,9 +49,15 @@ function Kegiatan() {
       toast("Periksa kembali isian yang wajib diisi.");
       return;
     }
-    setRecords((prev) => [...prev, r]);
-    setSaved(r);
-    toast(`Kegiatan ${r.nama} tersimpan.`);
+    setSaving(true);
+    // Foto kegiatan (object-URL sementara) tidak persist — simpan peserta + caption + hitungan ke DB.
+    void saveRecord({ ...r, peserta: k.peserta.map((p) => ({ ...p })), fotoCaptions: k.fotos.map((f) => f.cap) })
+      .then((row) => {
+        setSaved(row);
+        toast(`Kegiatan ${r.nama} tersimpan di database.`);
+      })
+      .catch(() => toast("Gagal menyimpan ke database. Coba lagi."))
+      .finally(() => setSaving(false));
   };
 
   const handleNext = () => {
@@ -169,15 +161,15 @@ function Kegiatan() {
         title="5. Simpan"
         actions={
           <Toolbar className="w-full">
-            <span className="ml-auto text-xs text-muted">Simpan ke riwayat lokal perangkat ini.</span>
+            <span className="ml-auto text-xs text-muted">Simpan ke database.</span>
             <Button variant="default" onClick={k.clearAll}>
               Reset
             </Button>
             <Button variant="ghost" onClick={k.loadDemo}>
               Isi contoh
             </Button>
-            <Button variant="primary" onClick={handleSubmit}>
-              Simpan kegiatan
+            <Button variant="primary" onClick={handleSubmit} disabled={saving}>
+              {saving ? "Menyimpan…" : "Simpan kegiatan"}
             </Button>
           </Toolbar>
         }
@@ -188,7 +180,7 @@ function Kegiatan() {
       {saved ? (
         <SuccessPanel
           title={`Kegiatan ${saved.nama} tersimpan.`}
-          message="Data tercatat di riwayat lokal; tim dapat menambah kegiatan lainnya."
+          message="Data tercatat di database; tim dapat menambah kegiatan lainnya."
         >
           <Button variant="primary" onClick={handleNext}>
             Catat kegiatan berikutnya
@@ -202,7 +194,7 @@ function Kegiatan() {
         </SuccessPanel>
       ) : null}
 
-      <SectionCard title="Riwayat Kegiatan" sub="Data tersimpan di perangkat ini.">
+      <SectionCard title="Riwayat Kegiatan" sub={recordsLoading ? "Memuat dari database…" : "Data tersimpan di database."}>
         <HistoryPanel
           items={records.map((r, i) => (
             <HistoryRow key={i} layout="stack">

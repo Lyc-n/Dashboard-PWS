@@ -1,30 +1,25 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { sasaranRows } from "@/lib/mock-data";
-import { KELS, PRIOS, POSY } from "@/lib/constants";
+import { getSasaranList } from "@/lib/utils.functions";
+import { requireAuth } from "@/lib/auth";
+import { KELS } from "@/lib/constants";
 import { downloadCsv, fmtDate } from "@/lib/utils";
-import { DataTable } from "@/components/organisms/DataTable";
-import { FilterCard } from "@/components/organisms/FilterCard";
-import { SectionCard } from "@/components/molecules/SectionCard";
-import { PageHeader } from "@/components/molecules/PageHeader";
-import { Toolbar } from "@/components/molecules/Toolbar";
-import { Input } from "@/components/atoms/Input";
-import { Select } from "@/components/atoms/Select";
-import { Button } from "@/components/atoms/Button";
-import { Tag } from "@/components/atoms/Tag";
-import { StatusBadge } from "@/components/atoms/StatusBadge";
+import { DataTable, FilterCard } from "@/components/organisms";
+import { PageHeader, SectionCard, Toolbar } from "@/components/molecules";
+import { Button, Input, Select, StatusBadge } from "@/components/atoms";
 
 export const Route = createFileRoute("/sasaran/")({
+  beforeLoad: requireAuth,
+  loader: async () => await getSasaranList(),
+  pendingComponent: () => <p className="p-4 text-sm text-muted">Memuat data sasaran…</p>,
   component: Sasaran,
 })
 
 function Sasaran() {
-  const rows = useMemo(() => sasaranRows(), []);
+  const rows = Route.useLoaderData();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
-  const [prio, setPrio] = useState("all");
   const [kel, setKel] = useState("all");
-  const [posy, setPosy] = useState("all");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
 
@@ -32,39 +27,30 @@ function Sasaran() {
     return rows.filter(
       (r) =>
         (status === "all" || r.status === status) &&
-        (prio === "all" || r.prior === prio) &&
-        (kel === "all" || r.kel === kel) &&
-        (posy === "all" || r.posy === posy) &&
+        (kel === "all" || r.kelurahan === kel) &&
         (!q ||
           r.nama.toLowerCase().includes(q.toLowerCase()) ||
           r.nik.includes(q)),
     );
-  }, [rows, status, prio, kel, posy, q]);
-
-  const filteredWithIdx = useMemo(
-    () => filtered.map((r) => ({ row: r, idx: rows.indexOf(r) })),
-    [filtered, rows],
-  );
+  }, [rows, status, kel, q]);
 
   const doneCount = filtered.filter((r) => r.status === "Sudah").length;
   const belumCount = filtered.filter((r) => r.status === "Belum").length;
 
   const maxPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageClamped = Math.min(page, maxPage);
-  const pageRows = filteredWithIdx.slice((pageClamped - 1) * PAGE_SIZE, pageClamped * PAGE_SIZE);
+  const pageRows = filtered.slice((pageClamped - 1) * PAGE_SIZE, pageClamped * PAGE_SIZE);
 
   const reset = () => {
     setQ("");
     setStatus("all");
-    setPrio("all");
     setKel("all");
-    setPosy("all");
     setPage(1);
   };
 
   const exportCsv = () => {
-    const head = ["No", "Tanggal", "Nama", "NIK", "Kelurahan", "Posyandu", "Prioritas", "Status"];
-    const csvRows = filtered.map((r, i) => [i + 1, r.tgl, r.nama, r.nik, r.kel, r.posy, r.prior, r.status]);
+    const head = ["No", "Tanggal Terakhir", "Nama", "NIK", "Kelurahan", "Kunjungan", "Status"];
+    const csvRows = filtered.map((r, i) => [i + 1, r.tgl ?? "—", r.nama, r.nik, r.kelurahan, r.kunjungan, r.status]);
     downloadCsv("data-sasaran.csv", head, csvRows);
   };
 
@@ -72,7 +58,7 @@ function Sasaran() {
     <>
       <PageHeader
         title="Data Sasaran"
-        description="Daftar warga dengan kunjungan rumah dari Puskesmas Kelurahan Trajeng, Kota Pasuruan."
+        description="Daftar warga dari database beserta status kunjungannya."
       />
 
       <FilterCard title="Saring Data" sub="Temukan sasaran tertentu dengan cepat.">
@@ -99,21 +85,6 @@ function Sasaran() {
             <option value="all">Semua status</option>
             <option>Sudah</option>
             <option>Belum</option>
-            <option>Terjadwal</option>
-          </Select>
-          <Select
-            value={prio}
-            onChange={(e) => {
-              setPrio(e.target.value);
-              setPage(1);
-            }}
-            aria-label="Filter prioritas"
-            className="max-w-45 max-md:max-w-none"
-          >
-            <option value="all">Semua prioritas</option>
-            {PRIOS.map((p) => (
-              <option key={p}>{p}</option>
-            ))}
           </Select>
           <Select
             value={kel}
@@ -127,20 +98,6 @@ function Sasaran() {
             <option value="all">Semua kelurahan</option>
             {KELS.map((k) => (
               <option key={k}>{k}</option>
-            ))}
-          </Select>
-          <Select
-            value={posy}
-            onChange={(e) => {
-              setPosy(e.target.value);
-              setPage(1);
-            }}
-            aria-label="Filter posyandu"
-            className="max-w-45 max-md:max-w-none"
-          >
-            <option value="all">Semua posyandu</option>
-            {POSY.map((p) => (
-              <option key={p}>{p}</option>
             ))}
           </Select>
         </Toolbar>
@@ -162,23 +119,27 @@ function Sasaran() {
           </Toolbar>
         }
       >
+        {filtered.length === 0 ? (
+          <p className="px-1 py-6 text-center text-sm text-muted">
+            Tidak ada sasaran di database untuk filter ini.
+          </p>
+        ) : (
         <DataTable
           columns={[
             { key: "sasaran", label: "Sasaran" },
-            { key: "wilayah", label: "Kelurahan · Posyandu" },
-            { key: "prior", label: "Prioritas" },
+            { key: "wilayah", label: "Kelurahan" },
+            { key: "kunjungan", label: "Kunjungan" },
             { key: "status", label: "Status" },
-            { key: "tgl", label: "Tgl.", sortable: true },
-            { key: "lokasi", label: "Lokasi" },
+            { key: "tgl", label: "Terakhir", sortable: true },
             { key: "aksi", label: "Aksi" },
           ]}
           rows={pageRows}
-          renderRow={({ row, idx }, i) => (
-            <tr key={i} className="border-b border-surface-2 last:border-none hover:bg-surface-2">
+          renderRow={(row) => (
+            <tr key={row.nik} className="border-b border-surface-2 last:border-none hover:bg-surface-2">
               <td className="px-3 py-2.5">
                 <Link
                   to="/sasaran/$id"
-                  params={{ id: String(idx) }}
+                  params={{ id: row.nik }}
                   className="font-semibold text-accent hover:text-accent-hover"
                 >
                   {row.nama}
@@ -186,21 +147,17 @@ function Sasaran() {
                 <div className="text-[11px] text-muted">NIK {row.nik}</div>
               </td>
               <td className="px-3 py-2.5">
-                <div className="font-semibold text-ink">Kel. {row.kel}</div>
-                <div className="text-[11px] text-muted">{row.posy}</div>
+                <div className="font-semibold text-ink">Kel. {row.kelurahan}</div>
               </td>
-              <td className="px-3 py-2.5">
-                <Tag priority={row.prior} />
-              </td>
+              <td className="px-3 py-2.5 text-muted">{row.kunjungan}×</td>
               <td className="px-3 py-2.5">
                 <StatusBadge value={row.status} />
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5">{fmtDate(row.tgl)}</td>
-              <td className="px-3 py-2.5 text-muted">{row.lokasi}</td>
+              <td className="whitespace-nowrap px-3 py-2.5">{row.tgl ? fmtDate(row.tgl) : "—"}</td>
               <td className="px-3 py-2.5">
                 <Link
                   to="/sasaran/$id"
-                  params={{ id: String(idx) }}
+                  params={{ id: row.nik }}
                   className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs font-bold text-ink hover:border-accent"
                 >
                   Detail
@@ -208,12 +165,12 @@ function Sasaran() {
               </td>
             </tr>
           )}
-          renderMobileRow={({ row, idx }, i) => (
-            <div key={i} className="border-b border-surface-2 last:border-none px-3.5 py-3">
+          renderMobileRow={(row) => (
+            <div key={row.nik} className="border-b border-surface-2 last:border-none px-3.5 py-3">
               <div className="flex items-start justify-between gap-2">
                 <Link
                   to="/sasaran/$id"
-                  params={{ id: String(idx) }}
+                  params={{ id: row.nik }}
                   className="font-semibold text-accent hover:text-accent-hover"
                 >
                   {row.nama}
@@ -222,14 +179,13 @@ function Sasaran() {
               </div>
               <div className="text-[11px] text-muted">NIK {row.nik}</div>
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                <Tag priority={row.prior} />
-                <span className="text-[11px] text-muted">Kel. {row.kel} · {row.posy}</span>
+                <span className="text-[11px] text-muted">Kel. {row.kelurahan} · {row.kunjungan}× kunjungan</span>
               </div>
               <div className="mt-1.5 flex items-center justify-between gap-2">
-                <span className="text-[11px] text-muted">{fmtDate(row.tgl)} · {row.lokasi}</span>
+                <span className="text-[11px] text-muted">{row.tgl ? fmtDate(row.tgl) : "Belum dikunjungi"}</span>
                 <Link
                   to="/sasaran/$id"
-                  params={{ id: String(idx) }}
+                  params={{ id: row.nik }}
                   className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs font-bold text-ink hover:border-accent"
                 >
                   Detail
@@ -244,6 +200,7 @@ function Sasaran() {
           onPrev={() => setPage((p) => Math.max(1, p - 1))}
           onNext={() => setPage((p) => Math.min(maxPage, p + 1))}
         />
+        )}
       </SectionCard>
     </>
   )

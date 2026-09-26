@@ -5,10 +5,9 @@ import type { AdminItem, Priority, Staff } from "@/lib/seeds";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { STORAGE_KEYS } from "@/lib/constants";
 import { useKrTemplates } from "@/hooks/use-kr-templates";
-import { AppShell } from "@/components/organisms/AppShell";
-import { StatCard } from "@/components/molecules/StatCard";
-import { PageHeader } from "@/components/molecules/PageHeader";
-import { Tab } from "@/components/atoms/Tab";
+import { AppShell } from "@/components/organisms";
+import { PageHeader, StatCard } from "@/components/molecules";
+import { Tab } from "@/components/atoms";
 // [perbaikan] guard pindah ke requireAdmin (verifikasi cookie+JWT di server, role dari payload) —
 //   expect: tanpa sesi → /pin; sesi non-admin → /laporan; localStorage auth tak dipakai lagi.
 import { requireAdmin } from "@/lib/auth";

@@ -1,13 +1,12 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { pinLogin, getSessionToken } from "#/lib/utils.functions";
+import { pinLogin, getSessionToken } from "@/lib/utils.functions";
 import { APP_BRAND } from "@/lib/constants";
 import { useToast } from "@/providers/toast";
 import brandIcon from "@/assets/brandIcon.png";
-import { Button } from "@/components/atoms/Button";
-import { Input } from "@/components/atoms/Input";
-import { FormField } from "@/components/molecules/FormField";
+import { Button, Input } from "@/components/atoms";
+import { FormField } from "@/components/molecules";
 import ThemeToggle from "@/components/ThemeToggle";
 
 /* ALUR LOGIN

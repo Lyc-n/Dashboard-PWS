@@ -1,26 +1,14 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Download, Printer } from "lucide-react";
-import { laporanRows } from "@/lib/mock-data";
+import { getLaporanKunjungan, listKegiatan } from "@/lib/utils.functions";
 import type { KegiatanRecord } from "@/hooks/use-kegiatan";
-import { APP_BRAND, JENIS_KEGIATAN, KELS, POSY, PRIOS, STORAGE_KEYS, SUMBER_PERIKSA, STATUS_DEFAULT } from "@/lib/constants";
+import { APP_BRAND, JENIS_KEGIATAN, KELS, POSY } from "@/lib/constants";
 import { downloadCsv, fmtDate } from "@/lib/utils";
 import { useToast } from "@/providers/toast";
-import { useLocalStorage } from "@/hooks/use-local-storage";
-import { AppShell } from "@/components/organisms/AppShell";
-import { DataTable } from "@/components/organisms/DataTable";
-import { SectionCard } from "@/components/molecules/SectionCard";
-import { StatCard } from "@/components/molecules/StatCard";
-import { ProgressBar } from "@/components/atoms/ProgressBar";
-import { PageHeader } from "@/components/molecules/PageHeader";
-import { Toolbar } from "@/components/molecules/Toolbar";
-import { Input } from "@/components/atoms/Input";
-import { Select } from "@/components/atoms/Select";
-import { Button } from "@/components/atoms/Button";
-import { StatusBadge } from "@/components/atoms/StatusBadge";
-import { Tag } from "@/components/atoms/Tag";
-import { LogoEmblem } from "@/components/atoms/LogoEmblem";
-import { Tab } from "@/components/atoms/Tab";
+import { AppShell, DataTable } from "@/components/organisms";
+import { PageHeader, SectionCard, StatCard, Toolbar } from "@/components/molecules";
+import { Button, Input, LogoEmblem, ProgressBar, Select, StatusBadge, Tab } from "@/components/atoms";
 // [perbaikan] guard konsisten dengan route lain: requireAuth baca cookie httpOnly via server —
 //   expect: tanpa sesi valid → redirect /pin (dulu /login); import yang hilang dipulihkan.
 import { requireAuth, isAdminUser } from "@/lib/auth";
@@ -29,6 +17,11 @@ import { RekapKunjunganSection } from "@/features/laporan/RekapKunjunganSection"
 
 export const Route = createFileRoute("/laporan")({
   beforeLoad: requireAuth,
+  loader: async () => {
+    const [kunjungan, kegiatan] = await Promise.all([getLaporanKunjungan(), listKegiatan()]);
+    return { kunjungan, kegiatan };
+  },
+  pendingComponent: () => <p className="p-4 text-sm text-muted">Memuat laporan…</p>,
   component: Laporan,
 })
 
@@ -40,21 +33,17 @@ const TODAY = new Date().toLocaleDateString("id-ID", {
 const PAGE_SIZE = 10;
 
 function Laporan() {
-  const rows = useMemo(() => laporanRows(), []);
+  const { kunjungan: rows, kegiatan: kegiatanRaw } = Route.useLoaderData();
+  const kegiatanRows = kegiatanRaw as unknown as KegiatanRecord[];
   const toast = useToast();
   const { user } = useAuth();
   const admin = isAdminUser(user);
-  const [kegiatanRows] = useLocalStorage<KegiatanRecord[]>(STORAGE_KEYS.kegiatan, []);
 
   const [tab, setTab] = useState<"kunjungan" | "kegiatan" | "rekap">("kunjungan");
 
   const [dari, setDari] = useState("2026-01-01");
-  const [sampai, setSampai] = useState("2026-03-31");
+  const [sampai, setSampai] = useState("2026-12-31");
   const [kel, setKel] = useState("all");
-  const [prior, setPrior] = useState("all");
-  const [posy, setPosy] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [sumber, setSumber] = useState("all");
   const [cari, setCari] = useState("");
   const [judul, setJudul] = useState("LAPORAN KUNJUNGAN LAPANGAN PWS — KOTA PASURUAN");
   const [ttdNama, setTtdNama] = useState("dr. Ayu Rahmawati");
@@ -76,30 +65,22 @@ function Laporan() {
 
   // non-admin: wilayah tab kunjungan terkunci ke wilayah kader
   const effKel = admin ? kel : (user?.kel ?? "all");
-  const effPosy = admin ? posy : (user?.posy ?? "all");
 
   const filtered = useMemo(() => {
     return rows.filter(
       (r) =>
-        r.tgl >= dari &&
-        r.tgl <= sampai &&
-        (effKel === "all" || r.kel === effKel) &&
-        (prior === "all" || r.prior === prior) &&
-        (effPosy === "all" || r.posy === effPosy) &&
-        (status === "all" || r.status === status) &&
-        (sumber === "all" || r.sumber === sumber) &&
-        (!cari || r.nama.toLowerCase().includes(cari.toLowerCase())),
+        r.tanggal >= dari &&
+        r.tanggal <= sampai &&
+        (effKel === "all" || r.kelurahan === effKel) &&
+        (!cari || r.nama.toLowerCase().includes(cari.toLowerCase()) || r.nik.includes(cari)),
     );
-  }, [rows, dari, sampai, effKel, prior, effPosy, status, sumber, cari]);
+  }, [rows, dari, sampai, effKel, cari]);
 
-  const pctSelesai = filtered.length ? Math.round((filtered.filter((r) => r.status === "Selesai").length / filtered.length) * 100) : 0;
-  const perluTindak = filtered.filter((r) => r.status === "Perlu tindak lanjut").length;
-  const terjadwal = filtered.filter((r) => r.status === "Terjadwal").length;
+  const wargaUnik = new Set(filtered.map((r) => r.nik)).size;
 
   const kelStats = KELS.map((k) => {
-    const sub = filtered.filter((r) => r.kel === k);
-    const done = sub.filter((r) => r.status === "Selesai").length;
-    return { kel: k, n: sub.length, done, pct: sub.length ? Math.round((done / sub.length) * 100) : 0 };
+    const sub = filtered.filter((r) => r.kelurahan === k);
+    return { kel: k, n: sub.length, done: sub.length, pct: 100 };
   });
 
   const maxPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -137,8 +118,8 @@ function Laporan() {
   const gKopRows = filteredKegiatan.slice(0, 60);
 
   const downloadCsvKunjungan = () => {
-    const head = ["No", "Tanggal", "Nama", "Prioritas", "Kelurahan", "Posyandu", "Sumber", "Hasil", "Status"];
-    const csvRows = filtered.map((r, i) => [i + 1, r.tgl, r.nama, r.prior, r.kel, r.posy, r.sumber, r.hasil, r.status]);
+    const head = ["No", "Tanggal", "Nama", "NIK", "Kelurahan", "Petugas"];
+    const csvRows = filtered.map((r, i) => [i + 1, r.tanggal, r.nama, r.nik, r.kelurahan, r.petugas]);
     downloadCsv("laporan-kunjungan.csv", head, csvRows);
     toast("Laporan kunjungan CSV diunduh.");
   };
@@ -156,8 +137,8 @@ function Laporan() {
     const text = [
       `Laporan Kunjungan PWS — Kota Pasuruan`,
       `Periode ${fmtDate(dari)} – ${fmtDate(sampai)}`,
-      `Total ${filtered.length} kunjungan · ${pctSelesai}% selesai · ${perluTindak} perlu tindak lanjut · ${terjadwal} terjadwal`,
-      `${kelStats.map((s) => `Kel. ${s.kel}: ${s.done}/${s.n} selesai`).join(" · ")}`,
+      `Total ${filtered.length} kunjungan · ${wargaUnik} warga unik`,
+      `${kelStats.map((s) => `Kel. ${s.kel}: ${s.n}`).join(" · ")}`,
     ].join("\n");
     navigator.clipboard
       .writeText(text)
@@ -219,40 +200,15 @@ function Laporan() {
                   <option key={k}>{k}</option>
                 ))}
               </Select>
-              <Select value={prior} onChange={(e) => setPrior(e.target.value)} aria-label="Filter prioritas" className="max-w-[170px] max-md:max-w-none">
-                <option value="all">Semua prioritas</option>
-                {PRIOS.map((p) => (
-                  <option key={p}>{p}</option>
-                ))}
-              </Select>
-              <Select value={effPosy} onChange={(e) => setPosy(e.target.value)} aria-label="Filter posyandu" className="max-w-[170px] max-md:max-w-none" disabled={!admin}>
-                <option value="all">Semua posyandu</option>
-                {POSY.map((p) => (
-                  <option key={p}>{p}</option>
-                ))}
-              </Select>
-              <Select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter status" className="max-w-[170px] max-md:max-w-none">
-                <option value="all">Semua status</option>
-                {STATUS_DEFAULT.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </Select>
-              <Select value={sumber} onChange={(e) => setSumber(e.target.value)} aria-label="Filter sumber" className="max-w-[170px] max-md:max-w-none">
-                <option value="all">Semua sumber</option>
-                {SUMBER_PERIKSA.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </Select>
-              <Input value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Cari nama…" aria-label="Cari nama" className="max-w-[200px] max-md:max-w-none" />
+              <Input value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Cari nama / NIK…" aria-label="Cari nama" className="max-w-[200px] max-md:max-w-none" />
             </Toolbar>
           </SectionCard>
 
           <SectionCard className="no-print" title="Ringkasan" sub="Rekap otomatis dari filter di atas.">
-            <div className="grid grid-cols-4 gap-3 max-md:grid-cols-2 max-sm:grid-cols-1">
+            <div className="grid grid-cols-3 gap-3 max-md:grid-cols-2 max-sm:grid-cols-1">
               <StatCard caption="Total kunjungan" value={filtered.length} />
-              <StatCard caption="Cakupan selesai" value={`${pctSelesai}%`} progress={pctSelesai} />
-              <StatCard caption="Perlu tindak lanjut" value={perluTindak} progress={Math.min(100, Math.round((perluTindak * 100) / 24))} />
-              <StatCard caption="Terjadwal" value={terjadwal} progress={Math.min(100, Math.round((terjadwal * 100) / 24))} />
+              <StatCard caption="Warga unik" value={wargaUnik} />
+              <StatCard caption="Kelurahan tercakup" value={kelStats.filter((s) => s.n > 0).length} />
             </div>
             <div className="mt-3 grid grid-cols-4 gap-3 max-md:grid-cols-2 max-sm:grid-cols-1">
               {kelStats.map((s) => (
@@ -306,7 +262,7 @@ function Laporan() {
             <div className="mt-5 text-center">
               <b className="text-sm text-ink">{judul}</b>
               <div className="mt-1 text-muted">
-                Periode {fmtDate(dari)} – {fmtDate(sampai)} · {filtered.length} kunjungan · {pctSelesai}% selesai
+                Periode {fmtDate(dari)} – {fmtDate(sampai)} · {filtered.length} kunjungan · {wargaUnik} warga
               </div>
             </div>
 
@@ -314,7 +270,7 @@ function Laporan() {
               <table className="w-full border-collapse text-[11px]">
                 <thead>
                   <tr>
-                    {["No", "Tanggal", "Nama & prioritas", "Wilayah", "Sumber", "Hasil", "Status"].map((h) => (
+                    {["No", "Tanggal", "Nama", "Wilayah", "Petugas", "Status"].map((h) => (
                       <th key={h} className="border-b border-line bg-surface-2 px-2.5 py-2 text-left font-semibold uppercase tracking-wider text-muted">
                         {h}
                       </th>
@@ -324,26 +280,25 @@ function Laporan() {
                 <tbody>
                   {kopRows.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-2.5 py-4 text-center text-muted">
+                      <td colSpan={6} className="px-2.5 py-4 text-center text-muted">
                         Tidak ada data untuk filter ini.
                       </td>
                     </tr>
                   ) : (
                     kopRows.map((r, i) => (
-                      <tr key={i} className="border-b border-[var(--color-surface-2)] last:border-none">
+                      <tr key={r.id} className="border-b border-[var(--color-surface-2)] last:border-none">
                         <td className="px-2.5 py-2">{i + 1}</td>
-                        <td className="whitespace-nowrap px-2.5 py-2">{fmtDate(r.tgl)}</td>
+                        <td className="whitespace-nowrap px-2.5 py-2">{fmtDate(r.tanggal)}</td>
                         <td className="px-2.5 py-2">
-                          <Tag priority={r.prior} />
-                          <div className="mt-0.5 font-semibold">{r.nama}</div>
+                          <div className="font-semibold">{r.nama}</div>
+                          <div className="text-muted">NIK {r.nik}</div>
                         </td>
                         <td className="whitespace-nowrap px-2.5 py-2">
-                          Kel. {r.kel} · {r.posy}
+                          Kel. {r.kelurahan}
                         </td>
-                        <td className="px-2.5 py-2 text-muted">{r.sumber}</td>
-                        <td className="px-2.5 py-2 text-muted">{r.hasil}</td>
+                        <td className="px-2.5 py-2 text-muted">{r.petugas}</td>
                         <td className="px-2.5 py-2">
-                          <StatusBadge value={r.status} />
+                          <StatusBadge value="Selesai" />
                         </td>
                       </tr>
                     ))
@@ -362,54 +317,56 @@ function Laporan() {
           </div>
 
           <SectionCard className="no-print" title="Pratinjau Data" sub="Lihat daftar lengkap dengan navigasi halaman.">
+            {filtered.length === 0 ? (
+              <p className="px-1 py-6 text-center text-sm text-muted">
+                Belum ada kunjungan di database untuk filter ini.
+              </p>
+            ) : (
             <DataTable
               columns={[
                 { key: "no", label: "No" },
                 { key: "tgl", label: "Tanggal" },
-                { key: "nama", label: "Nama & prioritas" },
+                { key: "nama", label: "Nama" },
                 { key: "wilayah", label: "Wilayah" },
-                { key: "sumber", label: "Sumber" },
-                { key: "hasil", label: "Hasil" },
+                { key: "petugas", label: "Petugas" },
                 { key: "status", label: "Status" },
               ]}
               rows={pageRows}
               renderRow={(r, i) => (
-                <tr key={i} className="border-b border-[var(--color-surface-2)] last:border-none hover:bg-surface-2">
+                <tr key={r.id} className="border-b border-[var(--color-surface-2)] last:border-none hover:bg-surface-2">
                   <td className="px-3 py-2.5">{(pageClamped - 1) * PAGE_SIZE + i + 1}</td>
-                  <td className="whitespace-nowrap px-3 py-2.5">{fmtDate(r.tgl)}</td>
+                  <td className="whitespace-nowrap px-3 py-2.5">{fmtDate(r.tanggal)}</td>
                   <td className="px-3 py-2.5">
-                    <Tag priority={r.prior} />
-                    <div className="mt-1 font-semibold text-ink">{r.nama}</div>
+                    <div className="font-semibold text-ink">{r.nama}</div>
+                    <div className="text-[11px] text-muted">NIK {r.nik}</div>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5">
-                    Kel. {r.kel} · {r.posy}
+                    Kel. {r.kelurahan}
                   </td>
-                  <td className="px-3 py-2.5 text-muted">{r.sumber}</td>
-                  <td className="px-3 py-2.5 text-muted">{r.hasil}</td>
+                  <td className="px-3 py-2.5 text-muted">{r.petugas}</td>
                   <td className="px-3 py-2.5">
-                    <StatusBadge value={r.status} />
+                    <StatusBadge value="Selesai" />
                   </td>
                 </tr>
               )}
-              renderMobileRow={(r, i) => (
-                <div key={i} className="border-b border-[var(--color-surface-2)] last:border-none px-3.5 py-3">
+              renderMobileRow={(r) => (
+                <div key={r.id} className="border-b border-[var(--color-surface-2)] last:border-none px-3.5 py-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="font-semibold text-ink">{r.nama}</div>
-                      <div className="text-[11px] text-muted">Kel. {r.kel} · {r.posy}</div>
+                      <div className="text-[11px] text-muted">Kel. {r.kelurahan}</div>
                     </div>
-                    <StatusBadge value={r.status} />
+                    <StatusBadge value="Selesai" />
                   </div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <Tag priority={r.prior} />
-                    <span className="text-[11px] text-muted">{fmtDate(r.tgl)}</span>
+                    <span className="text-[11px] text-muted">{fmtDate(r.tanggal)}</span>
+                    <span className="text-[11px] text-muted">· {r.petugas}</span>
                   </div>
-                  <div className="mt-1.5 text-[11px] text-muted">{r.sumber} · {r.hasil}</div>
                 </div>
               )}
               toolbar={
                 <span className="text-xs font-semibold text-muted">
-                  Menampilkan {filtered.length} kunjungan · {pctSelesai}% selesai
+                  Menampilkan {filtered.length} kunjungan · {wargaUnik} warga
                 </span>
               }
               info={`Hal ${pageClamped} · ${(pageClamped - 1) * PAGE_SIZE + 1}–${Math.min(pageClamped * PAGE_SIZE, filtered.length)} dari ${filtered.length}`}
@@ -419,6 +376,7 @@ function Laporan() {
               onPrev={() => setPage((p) => Math.max(1, p - 1))}
               onNext={() => setPage((p) => Math.min(maxPage, p + 1))}
             />
+            )}
           </SectionCard>
         </>
       ) : (
