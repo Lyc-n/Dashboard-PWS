@@ -24,8 +24,18 @@ function hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex') // generate token dengan hash SHA-256
 }
 
+// [perbaikan] jeda tetap 1 detik per percobaan PIN — expect: brute-force 6 digit butuh ±58 hari
+//   utk 1 juta percobaan; durasi sama untuk benar/salah sehingga latency tak membocorkan PIN.
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 export async function isValidPin(pin: number) {
+    await sleep(1000)
     if (String(pin) !== process.env.PIN) return false // expect: client terima `false` biasa, jadi alur form tak terputus oleh error mentah.
+    // [perbaikan] satu sesi aktif: hapus SEMUA row valid_session sebelum membuat sesi baru —
+    //   expect: login baru membunuh token lama di device lain; row expired ikut terbuang tiap login.
+    await db.delete(validSession)
     setCookie('session', await createSessionHelper(), { // umur cookie 12 jam
         httpOnly: true,
         secure: true,
@@ -67,7 +77,12 @@ export async function touchSession(sessionToken: string): Promise<{ profile: Aut
             where: { token: hashToken(sessionToken) }
         })
         if (!row) throw new Error('Unauthorized')
-        if (row.expiresAt.getTime() < Date.now()) throw new Error('Unauthorized')
+        if (row.expiresAt.getTime() < Date.now()) {
+            // [perbaikan] row kedaluwarsa ikut dihapus, bukan cuma ditolak —
+            //   expect: sesi yang ditinggal mati tak menumpuk selamanya di valid_session.
+            await db.delete(validSession).where(eq(validSession.uid, row.uid))
+            throw new Error('Unauthorized')
+        }
 
         const expiresAt = new Date(Date.now() + SESSION_IDLE_MS)
         await db.update(validSession)
@@ -90,6 +105,12 @@ export async function destroySession(sessionToken?: string) {
 // ganti `riwayatSurvey` → `surveys`
 export async function queryAllSurveyData() {
     return await db.query.surveys.findMany()
+}
+
+// [perbaikan] daftar petugas dari tabel surveyor — expect: dropdown Petugas di form checklist
+//   selalu sinkron dengan isi DB (ikut diisi seed).
+export async function querySurveyors() {
+    return await db.query.surveyor.findMany({ columns: { id: true, nama: true } })
 }
 
 export async function getPetugasByName(queryName: string) {

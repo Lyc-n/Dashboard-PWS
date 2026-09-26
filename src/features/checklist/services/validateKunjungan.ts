@@ -54,6 +54,12 @@ export function validateKunjungan(input: ValidateInput): {
       ok = false
     }
   }
+  // [perbaikan] petugas wajib dipilih — expect: simpan baru selalu gagal tanpa petugas;
+  //   record lama (tanpa petugasId) diminta pilih sekali saat diedit ulang.
+  if (!info.petugasId.trim()) {
+    nextInvalid.petugasId = true
+    ok = false
+  }
 
   if (anggota.length === 0) {
     nextInvalid.anggota = true

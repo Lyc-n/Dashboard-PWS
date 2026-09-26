@@ -28,6 +28,8 @@ function validInput(): ValidateInput {
       pustu: "",
       posyandu: "Mawar 2",
       namaKK: "Bpk. Salim",
+      petugasId: "sv1",
+      petugasNama: "Siti Aminah",
     },
     anggota: [
       {

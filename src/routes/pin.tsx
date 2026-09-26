@@ -4,7 +4,7 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { pinLogin, getSessionToken } from "#/lib/utils.functions";
 import { APP_BRAND } from "@/lib/constants";
 import { useToast } from "@/providers/toast";
-import { LogoEmblem } from "@/components/atoms/LogoEmblem";
+import brandIcon from "@/assets/brandIcon.png";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { FormField } from "@/components/molecules/FormField";
@@ -66,9 +66,9 @@ function RouteComponent() {
         <ThemeToggle />
       </div>
 
-      <main className="w-full max-w-380">
+      <main className="max-w-xl w-lg">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <LogoEmblem className="size-14 border-[3px] text-sm">PK</LogoEmblem>
+          <img src={brandIcon} alt="KR" width={64}/>
           <div>
             <h1 className="text-lg font-bold leading-tight text-ink">{APP_BRAND.name}</h1>
             <p className="text-xs font-semibold tracking-[0.22em] text-muted">{APP_BRAND.region}</p>

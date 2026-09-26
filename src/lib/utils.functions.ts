@@ -1,6 +1,6 @@
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
-import { destroySession, isValidPin, queryAllSurveyData, touchSession } from "./utils.server";
+import { destroySession, isValidPin, queryAllSurveyData, querySurveyors, touchSession } from "./utils.server";
 
 
 /* ALUR LOGIN
@@ -59,6 +59,16 @@ export const authSessionToken = createMiddleware({ type: "function" }).server(
 
 // tipe JSON yang dikenali serialisasi RPC TanStack (jawaban jsonb dari drizzle bertipe `unknown`)
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+// [perbaikan] daftar petugas lewat server fn terproteksi middleware — expect: opsi dropdown
+//   datang dari DB, klien tanpa sesi valid ditolak sebelum data keluar.
+export const listSurveyors = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .handler(
+        async () => {
+            return await querySurveyors()
+        }
+    )
 
 export const getAllSurveyData = createServerFn({ method: "GET" })
     .middleware([authSessionToken])

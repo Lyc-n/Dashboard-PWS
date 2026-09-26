@@ -60,6 +60,9 @@ function makeInfo(raw: unknown): KeluargaInfo {
     pustu: "",
     posyandu: "",
     namaKK: "",
+    // [perbaikan] record lama tanpa petugas → "" — expect: diminta pilih petugas saat diedit ulang.
+    petugasId: "",
+    petugasNama: "",
   };
   if (!raw || typeof raw !== "object") return base;
   const src = raw as Record<string, unknown>;

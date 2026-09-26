@@ -17,6 +17,8 @@ const emptyInfo = {
   pustu: "",
   posyandu: "",
   namaKK: "",
+  petugasId: "",
+  petugasNama: "",
 } satisfies KeluargaInfo;
 
 const anggota: AnggotaKeluarga = {

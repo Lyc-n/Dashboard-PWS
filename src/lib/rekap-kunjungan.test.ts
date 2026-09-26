@@ -43,6 +43,9 @@ function makeRecord(over: RecOver): KunjunganRecord {
       alamat: "",
       hpKK: "",
       ...over.info,
+      // setelah spread agar tipe tetap string (Partial bisa undefined)
+      petugasId: over.info?.petugasId ?? "sv1",
+      petugasNama: over.info?.petugasNama ?? "Siti Aminah",
     },
     sanitasi: { jkn: false, airBersih: false, jenisAir: "", jamban: false, jambanSaniter: "", jenisSumberAir: "", ventilasi: false, odgj: false, tbc: false, hipertensi: false, dm: false, ...over.sanitasi },
     anggota: over.anggota ?? [],

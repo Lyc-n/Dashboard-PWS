@@ -1,0 +1,89 @@
+import "dotenv/config";
+import { eq, inArray } from "drizzle-orm";
+import { db } from "../src/lib/db.server";
+import { dataWargaTable, forms, surveyor } from "../src/lib/schema";
+import { sasaranRows } from "../src/lib/mock-data";
+import { seedAdminStaff } from "../src/lib/seeds";
+
+/* [perbaikan] seed data master ke Postgres — expect: /sasaran-DB, dropdown petugas, dan FK
+   surveys.formId punya isi; `pnpm db:seed` aman dijalankan berulang (idempoten).
+   Hanya data master: surveyor, data_warga, 1 form. Tabel survei TIDAK disentuh. */
+
+const FORM_NAMA = "Formulir KR PWS";
+
+// gender dari nama (Ny./Tn.) atau digit ke-7 NIK (ganjil = laki-laki) — expect: kolom enum terisi valid.
+function jenisKelamin(nik: string, nama: string): "laki-laki" | "perempuan" {
+  if (nama.startsWith("Ny.")) return "perempuan";
+  if (nama.startsWith("Tn.")) return "laki-laki";
+  return Number(nik[6]) % 2 === 1 ? "laki-laki" : "perempuan";
+}
+
+function hubungan(nama: string): "Anak" | "Istri" | "Kepala Keluarga" {
+  if (nama.startsWith("An.")) return "Anak";
+  if (nama.startsWith("Ny.")) return "Istri";
+  return "Kepala Keluarga";
+}
+
+async function seedSurveyor() {
+  const staff = seedAdminStaff();
+  const namaSemua = staff.map((s) => s.nama);
+  // [perbaikan] hapus dulu baris dengan nama yang sama — expect: rerun tak menggandakan petugas.
+  await db.delete(surveyor).where(inArray(surveyor.nama, namaSemua));
+  await db.insert(surveyor).values(staff.map((s) => ({ nama: s.nama })));
+  console.log(`surveyor: ${staff.length} baris`);
+}
+
+async function seedWarga() {
+  const rows = sasaranRows().map((r, i): typeof dataWargaTable.$inferInsert => {
+    const anak = r.nama.startsWith("An.");
+    return {
+      nik: r.nik,
+      nama_art: r.nama,
+      nama_kk: r.nama.replace(/^(Ny\.|Tn\.|An\.)\s*/, ""),
+      hubungan_keluarga: hubungan(r.nama),
+      // [perbaikan] alamat/tgl lahir dummy wajar — expect: semua kolom NOT NULL terisi
+      //   tanpa harus menyiapkan data kependudukan asli.
+      alamat: `Jl. ${r.kel} No. ${i + 1}`,
+      tgl_lahir: anak ? "2024-01-10" : "1990-05-15",
+      rt: (i % 8) + 1,
+      rw: (i % 4) + 1,
+      kecamatan: "Gadingrejo",
+      kelurahan: r.kel,
+      kota: "Kota Pasuruan",
+      status_kawin: anak ? "belum kawin" : "kawin",
+      petugas: "Kader PWS",
+      jenis_kelamin: jenisKelamin(r.nik, r.nama),
+      wanita_usia_hamil: r.prior === "Bumil Risti",
+      agama: "Islam",
+      pendidikan: anak ? "Belum Tamat SD/Sederajat" : "SLTA/Sederajat",
+      pekerjaan: anak ? "Pelajar" : "Ibu rumah tangga",
+    };
+  });
+  // NIK = PK → onConflictDoNothing: rerun tidak menabrak, data lama tidak diganti.
+  await db.insert(dataWargaTable).values(rows).onConflictDoNothing({ target: dataWargaTable.nik });
+  console.log(`data_warga: ${rows.length} baris`);
+}
+
+async function seedForm() {
+  // ON DELETE CASCADE: sisa form_sections ikut terhapus kalau form seed lama ada.
+  await db.delete(forms).where(eq(forms.nama, FORM_NAMA));
+  await db.insert(forms).values({
+    nama: FORM_NAMA,
+    deskripsi: "Formulir kerja rumah PWS (data seed)",
+  });
+  console.log(`forms: 1 baris (${FORM_NAMA})`);
+}
+
+async function main() {
+  await seedSurveyor();
+  await seedWarga();
+  await seedForm();
+  console.log("seed selesai");
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error("seed gagal:", err);
+    process.exit(1);
+  });
