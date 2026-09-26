@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { Download, Printer } from "lucide-react";
 import { laporanRows } from "@/lib/mock-data";
 import type { KegiatanRecord } from "@/hooks/use-kegiatan";
@@ -21,17 +21,14 @@ import { StatusBadge } from "@/components/atoms/StatusBadge";
 import { Tag } from "@/components/atoms/Tag";
 import { LogoEmblem } from "@/components/atoms/LogoEmblem";
 import { Tab } from "@/components/atoms/Tab";
-// import { requireAuth } from "#/lib/auth.server";
-import { getSessionToken } from "#/lib/utils.functions";
+// [perbaikan] guard konsisten dengan route lain: requireAuth baca cookie httpOnly via server —
+//   expect: tanpa sesi valid → redirect /pin (dulu /login); import yang hilang dipulihkan.
+import { requireAuth, isAdminUser } from "@/lib/auth";
+import { useAuth } from "@/providers/auth";
+import { RekapKunjunganSection } from "@/features/laporan/RekapKunjunganSection";
 
 export const Route = createFileRoute("/laporan")({
-  beforeLoad: async ()=>{
-    try {
-      await getSessionToken()
-    } catch (error) {
-      throw redirect({ to: '/pin'})
-    }
-  },
+  beforeLoad: requireAuth,
   component: Laporan,
 })
 

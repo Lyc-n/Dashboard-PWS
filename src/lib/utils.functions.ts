@@ -1,6 +1,6 @@
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
-import { getSessionHelper, isValidPin, queryAllSurveyData, verifyTokenHelper } from "./utils.server";
+import { destroySession, isValidPin, queryAllSurveyData, touchSession } from "./utils.server";
 
 
 /* ALUR LOGIN
@@ -22,37 +22,49 @@ import { getSessionHelper, isValidPin, queryAllSurveyData, verifyTokenHelper } f
 7. crosscheck sesionToken waktu form submmision dengan valid session di db (authMiddleware) 
 */
 
-export const pinLogin = createServerFn({ method:"GET" })
+// ganti method GET → POST — expect: login tak bisa dipicu lewat link/GET
+export const pinLogin = createServerFn({ method: "POST" })
     .validator((data: { pin: number }) => data)
     .handler(
         async ({ data }) => {
-            if (await isValidPin(data.pin)){ return true }
+            return await isValidPin(data.pin) // selalu return boolean
         }
 )
 
 export const getSessionToken = createServerFn({ method: "GET" })
     .handler(
-        async ()=>{
+        async () => {
             const sessionToken = getCookie('session')
-            if(!sessionToken) throw new Error('Session dont exist') // gak pernah login
-            
-            return await getSessionHelper(sessionToken)
-        }    
+            if (!sessionToken) throw new Error('Unauthorized') // gak pernah login
+            return await touchSession(sessionToken)
+        }
 )
 
+export const logoutSession = createServerFn({ method: "POST" })
+    .handler(
+        async () => {
+            await destroySession(getCookie('session'))
+        }
+)
 
-
+//   crosscheck sessionToken ke valid_session ? beres; token bajakan/ kedaluwarsa ditolak.
 export const authSessionToken = createMiddleware({ type: "function" }).server(
-    async ({ next }) =>{
-        const sessionToken = await getSessionHelper(getCookie('session')!)
-        return next({ context: { sessionToken } })
+    async ({ next }) => {
+        const sessionToken = getCookie('session')
+        if (!sessionToken) throw new Error("Unauthorized")
+        const session = await touchSession(sessionToken)
+        return next({ context: { sessionToken, profile: session.profile } })
     }
 )
+
+// tipe JSON yang dikenali serialisasi RPC TanStack (jawaban jsonb dari drizzle bertipe `unknown`)
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 export const getAllSurveyData = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
     .handler(
         async () => {
-            return await queryAllSurveyData()
+            const rows = await queryAllSurveyData()
+            return rows.map((row) => ({ ...row, jawaban: row.jawaban as JsonValue }))
         }
-)
+    )

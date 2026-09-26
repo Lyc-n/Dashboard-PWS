@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Staff } from "@/lib/seeds";
 import { KELS, PERAN, POSY } from "@/lib/constants";
-import { DEFAULT_STAFF_PASSWORD, staffUsernameSuggestion } from "@/lib/auth.server";
+import { DEFAULT_STAFF_PASSWORD, staffUsernameSuggestion } from "@/lib/staff";
 import { useToast } from "@/providers/toast";
 import { DataTable } from "@/components/organisms/DataTable";
 import { SectionCard } from "@/components/molecules/SectionCard";

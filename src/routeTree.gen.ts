@@ -14,7 +14,6 @@ import { Route as ChecklistRouteImport } from './routes/checklist'
 import { Route as KegiatanRouteImport } from './routes/kegiatan'
 import { Route as KelolaRouteImport } from './routes/kelola'
 import { Route as LaporanRouteImport } from './routes/laporan'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as PinRouteImport } from './routes/pin'
 import { Route as SasaranRouteImport } from './routes/sasaran'
 import { Route as ChecklistIdRouteImport } from './routes/checklist.$id'
@@ -44,11 +43,6 @@ const KelolaRoute = KelolaRouteImport.update({
 const LaporanRoute = LaporanRouteImport.update({
   id: '/laporan',
   path: '/laporan',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PinRoute = PinRouteImport.update({
@@ -83,7 +77,6 @@ export interface FileRoutesByFullPath {
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
   '/laporan': typeof LaporanRoute
-  '/login': typeof LoginRoute
   '/pin': typeof PinRoute
   '/sasaran': typeof SasaranRouteWithChildren
   '/checklist/$id': typeof ChecklistIdRoute
@@ -96,9 +89,8 @@ export interface FileRoutesByTo {
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
   '/laporan': typeof LaporanRoute
-  '/login': typeof LoginRoute
-  '/checklist/$id': typeof ChecklistIdRoute
   '/pin': typeof PinRoute
+  '/checklist/$id': typeof ChecklistIdRoute
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran': typeof SasaranIndexRoute
 }
@@ -109,7 +101,6 @@ export interface FileRoutesById {
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
   '/laporan': typeof LaporanRoute
-  '/login': typeof LoginRoute
   '/pin': typeof PinRoute
   '/sasaran': typeof SasaranRouteWithChildren
   '/checklist/$id': typeof ChecklistIdRoute
@@ -124,7 +115,6 @@ export interface FileRouteTypes {
     | '/kegiatan'
     | '/kelola'
     | '/laporan'
-    | '/login'
     | '/pin'
     | '/sasaran'
     | '/checklist/$id'
@@ -137,9 +127,8 @@ export interface FileRouteTypes {
     | '/kegiatan'
     | '/kelola'
     | '/laporan'
-    | '/login'
-    | '/checklist/$id'
     | '/pin'
+    | '/checklist/$id'
     | '/sasaran/$id'
     | '/sasaran'
   id:
@@ -149,7 +138,6 @@ export interface FileRouteTypes {
     | '/kegiatan'
     | '/kelola'
     | '/laporan'
-    | '/login'
     | '/pin'
     | '/sasaran'
     | '/checklist/$id'
@@ -163,7 +151,6 @@ export interface RootRouteChildren {
   KegiatanRoute: typeof KegiatanRoute
   KelolaRoute: typeof KelolaRoute
   LaporanRoute: typeof LaporanRoute
-  LoginRoute: typeof LoginRoute
   PinRoute: typeof PinRoute
   SasaranRoute: typeof SasaranRouteWithChildren
 }
@@ -203,13 +190,6 @@ declare module '@tanstack/react-router' {
       path: '/laporan'
       fullPath: '/laporan'
       preLoaderRoute: typeof LaporanRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pin': {
@@ -281,7 +261,6 @@ const rootRouteChildren: RootRouteChildren = {
   KegiatanRoute: KegiatanRoute,
   KelolaRoute: KelolaRoute,
   LaporanRoute: LaporanRoute,
-  LoginRoute: LoginRoute,
   PinRoute: PinRoute,
   SasaranRoute: SasaranRouteWithChildren,
 }

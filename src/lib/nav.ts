@@ -1,6 +1,6 @@
 import { ClipboardCheck, FileText, LayoutDashboard, PersonStanding, ScrollText, Settings } from "lucide-react";
-import { isAdminUser } from "@/lib/auth.server";
-import type { AuthUser } from "@/lib/auth.server";
+import { isAdminUser } from "@/lib/auth";
+import type { AuthUser } from "@/lib/auth";
 
 export interface NavItem {
   label: string;

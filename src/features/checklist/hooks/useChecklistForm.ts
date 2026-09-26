@@ -15,7 +15,9 @@ import {
 } from '../store/kunjunganSelectors'
 import { CHECKLIST_SCHEMA_VERSION, createRecordId } from '../types'
 import type { KunjunganRecord } from '../types'
-import { getAuth, isAdminUser } from '@/lib/auth.server'
+import { isAdminUser } from '@/lib/auth'
+import { useAuth } from '@/providers/auth'
+import type { AuthUser } from '@/lib/auth'
 import type { KunjunganState } from '../store/kunjunganReducer'
 
 export interface UseChecklistFormOptions {
@@ -23,9 +25,11 @@ export interface UseChecklistFormOptions {
   record?: KunjunganRecord | null
 }
 
-function initialStateForUser(): KunjunganState {
+// [perbaikan] profil diambil dari useAuth() (cookie JWT via server), bukan getAuth() localStorage —
+//   expect: tak ada lagi pembacaan sesi localStorage; dengan login PIN tunggal, profil = admin
+//   jadi pra-isi kel/posy/ttd untuk kader tidak aktif (cabang admin menang), perilaku form utuh.
+function initialStateForUser(user: AuthUser | null): KunjunganState {
   const state = initialKunjunganState()
-  const user = getAuth()
   if (!user || isAdminUser(user)) return state
   if (user.kel) state.info.kelurahan = user.kel
   if (user.posy) state.info.posyandu = user.posy
@@ -36,13 +40,16 @@ function initialStateForUser(): KunjunganState {
 export function useChecklistForm(opts?: UseChecklistFormOptions) {
   const { templates } = useKrTemplates()
   const toast = useToast()
+  // [perbaikan] dipanggil sebelum useReducer — expect: reducer lazy-init pakai profil dari
+  //   context (mount pertama mungkin null sampai RPC sesi selesai; cabang null = isi form default).
+  const { user } = useAuth()
   const record = opts?.record ?? null
   const editingId = record?.id ?? null
   const [state, dispatch] = useReducer(
     kunjunganReducer,
     undefined,
     () => {
-      const s = initialStateForUser()
+      const s = initialStateForUser(user)
       const first = templates.hasilOpsi[0]
       if (first && s.hasil !== first) s.hasil = first
       return s

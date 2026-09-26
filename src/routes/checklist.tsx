@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/auth.server";
+import { requireAuth } from "@/lib/auth";
 import { ChecklistFormScene } from "@/features/checklist/components/ChecklistFormScene";
 
 export const Route = createFileRoute("/checklist")({

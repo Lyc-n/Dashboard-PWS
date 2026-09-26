@@ -146,7 +146,9 @@ export const surveys = pgTable("surveys", {
     id: uuid().primaryKey().defaultRandom(),
     formId: uuid().notNull().references(() => forms.id), // penanda terhubung dengan form apa
     nik: varchar({ length: 16 }).notNull().references(() => dataWargaTable.nik), // penanda terhubung dengan data warga apa
-    petugasId: integer().notNull().references(() => surveyor.id), // penanda terhubung dengan petugas atau surveyor
+    // [perbaikan] `petugasId` integer → uuid — expect: selaras `surveyor.id` uuid; tanpa ini
+    //   constraint FK "surveys.petugasId → surveyor.id" gagal dibuat (tipe beda) saat migrate.
+    petugasId: uuid().notNull().references(() => surveyor.id), // penanda terhubung dengan petugas atau surveyor
     tanggal: date().notNull(), // tanggal pelaksanaan survey
     jawaban: jsonb().notNull(), // jawaban survey
     createdAt: timestamp().defaultNow().notNull(),

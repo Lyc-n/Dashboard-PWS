@@ -1,18 +1,16 @@
-import { createContext, useCallback, useContext, useMemo, useState  } from "react";
-import type {ReactNode} from "react";
-import { login as authLogin, clearAuth, saveAuth, getAuth } from "#/lib/auth.server";
-import type {AuthUser} from "#/lib/auth.server";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { getSessionToken, logoutSession } from "#/lib/utils.functions";
+import type { AuthUser } from "#/lib/auth";
 
 interface AuthContextValue {
   user: AuthUser | null;
-  login: (username: string, password: string) => boolean;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
-  login: () => false,
-  logout: () => {},
+  logout: async () => {},
 });
 
 export function useAuth(): AuthContextValue {
@@ -20,22 +18,29 @@ export function useAuth(): AuthContextValue {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => getAuth());
+  const [user, setUser] = useState<AuthUser | null>(null);
 
-  const login = useCallback((username: string, password: string) => {
-    const result = authLogin(username, password);
-    if (!result.ok || !result.user) return false;
-    saveAuth(result.user);
-    setUser(result.user);
-    return true;
+  const refresh = useCallback(async () => {
+    try {
+      const session = await getSessionToken();
+      setUser(session.profile);
+    } catch {
+      setUser(null);
+    }
   }, []);
 
-  const logout = useCallback(() => {
-    clearAuth();
+  // kunci "pws-auth" dari versi login lama hilang dari browser pengguna.
+  useEffect(() => {
+    void refresh();
+    window.localStorage.removeItem("pws-auth");
+  }, [refresh]);
+
+  const logout = useCallback(async () => {
+    await logoutSession();
     setUser(null);
   }, []);
 
-  const value = useMemo(() => ({ user, login, logout }), [user, login, logout]);
+  const value = useMemo(() => ({ user, logout }), [user, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

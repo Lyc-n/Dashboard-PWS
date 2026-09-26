@@ -13,9 +13,11 @@ export function Topbar({ onToggleCollapse }: TopbarProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
-  const handleLogout = () => {
-    logout();
-    void navigate({ to: "/login" });
+  const handleLogout = async () => {
+    // [perbaikan] logout → server (hapus row valid_session + cookie) lalu ke /pin —
+    //   expect: tak ada lagi rute /login (login username/password dibuang total).
+    await logout();
+    void navigate({ to: "/pin" });
   };
 
   return (
