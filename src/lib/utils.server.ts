@@ -113,7 +113,7 @@ export async function queryAllSurveyData() {
 }
 
 // [perbaikan] daftar petugas dari tabel surveyor — expect: dropdown Petugas di form kunjungan rumah
-//   selalu sinkron dengan isi DB (ikut diisi seed).
+//   selalu sinkron dengan isi DB.
 export async function querySurveyors() {
     return await db.query.surveyor.findMany({ columns: { id: true, nama: true } })
 }

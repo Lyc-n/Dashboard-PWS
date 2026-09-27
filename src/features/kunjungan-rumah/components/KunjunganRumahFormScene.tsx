@@ -117,7 +117,7 @@ export function KunjunganRumahFormScene({ record }: Props) {
         ) : null}
       </SectionCard>
 
-      <SectionCard title="Simpan" actions={<SaveBar onReset={reset} onFillDemo={() => dispatch({ type: "FILL_DEMO" })} onSubmit={onSubmit} disabled={fotoUploading || saving} />}>
+      <SectionCard title="Simpan" actions={<SaveBar onReset={reset} onSubmit={onSubmit} disabled={fotoUploading || saving} />}>
         <span className="text-xs text-muted">Pastikan seluruh isian wajib bercentang hijau sebelum menyimpan.</span>
       </SectionCard>
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { AdminItem, Priority } from "@/lib/seeds";
+import type { AdminItem, Priority } from "@/lib/staff";
 import { useToast } from "@/providers/toast";
 import { DataTable } from "@/components/organisms/DataTable";
 import { SectionCard } from "@/components/molecules/SectionCard";
@@ -24,7 +24,7 @@ interface Props {
 
 export function PrioritasSection({ prios, setPrios, items, setItems }: Props) {
   const toast = useToast();
-  const [curPrio, setCurPrio] = useState<string>(() => prios.find((p) => p.on)?.nama ?? "ODGJ");
+  const [curPrio, setCurPrio] = useState<string>(() => prios.find((p) => p.on)?.nama ?? "");
   const [dlg, setDlg] = useState<DlgState | null>(null);
 
   const setForm = (key: string, value: string) =>
