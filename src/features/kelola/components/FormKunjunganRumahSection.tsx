@@ -304,7 +304,7 @@ export function FormKunjunganRumahSection({ templates, setTemplates, resetTempla
                 <b className="flex-1 text-[13px]">{opsi}</b>
                 {hasilEditIdx === idx ? (
                   <>
-                    <Input value={hasilEditVal} onChange={(e) => setHasilEditVal(e.target.value)} className="max-w-[200px]" />
+                    <Input value={hasilEditVal} onChange={(e) => setHasilEditVal(e.target.value)} className="max-w-50" />
                     <Button
                       size="sm"
                       variant="primary"

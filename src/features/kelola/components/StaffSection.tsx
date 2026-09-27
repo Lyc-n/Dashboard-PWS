@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { Staff } from "@/lib/seeds";
+import type { Staff } from "@/lib/staff";
 import { KELS, PERAN, POSY } from "@/lib/constants";
 import { DEFAULT_STAFF_PASSWORD, staffUsernameSuggestion } from "@/lib/staff";
 import { useToast } from "@/providers/toast";

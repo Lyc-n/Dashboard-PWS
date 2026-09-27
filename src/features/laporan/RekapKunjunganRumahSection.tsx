@@ -148,22 +148,22 @@ export function RekapKunjunganRumahSection({
     <>
       <SectionCard className="no-print" title="Rekap Kunjungan Rumah" sub="Minggu dalam bulan. Angka turun otomatis dari data kunjungan rumah; sel boleh diubah manual, tersimpan per periode & wilayah.">
         <Toolbar>
-          <Input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} aria-label="Periode bulan" className="max-w-[170px] max-md:max-w-none" />
+          <Input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} aria-label="Periode bulan" className="max-w-42.5 max-md:max-w-none" />
           {admin ? (
             <>
-              <Select value={kel} onChange={(e) => setKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-[170px] max-md:max-w-none">
+              <Select value={kel} onChange={(e) => setKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-42.5 max-md:max-w-none">
                 <option value="all">Semua kelurahan</option>
                 {KELS.map((k) => (
                   <option key={k}>{k}</option>
                 ))}
               </Select>
-              <Select value={posy} onChange={(e) => setPosy(e.target.value)} aria-label="Filter posyandu" className="max-w-[170px] max-md:max-w-none">
+              <Select value={posy} onChange={(e) => setPosy(e.target.value)} aria-label="Filter posyandu" className="max-w-42.5 max-md:max-w-none">
                 <option value="all">Semua posyandu</option>
                 {POSY.map((p) => (
                   <option key={p}>{p}</option>
                 ))}
               </Select>
-              <Select value={kader} onChange={(e) => setKader(e.target.value)} aria-label="Filter kader" className="max-w-[200px] max-md:max-w-none">
+              <Select value={kader} onChange={(e) => setKader(e.target.value)} aria-label="Filter kader" className="max-w-50 max-md:max-w-none">
                 <option value="all">Semua kader</option>
                 {kaderList.map((k) => (
                   <option key={k}>{k}</option>

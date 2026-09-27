@@ -192,15 +192,15 @@ function Laporan() {
         <>
           <SectionCard className="no-print" title="Saring Laporan" sub="Filter ikut memperbarui ringkasan, kop, dan pratinjau di bawah.">
             <Toolbar>
-              <Input type="date" value={dari} onChange={(e) => setDari(e.target.value)} aria-label="Tanggal awal" className="max-w-[170px] max-md:max-w-none" />
-              <Input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} aria-label="Tanggal akhir" className="max-w-[170px] max-md:max-w-none" />
-              <Select value={effKel} onChange={(e) => setKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-[170px] max-md:max-w-none" disabled={!admin}>
+              <Input type="date" value={dari} onChange={(e) => setDari(e.target.value)} aria-label="Tanggal awal" className="max-w-42.5 max-md:max-w-none" />
+              <Input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} aria-label="Tanggal akhir" className="max-w-42.5 max-md:max-w-none" />
+              <Select value={effKel} onChange={(e) => setKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-42.5 max-md:max-w-none" disabled={!admin}>
                 <option value="all">Semua kelurahan</option>
                 {KELS.map((k) => (
                   <option key={k}>{k}</option>
                 ))}
               </Select>
-              <Input value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Cari nama / NIK…" aria-label="Cari nama" className="max-w-[200px] max-md:max-w-none" />
+              <Input value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Cari nama / NIK…" aria-label="Cari nama" className="max-w-50 max-md:max-w-none" />
             </Toolbar>
           </SectionCard>
 
@@ -383,27 +383,27 @@ function Laporan() {
         <>
           <SectionCard className="no-print" title="Saring Kegiatan" sub="Filter ikut memperbarui ringkasan, kop, dan tabel rekap kegiatan.">
             <Toolbar>
-              <Input type="date" value={gDari} onChange={(e) => setGDari(e.target.value)} aria-label="Tanggal awal" className="max-w-[170px] max-md:max-w-none" />
-              <Input type="date" value={gSampai} onChange={(e) => setGSampai(e.target.value)} aria-label="Tanggal akhir" className="max-w-[170px] max-md:max-w-none" />
-              <Select value={gKel} onChange={(e) => setGKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-[170px] max-md:max-w-none">
+              <Input type="date" value={gDari} onChange={(e) => setGDari(e.target.value)} aria-label="Tanggal awal" className="max-w-42.5 max-md:max-w-none" />
+              <Input type="date" value={gSampai} onChange={(e) => setGSampai(e.target.value)} aria-label="Tanggal akhir" className="max-w-42.5 max-md:max-w-none" />
+              <Select value={gKel} onChange={(e) => setGKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-42.5 max-md:max-w-none">
                 <option value="all">Semua kelurahan</option>
                 {KELS.map((k) => (
                   <option key={k}>{k}</option>
                 ))}
               </Select>
-              <Select value={gJenis} onChange={(e) => setGJenis(e.target.value)} aria-label="Filter jenis kegiatan" className="max-w-[170px] max-md:max-w-none">
+              <Select value={gJenis} onChange={(e) => setGJenis(e.target.value)} aria-label="Filter jenis kegiatan" className="max-w-42.5 max-md:max-w-none">
                 <option value="all">Semua jenis</option>
                 {JENIS_KEGIATAN.map((j) => (
                   <option key={j}>{j}</option>
                 ))}
               </Select>
-              <Select value={gPosy} onChange={(e) => setGPosy(e.target.value)} aria-label="Filter posyandu" className="max-w-[170px] max-md:max-w-none">
+              <Select value={gPosy} onChange={(e) => setGPosy(e.target.value)} aria-label="Filter posyandu" className="max-w-42.5 max-md:max-w-none">
                 <option value="all">Semua posyandu</option>
                 {POSY.map((p) => (
                   <option key={p}>{p}</option>
                 ))}
               </Select>
-              <Input value={gCari} onChange={(e) => setGCari(e.target.value)} placeholder="Cari nama/PJ/lokasi…" aria-label="Cari kegiatan" className="max-w-[200px] max-md:max-w-none" />
+              <Input value={gCari} onChange={(e) => setGCari(e.target.value)} placeholder="Cari nama/PJ/lokasi…" aria-label="Cari kegiatan" className="max-w-50 max-md:max-w-none" />
             </Toolbar>
           </SectionCard>
 
@@ -550,7 +550,7 @@ function Laporan() {
                     {r.hadir}/{r.total}
                     <div className="text-[11px] text-muted">{r.foto} foto</div>
                   </td>
-                  <td className="max-w-[200px] truncate px-3 py-2.5 text-muted">{r.deskripsi || "—"}</td>
+                  <td className="max-w-50 truncate px-3 py-2.5 text-muted">{r.deskripsi || "—"}</td>
                 </tr>
               )}
               renderMobileRow={(r, i) => (

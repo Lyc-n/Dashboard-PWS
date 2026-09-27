@@ -1,4 +1,4 @@
-import type { Priority, Staff } from "@/lib/seeds";
+import type { Priority, Staff } from "@/lib/staff";
 import type { KunjunganRumahSection } from "@/lib/kunjungan-rumah-templates";
 import type { SasaranKey } from "@/lib/kunjungan-rumah-form";
 import type { TagVariant } from "@/lib/utils";
