@@ -173,7 +173,7 @@ export const questions = pgTable("questions", {
         └── Q4. Apakah rutin periksa?       muncul jika parentId Q1
     */
     pertanyaan: text().notNull(),
-    tipe: varchar({ length: 30 }).notNull(), // text | number | date | select | radio | checkbox
+    tipe: varchar({ length: 30 }).notNull(), // text | number | date | select | radio | checkbox | time | group
     wajib: boolean().notNull().default(false), // wajib diisi atau tidak
     urutan: integer().notNull(), // urutan tampilan
     aktif: boolean().notNull().default(true), // tampilkan atau tidak

@@ -65,7 +65,7 @@ function RouteComponent() {
         <ThemeToggle />
       </div>
 
-      <main className="max-w-xl w-lg">
+      <main>
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
           <img src={brandIcon} alt="Kunjungan Rumah" width={64}/>
           <div>
