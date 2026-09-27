@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { seedKunjunganRumahTemplates } from "@/lib/kunjungan-rumah-templates";
+import { createDefaultKunjunganRumahTemplates } from "@/lib/kunjungan-rumah-templates";
 import { validateKunjunganRumah } from "@/features/kunjungan-rumah/services/validateKunjunganRumah";
 import type { ValidateInput } from "@/features/kunjungan-rumah/services/validateKunjunganRumah";
 import type { KunjunganRumahFoto } from "@/features/kunjungan-rumah/models";
 
-const templates = seedKunjunganRumahTemplates();
+const templates = createDefaultKunjunganRumahTemplates();
 
 const foto: KunjunganRumahFoto = {
   id: "f1",

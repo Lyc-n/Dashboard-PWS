@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { seedKunjunganRumahTemplates } from "@/lib/kunjungan-rumah-templates";
+import { createDefaultKunjunganRumahTemplates } from "@/lib/kunjungan-rumah-templates";
 import { computeBahaCount, computeFillPercent, computeStepState } from "@/features/kunjungan-rumah/services/progress";
 import type { AnggotaKeluarga, KeluargaInfo, KunjunganRumahFoto, MasalahTindak, PenilaianForm } from "@/features/kunjungan-rumah/models";
 
-const templates = seedKunjunganRumahTemplates();
+const templates = createDefaultKunjunganRumahTemplates();
 
 const emptyInfo = {
   tglPengumpulan: "",

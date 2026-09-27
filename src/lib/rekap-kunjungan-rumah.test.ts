@@ -10,7 +10,7 @@ import {
 import type { KunjunganRumahRecord } from "@/features/kunjungan-rumah/types";
 import type { AnggotaKeluarga, KeluargaInfo, MasalahTindak, PenilaianForm, Sanitasi } from "@/features/kunjungan-rumah/models";
 import type { SasaranKey } from "./kunjungan-rumah-form";
-import { seedKunjunganRumahTemplates } from "./kunjungan-rumah-templates";
+import { createDefaultKunjunganRumahTemplates } from "./kunjungan-rumah-templates";
 
 interface RecOver {
   id?: string;
@@ -128,7 +128,7 @@ describe("kaderNameOf", () => {
 });
 
 describe("computeRekap", () => {
-  const templates = seedKunjunganRumahTemplates();
+  const templates = createDefaultKunjunganRumahTemplates();
   const ref = "2026-03-01";
 
   it("menghitung keluarga & sasaran per minggu", () => {

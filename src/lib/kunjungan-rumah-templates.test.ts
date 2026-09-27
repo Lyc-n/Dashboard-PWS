@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { KUNJUNGAN_RUMAH_TEMPLATE_VERSION, seedKunjunganRumahTemplates, validateKunjunganRumahTemplates } from "@/lib/kunjungan-rumah-templates";
+import { KUNJUNGAN_RUMAH_TEMPLATE_VERSION, createDefaultKunjunganRumahTemplates, validateKunjunganRumahTemplates } from "@/lib/kunjungan-rumah-templates";
 
 describe("validateKunjunganRumahTemplates", () => {
-  it("terima hasil seedKunjunganRumahTemplates", () => {
-    expect(validateKunjunganRumahTemplates(seedKunjunganRumahTemplates())).toBe(true);
+  it("terima hasil createDefaultKunjunganRumahTemplates", () => {
+    expect(validateKunjunganRumahTemplates(createDefaultKunjunganRumahTemplates())).toBe(true);
   });
 
   it("tolak version salah", () => {
-    expect(validateKunjunganRumahTemplates({ ...seedKunjunganRumahTemplates(), version: 999 })).toBe(false);
+    expect(validateKunjunganRumahTemplates({ ...createDefaultKunjunganRumahTemplates(), version: 999 })).toBe(false);
     expect(validateKunjunganRumahTemplates(null)).toBe(false);
     expect(validateKunjunganRumahTemplates({})).toBe(false);
   });
 
   it("tolak id duplikat", () => {
-    const tpl = seedKunjunganRumahTemplates();
+    const tpl = createDefaultKunjunganRumahTemplates();
     const first = tpl.keluargaInfo[0];
     expect(first).toBeDefined();
     tpl.keluargaInfo.push({ ...first! });
@@ -21,7 +21,7 @@ describe("validateKunjunganRumahTemplates", () => {
   });
 
   it("tolak select tanpa opsi", () => {
-    const tpl = seedKunjunganRumahTemplates();
+    const tpl = createDefaultKunjunganRumahTemplates();
     const sel = tpl.anggota.find((f) => f.kind === "select");
     expect(sel).toBeDefined();
     sel!.options = [];
@@ -29,11 +29,11 @@ describe("validateKunjunganRumahTemplates", () => {
   });
 
   it("tolak hasilOpsi kosong", () => {
-    expect(validateKunjunganRumahTemplates({ ...seedKunjunganRumahTemplates(), hasilOpsi: [] })).toBe(false);
+    expect(validateKunjunganRumahTemplates({ ...createDefaultKunjunganRumahTemplates(), hasilOpsi: [] })).toBe(false);
   });
 
   it("tolak kind/section tak dikenal", () => {
-    const tpl = seedKunjunganRumahTemplates();
+    const tpl = createDefaultKunjunganRumahTemplates();
     tpl.masalah.push({
       id: "x",
       label: "X",
@@ -46,7 +46,7 @@ describe("validateKunjunganRumahTemplates", () => {
     expect(validateKunjunganRumahTemplates(tpl)).toBe(false);
   });
 
-  it("KUNJUNGAN_RUMAH_TEMPLATE_VERSION sinkron dengan seed", () => {
-    expect(seedKunjunganRumahTemplates().version).toBe(KUNJUNGAN_RUMAH_TEMPLATE_VERSION);
+  it("KUNJUNGAN_RUMAH_TEMPLATE_VERSION sinkron dengan default", () => {
+    expect(createDefaultKunjunganRumahTemplates().version).toBe(KUNJUNGAN_RUMAH_TEMPLATE_VERSION);
   });
 });

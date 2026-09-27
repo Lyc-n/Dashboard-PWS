@@ -1,4 +1,4 @@
-import type { Staff } from "@/lib/seeds";
+import type { Staff } from "@/lib/staff";
 import type { SasaranKey } from "@/lib/kunjungan-rumah-form";
 import type { KunjunganRumahTemplates } from "@/lib/kunjungan-rumah-templates";
 import type { KunjunganRumahRecord } from "@/features/kunjungan-rumah/types";
