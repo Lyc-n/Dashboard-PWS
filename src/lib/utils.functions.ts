@@ -8,7 +8,6 @@ import {
     listAdminMaster as queryAdminMaster,
     listKegiatanRecords,
     listKunjunganRumahRecords,
-    queryAllSurveyData,
     querySurveyors,
     querySurveysWithWarga,
     querySurveyStatsByNik,
@@ -82,9 +81,6 @@ export const authSessionToken = createMiddleware({ type: "function" }).server(
     }
 )
 
-// tipe JSON yang dikenali serialisasi RPC TanStack (jawaban jsonb dari drizzle bertipe `unknown`)
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
-
 // [perbaikan] daftar petugas lewat server fn terproteksi middleware — expect: opsi dropdown
 //   datang dari DB, klien tanpa sesi valid ditolak sebelum data keluar.
 export const listSurveyors = createServerFn({ method: "GET" })
@@ -92,15 +88,6 @@ export const listSurveyors = createServerFn({ method: "GET" })
     .handler(
         async () => {
             return await querySurveyors()
-        }
-    )
-
-export const getAllSurveyData = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .handler(
-        async () => {
-            const rows = await queryAllSurveyData()
-            return rows.map((row) => ({ ...row, jawaban: row.jawaban as JsonValue }))
         }
     )
 

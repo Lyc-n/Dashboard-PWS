@@ -65,8 +65,6 @@ export const KB_OPSI = ["Pil", "Suntik", "Kondom", "Implan", "Lainnya"] as const
 
 export const MEROKOK = ["Aktif", "Pasif", "Tidak"] as const;
 
-export const YA_OR_NOT = ["Ya", "Tidak"] as const;
-
 export const HASIL_BB = ["Naik", "Tetap", "Turun"] as const;
 
 export const SASARAN_DEFS: SasaranDef[] = [

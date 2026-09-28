@@ -105,19 +105,3 @@ export function downloadCsv(filename: string, head: string[], rows: (string | nu
   const content = "\uFEFF" + [head, ...rows].map((r) => r.map(esc).join(",")).join("\n");
   triggerDownload(filename, new Blob([content], { type: "text/csv;charset=utf-8" }));
 }
-
-export function average(values: number[]): number {
-  if (values.length === 0) return 0;
-  return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
-}
-
-export function initialsOf(name: string): string {
-  if (!name.trim()) return "?";
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}

@@ -27,7 +27,7 @@ export interface AdminItem {
   on: boolean;
 }
 
-export function staffUsername(nama: string): string {
+function staffUsername(nama: string): string {
   return nama
     .toLowerCase()
     .trim()
@@ -36,12 +36,8 @@ export function staffUsername(nama: string): string {
     .replace(/[^a-z0-9.]/g, '');
 }
 
-// helper akun staff pindah dari auth.server.ts —
-// expect: StaffSection tetap dapat saran username & password default;
-// berkas ini soal DATA KELOLA, bukan jalur login
-
-export const DEFAULT_STAFF_PASSWORD = 'admin123';
-
+// Saran username untuk form StaffSection. Login aplikasi memakai PIN tunggal
+// dari env, jadi tidak ada password default di berkas ini.
 export function staffUsernameSuggestion(nama: string): string {
   return staffUsername(nama);
 }

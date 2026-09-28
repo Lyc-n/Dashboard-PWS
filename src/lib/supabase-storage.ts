@@ -49,8 +49,3 @@ export async function uploadDataUrl(dataUrl: string, prefix = "kunjungan-rumah")
   const ext = type.includes("png") ? "png" : type.includes("webp") ? "webp" : "jpg";
   return putObject(objectPath(prefix, `foto.${ext}`), blob, type);
 }
-
-/** Upload File langsung (kegiatan) → URL publik. */
-export async function uploadFile(file: File, prefix = "kegiatan"): Promise<string> {
-  return putObject(objectPath(prefix, file.name), file, file.type || "image/jpeg");
-}

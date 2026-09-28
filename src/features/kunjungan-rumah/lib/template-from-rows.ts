@@ -13,6 +13,26 @@ import type { SasaranKey } from "@/lib/kunjungan-rumah-form";
 /** `forms.nama` untuk form kunjungan rumah. Dipakai juga sebagai kunci lookup di server. */
 export const FORM_KUNJUNGAN_RUMAH = "Form Kunjungan Rumah";
 
+/**
+ * Pemisah antara nama section dan nama field pada `form_fields.nama`.
+ *
+ * Template lokal memakai ulang id field antar section — `nama`, `nik`, dan
+ * `tglLahir` muncul di section `anggota`, `masalah`, dan hampir setiap sasaran,
+ * jadi 353 field hanya punya 220 id unik. Tapi
+ * `form_fields_form_version_nama_key` mewajibkan `nama` unik per versi form.
+ *
+ * Seeder karena itu menyimpan `<section>::<id>`, dan pembaca baris di
+ * `src/lib/utils.server.ts` membongkar prefix-nya lagi sebelum meneruskan ke
+ * `templateFromRows()` di file ini. Kedua sisi harus diubah bersamaan;
+ * `pnpm db:check-parity` adalah penjaganya.
+ */
+export const PEMBATAS_NAMA_FIELD = "::";
+
+/** Nama field unik per versi form, dengan section sebagai namespace. */
+export function namaFieldUnik(sectionNama: string, fieldId: string): string {
+  return `${sectionNama}${PEMBATAS_NAMA_FIELD}${fieldId}`;
+}
+
 /** Bucket di DB dipetakan ke section UI dengan prefix `sasaran:`. */
 const BUCKET_TO_SECTION: Record<string, KunjunganRumahSection> = {
   identitas: "sasaran:identitas",

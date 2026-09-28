@@ -26,6 +26,9 @@ export type KodeValidasi =
   | 'FIELD_TIDAK_ADA'
   | 'NILAI_TIDAK_COCOK'
   | 'NIK_TIDAK_VALID'
+  | 'GROUP_BARIS_SISIP'
+  | 'GROUP_BARIS_TERLALU_BANYAK'
+  | 'GROUP_NILAI_SISIP'
 
 export type HasilValidasi =
   | { ok: true }
@@ -48,12 +51,83 @@ export type TipeField =
   | 'time'
   | 'image'
   | 'file'
+  | 'group'
 
 /** Tipe yang jawabannya dipilih dari daftar, jadi butuh opsi. */
 export const TIPE_BUTUH_OPSI: readonly TipeField[] = ['select', 'radio', 'checkbox']
 
 /** Tipe yang boleh menyimpan lebih dari satu nilai. */
-export const TIPE_BISA_NAIK: readonly TipeField[] = ['checkbox']
+export const TIPE_BISA_NAIK: readonly TipeField[] = ['checkbox', 'group']
+
+/**
+ * Batas atas jumlah baris untuk satu field `group`.
+ *
+ * Nilai ini hanya divalidasi di backend, bukan lewat CHECK di database, karena
+ * array-nya disimpan di `survey_entries.value` (jsonb) yang tidak bisa punya
+ * constraint per-isi. Dipasang supaya satu field yang tidak sengaja dikirim
+ * dengan array sangat besar tidak bisa membebani tabel: array 100rb baris akan
+ * lolos validasi bentuk lalu menggagalkan seluruh transaksi saat di-insert.
+ */
+export const MAX_BARIS_GROUP = 500
+
+/** Nilai yang boleh muncul di dalam satu sel group. */
+type NilaiGroup = string | number | boolean | null
+
+function selGroupValid(nilai: unknown): nilai is NilaiGroup {
+  return (
+    typeof nilai === 'string' ||
+    typeof nilai === 'number' ||
+    typeof nilai === 'boolean' ||
+    nilai === null
+  )
+}
+
+/**
+ * Field `group` menyimpan baris berulang (anggota keluarga, daftar peserta,
+ * daftar masalah) sebagai array of object di dalam satu baris `survey_entries`.
+ * Kolom `value` jsonb sudah bisa menampungnya, jadi tidak ada tabel anak.
+ *
+ * Yang dicek: harus array, tiap baris harus object biasa (bukan array atau
+ * object bersarang), nilai di dalam sel harus primitif, dan jumlah baris tidak
+ * melebihi batas. Bentuk object flattened (`{kolom1, kolom2, ...}`) yang
+ * dipakai komponen editor; struktur kolom anak tidak disimpan di database,
+ * jadi `jumlahKolom` tidak ikut divalidasi di sini.
+ */
+export function validasiNilaiGroup(params: {
+  value: unknown
+  maxBaris?: number
+}): HasilValidasi {
+  const { value, maxBaris = MAX_BARIS_GROUP } = params
+
+  if (!Array.isArray(value)) {
+    return gagal('GROUP_BARIS_SISIP', 'Field group harus diisi daftar baris.')
+  }
+  if (value.length > maxBaris) {
+    return gagal(
+      'GROUP_BARIS_TERLALU_BANYAK',
+      `Field group maksimal ${maxBaris} baris, terkirim ${value.length}.`,
+    )
+  }
+
+  for (const [i, baris] of value.entries()) {
+    if (typeof baris !== 'object' || baris === null || Array.isArray(baris)) {
+      return gagal(
+        'GROUP_NILAI_SISIP',
+        `Baris ${i + 1} pada field group harus berupa objek, bukan ${Array.isArray(baris) ? 'daftar' : typeof baris}.`,
+      )
+    }
+    for (const [kolom, isi] of Object.entries(baris as Record<string, unknown>)) {
+      if (!selGroupValid(isi)) {
+        return gagal(
+          'GROUP_NILAI_SISIP',
+          `Nilai kolom "${kolom}" pada baris ${i + 1} harus teks, angka, atau boolean.`,
+        )
+      }
+    }
+  }
+
+  return lolos
+}
 
 export interface OpsiField {
   value: string
@@ -310,6 +384,9 @@ export function validasiNilaiField(params: {
     case 'image':
     case 'file':
       return lolos
+
+    case 'group':
+      return validasiNilaiGroup({ value })
   }
 }
 

@@ -22,8 +22,6 @@ export function navItemsForUser(user: AuthUser | null): NavItem[] {
   return NAV_ITEMS.filter((item) => !item.adminOnly || isAdminUser(user));
 }
 
-export const BOTTOM_NAV_ITEMS = NAV_ITEMS.slice(0, 5);
-
 export function bottomNavItemsForUser(user: AuthUser | null): NavItem[] {
   const items = navItemsForUser(user);
   return items.slice(0, 5);

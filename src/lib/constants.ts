@@ -10,23 +10,7 @@ export const JENIS_KEGIATAN = [
   "Gotong royong",
   "Pelatihan kader",
 ] as const;
-export const SUMBER_PERIKSA = ["Kunjungan Rumah", "Datang ke posyandu"] as const;
 export const HASIL_KUNJUNGAN_RUMAH = ["Selesai — sehat / terkendali", "Kontrol ulang", "Rujuk ke Puskesmas"] as const;
-export const STATUS_DEFAULT = ["Selesai", "Perlu tindak lanjut", "Terjadwal"] as const;
-export const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "Mei",
-  "Jun",
-  "Jul",
-  "Agu",
-  "Sep",
-  "Okt",
-  "Nov",
-  "Des",
-] as const;
 
 export const APP_BRAND = {
   name: "DINAS KESEHATAN",

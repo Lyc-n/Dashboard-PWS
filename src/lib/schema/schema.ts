@@ -64,6 +64,11 @@ export const users = pgTable("users", {
   role: role().notNull().default('staff'),
   nama: varchar({ length: 255 }).notNull(),
   pinHash: varchar({ length: 255 }).notNull(),
+  // Jabatan yang ditampilkan saja (Bidan/Perawat/Kader), bukan hak akses.
+  // Seseorang boleh punya keduanya: role='kader' sekaligus jabatan='Bidan'.
+  // Null berarti belum diisi, jadi UI harus menampilkan "Belum diisi" dan
+  // tidak memaksa memilih dari daftar.
+  jabatan: varchar({ length: 50 }),
   phone: varchar({ length: 20 }),
   aktif: boolean().notNull().default(true),
   createdAt: timestamp().defaultNow().notNull(),
@@ -79,11 +84,27 @@ export const users = pgTable("users", {
 export const forms = pgTable("forms", {
     id: smallint().primaryKey().notNull().generatedAlwaysAsIdentity(),
     nama: varchar({ length: 100 }).notNull().unique(), // form default saat ini ada Form Kunjungan Rumah | Form Kegiatan Pemberdayaan
+    // Kode stabil untuk seeding idempotent (KEGIATAN_PEMBERDAYAAN,
+    // CHECKLIST_KUNJUNGAN_RUMAH). Dipisah dari `nama` karena `nama` boleh
+    // diubah admin, sedangkan seeder harus menemukan form yang sama lewat
+    // kunci yang tidak ikut berubah. NULL untuk form yang dibuat manual di
+    // editor, jadi form bawaan dan form buatan user tidak tertukar.
+    kode: varchar({ length: 50 }),
+    // Apakah setiap submission form ini wajib menunjuk satu warga di
+    // `surveys.wargaNik`. False untuk Form Kegiatan Pemberdayaan, yang
+    // memang tidak punya warga tetap per-submission (daftar pesertanya
+    // disimpan di dalam field, bukan di header). Aturan lintas tabel ini
+    // tidak bisa ditegakkan CHECK di database, jadi dijaga di backend saat
+    // insert survey.
+    subjekWargaWajib: boolean().notNull().default(true),
     deskripsi: text(), // deskripsi form
     aktif: boolean().notNull().default(true), // tampilkan form atau tidak, agar user bisa menonaktifkan form sementara sebelum hapus total
     createdAt: timestamp().defaultNow().notNull(),
     updatedAt: timestamp().defaultNow().notNull(),
-})
+}, (t) =>
+[
+    uniqueIndex("forms_kode_key").on(t.kode),
+])
 
 export const formVersions = pgTable("form_versions", {
   id: uuid().primaryKey().defaultRandom(),
@@ -150,6 +171,12 @@ export const formFields = pgTable("form_fields", {
     placeholder: varchar({ length: 255 }),
     wajib: boolean().notNull().default(false), // wajib diisi atau tidak
     urutan: integer().notNull().default(0), // urutan tampilan
+    // Berapa kolom yang boleh diisi per baris untuk tipe 'group' (mis. 3 kolom
+    // untuk anggota keluarga: NIK, nama, hubungan). NULL untuk tipe selain
+    // 'group'. Nilai ini hanya dipakai editor dan validasi backend; database
+    // tidak menyimpan struktur kolom anak karena jawaban 'group' berupa array
+    // jsonb di `survey_entries.value`.
+    jumlahKolom: integer(),
     aktif: boolean().notNull().default(true), // tampilkan atau tidak
     createdAt: timestamp().defaultNow().notNull(),
     updatedAt: timestamp().defaultNow().notNull(),
@@ -212,7 +239,12 @@ export const formFieldRules = pgTable("form_field_rules", {
 export const surveys = pgTable("surveys", {
     id: uuid().primaryKey().defaultRandom(),
     formVersionId: uuid().notNull().references(() => formVersions.id), // penanda terhubung dengan form versi ke berapa
-    wargaNik: varchar({ length: 16 }).notNull().references(() => dataWargaTable.nik), // penanda terhubung dengan data warga apa
+    // NULLABLE, bukan NOT NULL: Form Kegiatan Pemberdayaan tidak punya warga
+    // tetap per-submission, jadi submission kegiatan menyimpan NULL di sini.
+    // Aturan "form ini wajib atau tidak terisi warga" datang dari
+    // `forms.subjekWargaWajib` dan dijaga di backend, karena butuh isi
+    // `form_versions` yang tidak ada di tabel ini.
+    wargaNik: varchar({ length: 16 }).references(() => dataWargaTable.nik), // penanda terhubung dengan data warga apa
     petugasId: uuid().notNull().references(() => users.id), // penanda terhubung dengan petugas atau surveyor
     tanggal: date().notNull(), // tanggal pelaksanaan survey
     createdAt: timestamp().defaultNow().notNull(),
@@ -254,6 +286,11 @@ export const surveyFiles = pgTable("survey_files", {
     surveyId: uuid().notNull().references(() => surveys.id, { onDelete: "cascade", }), // penanda terhubung dengan survey yang mana
     // Sama seperti survey_entries: field harus milik versi form milik survey, dicek di backend.
     fieldId: uuid().notNull().references(() => formFields.id), // penanda terhubung dengan question apa
+    // Menyimpan beberapa file ke field yang sama pada urutan berbeda. Kegiatan
+    // Pemberdayaan mengizinkan sampai 6 foto per kegiatan (lihat MAX_FOTO di
+    // src/hooks/use-kegiatan.ts), jadi (surveyId, fieldId) saja tidak cukup
+    // unik: tanpa ordinal hanya foto pertama yang bisa tersimpan.
+    ordinal: integer().notNull().default(0), // urutan lampiran pada field yang sama, mulai dari 0
     fileUrl: text().notNull(), // simpan url, file disimpan di supabase storage
     fileName: varchar({ length: 255 }),
     mimeType: varchar({ length: 100 }),
@@ -261,9 +298,10 @@ export const surveyFiles = pgTable("survey_files", {
     createdAt: timestamp().defaultNow().notNull(),
 }, (t) =>
 [
-    uniqueIndex("survey_files_survey_id_field_id").on(t.surveyId, t.fieldId),
+    uniqueIndex("survey_files_survey_id_field_id_ordinal").on(t.surveyId, t.fieldId, t.ordinal),
     // Halaman detail survei selalu menarik lampiran per survey.
     index("survey_files_survey_id_idx").on(t.surveyId),
+    check("survey_files_ordinal_check", sql`${t.ordinal} >= 0`),
 ]);
 
 // Jejak audit untuk data warga. Sengaja dipisah dari log aplikasi: log aplikasi bisa

@@ -44,5 +44,4 @@ export function useKunjunganRumahTemplates() {
   };
 }
 
-export type KunjunganRumahTemplatesState = ReturnType<typeof useKunjunganRumahTemplates>;
 export type { KunjunganRumahTemplates };

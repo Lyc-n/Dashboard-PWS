@@ -62,21 +62,36 @@ export const fasKes = pgEnum('jenis_fas_kes', [
   'Posyandu',
   'Pustu'
 ])
+// `role` = hak akses, bukan jabatan. Jabatan (Bidan/Perawat/Kader) adalah
+// keterangan yang ditampilkan, bukan wewenang, jadi tidak masuk ke enum ini —
+// lihat `users.jabatan`. Yang masuk ke sini hanya nilai yang dipakai kode untuk
+// memutuskan boleh/tidak: `requireAdmin` untuk 'admin', filter Rekap untuk
+// 'kader', Stokes semua petugas non-admin.
 export const role = pgEnum('role', [
   'admin',
   'staff',
+  // Role khusus untuk daftar kader. Dibedakan dari 'staff' karena Rekap
+  // Kunjungan Rumah memfilter kader dari `users`, dan sebelumnya nama kader
+  // diambil dari `admin_staff.peran = 'Kader'`.
+  'kader',
 ])
 export const formFieldType = pgEnum("form_field_type", [
-  "text",
-  "textarea",
-  "number",
-  "select",
-  "radio",
-  "checkbox",
-  "date",
-  "time",
-  "image",
-  "file",
+    "text",
+    "textarea",
+    "number",
+    "select",
+    "radio",
+    "checkbox",
+    "date",
+    "time",
+    "image",
+    "file",
+    // Field yang jawaban-nya baris berulang (anggota keluarga, daftar
+    // peserta, daftar masalah). Satu field = satu baris `survey_entries`,
+    // isinya array of object di kolom `value` jsonb, jadi unique index
+    // (surveyId, fieldId) tetap berlaku. Jumlah baris yang boleh disimpan
+    // tidak dibatasi database; validasi batasnya ada di backend.
+    "group",
 ]);
 export const formFieldRuleType = pgEnum("form_field_rule_type", [
   "option",

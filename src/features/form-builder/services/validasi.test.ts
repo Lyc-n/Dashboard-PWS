@@ -4,6 +4,7 @@ import {
   validasiEdisiVersi,
   validasiNik,
   validasiNilaiField,
+  validasiNilaiGroup,
   validasiOpsiField,
   validasiParentSection,
   validasiTerbitkanVersi
@@ -280,6 +281,71 @@ describe('validasiNilaiField', () => {
   it('image dan file tidak divalidasi di sini', () => {
     expect(validasiNilaiField({ tipe: 'image', value: 123 })).toEqual({ ok: true })
     expect(validasiNilaiField({ tipe: 'file', value: 123 })).toEqual({ ok: true })
+  })
+
+  it('group menerima daftar baris bertipe primitif', () => {
+    expect(
+      validasiNilaiField({
+        tipe: 'group',
+        value: [
+          { nik: '3273010101900001', nama: 'Siti', hadir: true },
+          { nik: '3273010101900002', nama: 'Agus', hadir: false },
+        ],
+      }),
+    ).toEqual({ ok: true })
+  })
+
+  it('group menerima daftar kosong', () => {
+    expect(validasiNilaiField({ tipe: 'group', value: [] })).toEqual({ ok: true })
+  })
+
+  it('group menolak nilai tunggal, harus daftar', () => {
+    expect(kode(validasiNilaiField({ tipe: 'group', value: { nama: 'Siti' } }))).toBe(
+      'GROUP_BARIS_SISIP',
+    )
+  })
+
+  it('group menolak baris yang bukan objek', () => {
+    // Nilai luarnya memang daftar, tapi tiap baris di dalamnya bukan objek.
+    // Kode error-nya GROUP_NILAI_SISIP, bukan GROUP_BARIS_SISIP: yang salah
+    // bentuknya isi baris, bukan nilai luarnya.
+    expect(kode(validasiNilaiField({ tipe: 'group', value: ['Siti'] }))).toBe(
+      'GROUP_NILAI_SISIP',
+    )
+    expect(kode(validasiNilaiField({ tipe: 'group', value: [null] }))).toBe(
+      'GROUP_NILAI_SISIP',
+    )
+  })
+
+  it('group menolak sel bersarang, karena struktur kolom tidak disimpan', () => {
+    expect(
+      kode(validasiNilaiField({ tipe: 'group', value: [{ anak: { nama: 'Siti' } }] })),
+    ).toBe('GROUP_NILAI_SISIP')
+  })
+
+  it('group menolak daftar di dalam sel', () => {
+    expect(
+      kode(validasiNilaiField({ tipe: 'group', value: [{ anggota: ['Siti', 'Agus'] }] })),
+    ).toBe('GROUP_NILAI_SISIP')
+  })
+
+  it('group menolak jumlah baris melebihi batas', () => {
+    const nilai = validasiNilaiGroup({ value: [{ nama: 'Siti' }], maxBaris: 0 })
+    expect(kode(nilai)).toBe('GROUP_BARIS_TERLALU_BANYAK')
+  })
+
+  it('group menolak function dan undefined di dalam sel', () => {
+    const denganFunction = validasiNilaiField({
+      tipe: 'group',
+      value: [{ ketik: () => 'Siti' }],
+    })
+    expect(kode(denganFunction)).toBe('GROUP_NILAI_SISIP')
+
+    const denganUndefined = validasiNilaiField({
+      tipe: 'group',
+      value: [{ nama: undefined }],
+    })
+    expect(kode(denganUndefined)).toBe('GROUP_NILAI_SISIP')
   })
 })
 

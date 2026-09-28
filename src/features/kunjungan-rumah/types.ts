@@ -115,4 +115,3 @@ export function sanitizeRecord(raw: unknown): KunjunganRumahRecord | null {
   };
 }
 
-export type StepState = "done" | "now" | "todo";
