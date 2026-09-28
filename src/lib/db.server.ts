@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { defineRelations } from "drizzle-orm";
 import postgres from 'postgres'
 import dotenv from 'dotenv'
-import * as schema from "./schema"
+import * as schema from "./schema/schema"
 
 dotenv.config()
 

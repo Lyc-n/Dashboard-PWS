@@ -26,9 +26,14 @@ interface Props {
   resetTemplates: () => void;
   exportJson: () => void;
   importJson: (file: File, onDone?: (ok: boolean, msg: string) => void) => void;
+  /** Definitions now live in the database, so editing is disabled for now. Export still works. */
+  readOnly?: boolean;
+  source?: "db" | "fallback";
+  error?: string | null;
+  loading?: boolean;
 }
 
-export function FormKunjunganRumahSection({ templates, setTemplates, resetTemplates, exportJson, importJson }: Props) {
+export function FormKunjunganRumahSection({ templates, setTemplates, resetTemplates, exportJson, importJson, readOnly = false, source, error, loading }: Props) {
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -201,6 +206,14 @@ export function FormKunjunganRumahSection({ templates, setTemplates, resetTempla
     });
     e.target.value = "";
   };
+
+  // Definisi form berasal dari database, jadi editor dinonaktifkan dulu. Yang ditampilkan
+  // hanya ringkasan isi form supaya admin tetap bisa memastikan field-nya benar.
+  if (readOnly) {
+    return (
+      <TemplateReadOnlyView templates={templates} source={source} error={error} loading={loading} onExport={exportJson} />
+    );
+  }
 
   return (
     <>
@@ -474,5 +487,95 @@ export function FormKunjunganRumahSection({ templates, setTemplates, resetTempla
         </AdminModal>
       ) : null}
     </>
+  );
+}
+
+/** Ringkasan read-only dari definisi form yang dibaca dari database. */
+function TemplateReadOnlyView({
+  templates,
+  source,
+  error,
+  loading,
+  onExport,
+}: {
+  templates: KunjunganRumahTemplates;
+  source?: "db" | "fallback";
+  error?: string | null;
+  loading?: boolean;
+  onExport: () => void;
+}) {
+  const plain: { title: string; fields: KunjunganRumahTemplateField[] }[] = [
+    { title: "Info Keluarga", fields: templates.keluargaInfo },
+    { title: "Anggota Keluarga", fields: templates.anggota },
+    { title: "Sanitasi", fields: templates.sanitasi },
+    { title: "Masalah Kesehatan", fields: templates.masalah },
+  ];
+  const totalField = plain.reduce((a, s) => a + s.fields.length, 0) + Object.values(templates.sasaran).reduce((a, s) => a + s.fields.length, 0);
+
+  const renderFields = (fields: KunjunganRumahTemplateField[]) => (
+    <ul className="divide-y divide-border text-sm">
+      {fields.map((f) => (
+        <li key={f.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-1 py-2">
+          <span className="font-medium">{f.label}</span>
+          <span className="text-xs text-muted-foreground">
+            {f.id} · {kindLabel(f.kind)}
+            {f.required ? " · wajib" : ""}
+            {!f.active ? " · nonaktif" : ""}
+          </span>
+          {f.options && f.options.length > 0 ? (
+            <span className="text-xs text-muted-foreground">pilihan: {f.options.join(" / ")}</span>
+          ) : null}
+          {f.hint ? <span className="text-xs text-muted-foreground italic">{f.hint}</span> : null}
+        </li>
+      ))}
+    </ul>
+  );
+
+  return (
+    <SectionCard
+      title="Template Form Kunjungan Rumah"
+      sub={`${totalField} field, dibaca dari database. Editing dinonaktifkan sementara; ubah lewat tabel forms / form_sections / questions / form_field_options.`}
+      actions={
+        <Toolbar className="w-full flex-wrap">
+          <Button size="sm" onClick={onExport}>
+            Export JSON
+          </Button>
+        </Toolbar>
+      }
+    >
+      {error ? <p className="mb-3 text-sm text-destructive">{error}</p> : null}
+      <p className="mb-3 text-xs text-muted-foreground">
+        Sumber: {loading ? "memuat..." : source === "db" ? "database" : "bawaan (bukan database)"}
+      </p>
+
+      {plain.map((s) => (
+        <div key={s.title} className="mb-4">
+          <h3 className="mb-1 text-sm font-semibold">
+            {s.title} <span className="text-xs font-normal text-muted-foreground">({s.fields.length} field)</span>
+          </h3>
+          {renderFields(s.fields)}
+        </div>
+      ))}
+
+      <div className="mb-4">
+        <h3 className="mb-1 text-sm font-semibold">Sasaran</h3>
+        {SASARAN_KEYS.map((key) => {
+          const s = templates.sasaran[key];
+          return (
+            <div key={key} className="mb-3">
+              <h4 className="mb-1 text-sm font-medium">
+                {s.label} <span className="text-xs font-normal text-muted-foreground">({s.fields.length} field)</span>
+              </h4>
+              {renderFields(s.fields)}
+            </div>
+          );
+        })}
+      </div>
+
+      <div>
+        <h3 className="mb-1 text-sm font-semibold">Opsi Hasil (konstanta aplikasi)</h3>
+        <p className="text-xs text-muted-foreground">{templates.hasilOpsi.join(" / ")}</p>
+      </div>
+    </SectionCard>
   );
 }

@@ -12,6 +12,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "lint": "eslint",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:check-parity": "tsx scripts/check-template-parity.mts",
     "format": "prettier --write . && eslint --fix",
     "check": "prettier --check ."
   },

@@ -1,6 +1,31 @@
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
-import { destroySession, getKunjunganRumahRecord, isValidPin, listKegiatanRecords, listKunjunganRumahRecords, queryAllSurveyData, querySurveyors, querySurveysWithWarga, querySurveyStatsByNik, queryWargaList, removeKegiatanRecord, removeKunjunganRumahRecord, saveKegiatanRecord, saveKunjunganRumahRecord, touchSession, updateKunjunganRumahRecord } from "./utils.server";
+import {
+    destroySession,
+    getKunjunganRumahRecord,
+    getKunjunganRumahTemplateRows,
+    isValidPin,
+    listAdminMaster as queryAdminMaster,
+    listKegiatanRecords,
+    listKunjunganRumahRecords,
+    queryAllSurveyData,
+    querySurveyors,
+    querySurveysWithWarga,
+    querySurveyStatsByNik,
+    queryWargaList,
+    removeAdminItem as deleteAdminItem,
+    removeAdminPriority as deleteAdminPriority,
+    removeAdminStaff as deleteAdminStaff,
+    removeKegiatanRecord,
+    removeKunjunganRumahRecord,
+    saveAdminItem as upsertAdminItem,
+    saveAdminPriority as upsertAdminPriority,
+    saveAdminStaff as upsertAdminStaff,
+    saveKegiatanRecord,
+    saveKunjunganRumahRecord,
+    touchSession,
+    updateKunjunganRumahRecord,
+} from "./utils.server";
 
 
 /* ALUR LOGIN
@@ -189,6 +214,17 @@ export const getLaporanKunjunganRumah = createServerFn({ method: "GET" })
     )
 
 // ---- kunjungan rumah — CRUD langsung ke DB, tanpa localStorage ----
+// Definisi form (section + question + opsi select) dibaca dari DB. Dipisah dari record
+// karena bentuknya berbeda: yang ini bisa berubah tiap admin menyunting form, yang
+// record tidak boleh ikut berubah bentuk.
+export const getKunjunganRumahTemplate = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .handler(async () => {
+        const rows = await getKunjunganRumahTemplateRows()
+        if (!rows) return null
+        return rows
+    })
+
 export const listKunjunganRumah = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
     .handler(async () => await listKunjunganRumahRecords())
@@ -231,3 +267,50 @@ export const removeKegiatan = createServerFn({ method: "POST" })
     .handler(async ({ data }) => {
         await removeKegiatanRecord(data.id)
     })
+
+// ---- master data admin /kelola ----
+// Semua server fn di sini lewat authSessionToken. Penulisan hanya bisa dari /kelola,
+// yang route-nya sudah dilindungi requireAdmin.
+type BarisPrioritas = { nama: string; desk?: string; warna?: string; on?: boolean };
+type BarisItem = { prio: string; judul: string; desk?: string; on?: boolean; kode?: string };
+type BarisStaf = { nama: string; peran?: string; kel?: string; posy?: string; hp?: string; username?: string; on?: boolean };
+
+export const listAdminMaster = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .handler(async () => await queryAdminMaster());
+
+export const saveAdminPriority = createServerFn({ method: "POST" })
+    .middleware([authSessionToken])
+    .validator((data: { nama: string; row: BarisPrioritas }) => data)
+    .handler(async ({ data }) => await upsertAdminPriority(data.nama, data.row));
+
+export const removeAdminPriority = createServerFn({ method: "POST" })
+    .middleware([authSessionToken])
+    .validator((data: { nama: string }) => data)
+    .handler(async ({ data }) => {
+        await deleteAdminPriority(data.nama);
+    });
+
+export const saveAdminItem = createServerFn({ method: "POST" })
+    .middleware([authSessionToken])
+    .validator((data: { kode: string | null; row: BarisItem }) => data)
+    .handler(async ({ data }) => await upsertAdminItem(data.kode, data.row));
+
+export const removeAdminItem = createServerFn({ method: "POST" })
+    .middleware([authSessionToken])
+    .validator((data: { kode: string }) => data)
+    .handler(async ({ data }) => {
+        await deleteAdminItem(data.kode);
+    });
+
+export const saveAdminStaff = createServerFn({ method: "POST" })
+    .middleware([authSessionToken])
+    .validator((data: { nama: string; row: BarisStaf }) => data)
+    .handler(async ({ data }) => await upsertAdminStaff(data.nama, data.row));
+
+export const removeAdminStaff = createServerFn({ method: "POST" })
+    .middleware([authSessionToken])
+    .validator((data: { nama: string }) => data)
+    .handler(async ({ data }) => {
+        await deleteAdminStaff(data.nama);
+    });

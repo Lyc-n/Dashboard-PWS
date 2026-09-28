@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { seedAdminItems, seedAdminPrios, seedAdminStaff } from "@/lib/seeds";
-import type { AdminItem, Priority, Staff } from "@/lib/seeds";
-import { useLocalStorage } from "@/hooks/use-local-storage";
-import { STORAGE_KEYS } from "@/lib/constants";
+
+import { useAdminMaster } from "@/hooks/use-admin-master";
 import { useKunjunganRumahTemplates } from "@/hooks/use-kunjungan-rumah-templates";
 import { AppShell } from "@/components/organisms";
 import { PageHeader, StatCard } from "@/components/molecules";
@@ -23,10 +21,8 @@ export const Route = createFileRoute("/kelola")({
 });
 
 function Kelola() {
-  const [items, setItems] = useLocalStorage<AdminItem[]>(STORAGE_KEYS.adminItems, seedAdminItems());
-  const [prios, setPrios] = useLocalStorage<Priority[]>(STORAGE_KEYS.adminPrios, seedAdminPrios());
-  const [staff, setStaff] = useLocalStorage<Staff[]>(STORAGE_KEYS.adminStaff, seedAdminStaff());
-  const { templates, setTemplates, resetTemplates, exportJson, importJson } = useKunjunganRumahTemplates();
+  const { items, prios, staff, error: masterError, loading: masterLoading, savePrio, saveStaff } = useAdminMaster();
+  const { templates, setTemplates, resetTemplates, exportJson, importJson, readOnly, source, error, loading } = useKunjunganRumahTemplates();
 
   const [tab, setTab] = useState<KelolaTab>("form-kunjungan-rumah");
 
@@ -45,6 +41,9 @@ function Kelola() {
         title="Kelola Master Data"
         description="Admin mengatur template kunjungan rumah fleksibel, prioritas, dan akun staff. Perubahan langsung sinkron ke form kader."
       />
+
+      {masterError ? <p className="mt-3 text-sm text-destructive">{masterError}</p> : null}
+      {masterLoading ? <p className="mt-3 text-sm text-muted-foreground">Memuat master data…</p> : null}
 
       <div className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-1">
         <StatCard caption="Field Kunjungan Rumah aktif" value={activeFieldCount} />
@@ -67,15 +66,19 @@ function Kelola() {
           resetTemplates={resetTemplates}
           exportJson={exportJson}
           importJson={importJson}
+          readOnly={readOnly}
+          source={source}
+          error={error}
+          loading={loading}
         />
       ) : null}
 
       {tab === "prioritas" ? (
-        <PrioritasSection prios={prios} setPrios={setPrios} items={items} setItems={setItems} />
+        <PrioritasSection prios={prios} items={items} savePrio={savePrio} />
       ) : null}
 
       {tab === "staff" ? (
-        <StaffSection staff={staff} setStaff={setStaff} />
+        <StaffSection staff={staff} saveStaff={saveStaff} />
       ) : null}
     </AppShell>
   );

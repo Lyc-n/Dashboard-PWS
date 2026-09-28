@@ -33,11 +33,11 @@ export const APP_BRAND = {
   region: "KOTA PASURUAN",
 } as const;
 
+// Kunci localStorage yang masih dipakai. Kunci `pws-admin-*` (items/prios/staff) dan
+// `pws-kunjungan-rumah-templates` dihapus dari daftar ini karena datanya pindah ke
+// database; sisa datanya di localStorage browser tidak dihapus otomatis tapi sudah
+// tidak dibaca aplikasi lagi.
 export const STORAGE_KEYS = {
-  adminItems: "pws-admin-items",
-  adminPrios: "pws-admin-prios",
-  adminStaff: "pws-admin-staff",
-  kunjunganRumahTemplates: "pws-kunjungan-rumah-templates",
   rekap: "pws-rekap",
 } as const;
 

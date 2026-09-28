@@ -17,12 +17,12 @@ import { AdminModal } from "@/features/kelola/components/AdminModal";
 
 interface Props {
   prios: Priority[];
-  setPrios: React.Dispatch<React.SetStateAction<Priority[]>>;
   items: AdminItem[];
-  setItems: React.Dispatch<React.SetStateAction<AdminItem[]>>;
+  /** Persistensi ke `admin_priorities`. `nama` = nama lama (null kalau baru). */
+  savePrio: (nama: string | null, row: Priority) => Promise<void>;
 }
 
-export function PrioritasSection({ prios, setPrios, items, setItems }: Props) {
+export function PrioritasSection({ prios, items, savePrio }: Props) {
   const toast = useToast();
   const [curPrio, setCurPrio] = useState<string>(() => prios.find((p) => p.on)?.nama ?? "");
   const [dlg, setDlg] = useState<DlgState | null>(null);
@@ -44,16 +44,16 @@ export function PrioritasSection({ prios, setPrios, items, setItems }: Props) {
     }
     const warna = dlg.form.warna ?? "odgj";
     const desk = dlg.form.desk ?? "";
-    if (dlg.edit) {
-      const old = (dlg.edit as Priority).nama;
-      setPrios((prev) => prev.map((p) => (p.nama === old ? { ...p, nama, desk, warna } : p)));
-      if (old !== nama) setItems((prev) => prev.map((x) => (x.prio === old ? { ...x, prio: nama } : x)));
-      if (curPrio === old) setCurPrio(nama);
-    } else {
-      setPrios((prev) => [...prev, { nama, desk, warna, on: true }]);
-    }
-    toast("Prioritas tersimpan.");
-    setDlg(null);
+    const old = dlg.edit ? (dlg.edit as Priority).nama : null;
+    // Rename ikut memindahkan `admin_items.prio` di sisi server, jadi tidak perlu
+    // menyetel items di sini.
+    void savePrio(old, { nama, desk, warna, on: dlg.edit?.on ?? true })
+      .then(() => {
+        toast("Prioritas tersimpan.");
+        if (old !== null && curPrio === old) setCurPrio(nama);
+        setDlg(null);
+      })
+      .catch(() => toast("Gagal menyimpan prioritas."));
   };
 
   const openPrioDlg = (edit?: Priority) =>
@@ -61,8 +61,9 @@ export function PrioritasSection({ prios, setPrios, items, setItems }: Props) {
 
   const togglePrio = (p: Priority) => {
     if (p.on && !window.confirm(`Nonaktifkan prioritas "${p.nama}"? Disembunyikan dari form.`)) return;
-    setPrios((prev) => prev.map((x) => (x.nama === p.nama ? { ...x, on: !x.on } : x)));
-    toast(`Prioritas ${p.on ? "dinonaktifkan" : "diaktifkan"}.`);
+    void savePrio(p.nama, { ...p, on: !p.on })
+      .then(() => toast(`Prioritas ${p.on ? "dinonaktifkan" : "diaktifkan"}.`))
+      .catch(() => toast("Gagal mengubah status prioritas."));
   };
 
   return (

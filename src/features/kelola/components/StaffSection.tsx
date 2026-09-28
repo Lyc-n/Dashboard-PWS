@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Staff } from "@/lib/staff";
 import { KELS, PERAN, POSY } from "@/lib/constants";
-import { DEFAULT_STAFF_PASSWORD, staffUsernameSuggestion } from "@/lib/staff";
+import { staffUsernameSuggestion } from "@/lib/staff";
 import { useToast } from "@/providers/toast";
 import { DataTable } from "@/components/organisms/DataTable";
 import { SectionCard } from "@/components/molecules/SectionCard";
@@ -16,10 +16,11 @@ import { AdminModal } from "@/features/kelola/components/AdminModal";
 
 interface Props {
   staff: Staff[];
-  setStaff: React.Dispatch<React.SetStateAction<Staff[]>>;
+  /** Persistensi ke `admin_staff`. `nama` = nama lama ("" kalau baru). */
+  saveStaff: (nama: string | null, row: Staff) => Promise<void>;
 }
 
-export function StaffSection({ staff, setStaff }: Props) {
+export function StaffSection({ staff, saveStaff }: Props) {
   const toast = useToast();
   const [staffQ, setStaffQ] = useState("");
   const [staffF, setStaffF] = useState("all");
@@ -45,22 +46,22 @@ export function StaffSection({ staff, setStaff }: Props) {
       setDlg((d) => ({ ...d!, errs: { ...d!.errs, nama: "Wajib isi nama staff." } }));
       return;
     }
-    const payload = {
+    // Tidak ada `password`: login aplikasi pakai PIN tunggal dari env, bukan akun per staf.
+    const payload: Staff = {
       nama,
       peran: dlg.form.peran ?? "Kader",
       kel: dlg.form.kel ?? KELS[0],
       posy: dlg.form.posy ?? "—",
       hp: dlg.form.hp ?? "",
       username: dlg.form.username?.trim() ? dlg.form.username.trim() : staffUsernameSuggestion(nama),
-      password: dlg.form.password?.trim() || DEFAULT_STAFF_PASSWORD,
+      on: dlg.edit?.on ?? true,
     };
-    if (dlg.edit) {
-      setStaff((prev) => prev.map((s) => (s === dlg.edit ? { ...s, ...payload } : s)));
-    } else {
-      setStaff((prev) => [...prev, { ...payload, on: true }]);
-    }
-    toast("Data staff tersimpan.");
-    setDlg(null);
+    void saveStaff(dlg.edit ? dlg.edit.nama : null, payload)
+      .then(() => {
+        toast("Data staff tersimpan.");
+        setDlg(null);
+      })
+      .catch(() => toast("Gagal menyimpan data staff."));
   };
 
   const openStaffDlg = (edit?: Staff) =>
@@ -75,15 +76,15 @@ export function StaffSection({ staff, setStaff }: Props) {
         posy: edit?.posy ?? "—",
         hp: edit?.hp ?? "",
         username: edit?.username ?? "",
-        password: edit?.password ?? DEFAULT_STAFF_PASSWORD,
       },
       errs: {},
     });
 
   const toggleStaff = (s: Staff) => {
-    if (s.on && !window.confirm(`Nonaktifkan "${s.nama}"? Akun tidak bisa login sampai diaktifkan lagi.`)) return;
-    setStaff((prev) => prev.map((x) => (x === s ? { ...x, on: !x.on } : x)));
-    toast(`${s.nama} ${s.on ? "dinonaktifkan" : "diaktifkan"}.`);
+    if (s.on && !window.confirm(`Nonaktifkan "${s.nama}"? Staf tidak dipakai lagi di rekap.`)) return;
+    void saveStaff(s.nama, { ...s, on: !s.on })
+      .then(() => toast(`${s.nama} ${s.on ? "dinonaktifkan" : "diaktifkan"}.`))
+      .catch(() => toast("Gagal mengubah status staff."));
   };
 
   return (
@@ -189,9 +190,6 @@ export function StaffSection({ staff, setStaff }: Props) {
           </FormField>
           <FormField label="Username" hint={`Kosongkan: otomatis dari nama (mis. ${staffUsernameSuggestion(dlg.form.nama ?? "Siti Aminah")})`}>
             <Input value={dlg.form.username ?? ""} onChange={(e) => setForm("username", e.target.value)} placeholder="mis. siti.aminah" autoCapitalize="none" autoComplete="off" />
-          </FormField>
-          <FormField label="Password" hint={`Dipakai login kader. Default: ${DEFAULT_STAFF_PASSWORD}`}>
-            <Input value={dlg.form.password ?? ""} onChange={(e) => setForm("password", e.target.value)} placeholder={DEFAULT_STAFF_PASSWORD} autoComplete="off" />
           </FormField>
         </AdminModal>
       ) : null}

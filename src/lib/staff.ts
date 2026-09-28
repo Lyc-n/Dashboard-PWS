@@ -16,7 +16,6 @@ export interface Staff {
   posy: string;
   hp: string;
   username: string;
-  password: string;
   on: boolean;
 }
 

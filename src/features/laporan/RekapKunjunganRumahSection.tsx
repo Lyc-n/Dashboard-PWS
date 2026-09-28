@@ -1,13 +1,12 @@
 import { useMemo, useState } from "react";
 import { Printer, RotateCcw } from "lucide-react";
-import { seedAdminStaff } from "@/lib/seeds";
-import type { Staff } from "@/lib/seeds";
-import { APP_BRAND, KELS, POSY, STORAGE_KEYS } from "@/lib/constants";
+
+import { APP_BRAND, KELS, POSY } from "@/lib/constants";
 import { computeRekap, rekapScopeId, SASARAN_GROUP_LABELS } from "@/lib/rekap-kunjungan-rumah";
 import type { RekapAuto } from "@/lib/rekap-kunjungan-rumah";
 import { useRekapKunjunganRumah } from "@/hooks/use-rekap-kunjungan-rumah";
 import type { RekapField } from "@/hooks/use-rekap-kunjungan-rumah";
-import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useAdminMaster } from "@/hooks/use-admin-master";
 import { useAuth } from "@/providers/auth";
 import { isAdminUser } from "@/lib/auth";
 import { useToast } from "@/providers/toast";
@@ -100,7 +99,8 @@ export function RekapKunjunganRumahSection({
   const { user } = useAuth();
   const toast = useToast();
   const admin = isAdminUser(user);
-  const [staff] = useLocalStorage<Staff[]>(STORAGE_KEYS.adminStaff, seedAdminStaff());
+  // Daftar staf dari database (sama dengan yang dipakai /kelola), bukan localStorage.
+  const { staff } = useAdminMaster();
 
   const [period, setPeriod] = useState(DEFAULT_MONTH);
   const [kel, setKel] = useState("all");
