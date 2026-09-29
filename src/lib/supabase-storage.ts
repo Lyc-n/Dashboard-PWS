@@ -1,7 +1,7 @@
-/** Upload dokumentasi ke Supabase Storage bucket `dokumentasi` (publik, anon via PIN-gate app).
+/** Upload dokumentasi ke Supabase Storage bucket `foto` (publik, anon via PIN-gate app).
  *  Dipakai sebelum simpan record — DB hanya menyimpan fileUrl, bukan base64.
  */
-const BUCKET = "dokumentasi";
+const BUCKET = "foto";
 const MAX_DETAIL_LEN = 300;
 
 export class StorageUploadError extends Error {

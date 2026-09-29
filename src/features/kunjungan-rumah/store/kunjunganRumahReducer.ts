@@ -5,6 +5,8 @@ import type { SasaranKey } from "@/lib/kunjungan-rumah-form";
 import type { AnggotaKeluarga, KeluargaInfo, KunjunganRumahFoto, MasalahTindak, PenilaianForm, Sanitasi } from "@/features/kunjungan-rumah/models";
 import { createRecordId } from "@/features/kunjungan-rumah/types";
 import type { KunjunganRumahRecord } from "@/features/kunjungan-rumah/types";
+import { opsiJk, opsiKawin, opsiPendidikan, opsiPekerjaan, opsiHubKK } from "@/features/kunjungan-rumah/lib/warga-row";
+import type { SasaranSuggestion } from "@/features/kunjungan-rumah/lib/warga-row";
 
 export interface KunjunganRumahState {
   info: KeluargaInfo;
@@ -103,6 +105,7 @@ export type KunjunganRumahAction =
   | { type: "SET_HASIL"; value: string }
   | { type: "SET_JADWAL"; value: string }
   | { type: "SET_TTD"; value: string }
+  | { type: "APPLY_SASARAN"; row: SasaranSuggestion }
   | { type: "SET_INVALID"; invalid: Record<string, boolean> }
   | { type: "ADD_FOTOS"; fotos: KunjunganRumahFoto[] }
   | { type: "SET_FOTO_CAPTION"; index: number; caption: string }
@@ -173,6 +176,51 @@ export function kunjunganRumahReducer(state: KunjunganRumahState, action: Kunjun
       return { ...state, jadwal: action.value };
     case "SET_TTD":
       return { ...state, ttd: action.value };
+    case "APPLY_SASARAN": {
+      // Isi form dengan baris `data_warga_import` yang dipilih user. Kolom
+      // header hanya ditimpa kalau form masih kosong, jadi isian yang sudah
+      // dikoreksi staff tidak hilang. `rt`/`rw` tidak punya field di template
+      // keluarga default, tapi tetap disimpan supaya bisa dipakai server.
+      const r = action.row;
+      const header: Record<string, string> = {};
+      if (!state.info.namaKK.trim() && r.namaKk) header.namaKK = r.namaKk;
+      if (!state.info.alamat.trim() && r.alamat) header.alamat = r.alamat;
+      if (!state.info.kelurahan.trim() && r.kelurahan) header.kelurahan = r.kelurahan;
+      if (!state.info.kecamatan.trim() && r.kecamatan) header.kecamatan = r.kecamatan;
+      if (!state.info.kabKota.trim() && r.kabKota) header.kabKota = r.kabKota;
+      if (!state.info.provinsi.trim() && r.provinsi) header.provinsi = r.provinsi;
+      if (r.rt) header.rt = r.rt;
+      if (r.rw) header.rw = r.rw;
+      if (r.nik && !state.info.nik.trim()) header.nik = r.nik;
+
+      // Baris anggota untuk warga sasaran ikut dibuat bila belum ada, karena
+      // kolom `pekerjaan` di `data_warga` diambil dari baris yang NIK-nya sama
+      // dengan NIK sasaran utama.
+      const info = { ...state.info, ...header };
+      const isiAnggota = {
+        nama: r.namaArt,
+        nik: r.nik,
+        tglLahir: r.tglLahir ?? "",
+        jk: opsiJk(r.jenisKelamin),
+        hubKK: opsiHubKK(r.hubunganKeluarga) || "Kepala Keluarga",
+        statusKawin: opsiKawin(r.statusKawin),
+        pendidikan: opsiPendidikan(r.pendidikan),
+        pekerjaan: opsiPekerjaan(r.pekerjaan),
+        // `agama` belum jadi field di template anggota default, tapi kalau admin
+        // menambahkannya lewat Form Builder, nilai ini langsung terpakai.
+        agama: r.agama ?? "",
+      };
+      // NIK dari import bisa kosong (8.277 dari 20.454 baris), dan baris tanpa
+      // NIK tidak bisa dicocokkan ke anggota yang sudah ada — selalu tambahkan
+      // baris baru dalam kasus itu, biarkan staff yang menggabungkan.
+      const adaNik = r.nik !== "";
+      const sudahAda = adaNik && state.anggota.some((a) => a.nik.trim() === r.nik);
+      const anggota = sudahAda
+        ? state.anggota.map((a) => (a.nik.trim() === r.nik ? { ...a, ...isiAnggota } : a))
+        : [...state.anggota, { ...EMPTY_ANGGOTA, ...isiAnggota, id: createRecordId() }];
+
+      return { ...state, info, anggota, invalid: {} };
+    }
     case "SET_INVALID":
       return { ...state, invalid: action.invalid };
     case "ADD_FOTOS":

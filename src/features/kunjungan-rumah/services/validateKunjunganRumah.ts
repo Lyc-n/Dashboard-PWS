@@ -9,6 +9,7 @@ import type {
   PenilaianForm,
 } from '@/features/kunjungan-rumah/models'
 import { buildConditionalMap, isConditionalActive } from './conditional'
+import { anggotaKepalaKeluarga, kePekerjaan } from '@/features/kunjungan-rumah/lib/warga-row'
 
 export interface ValidateInput {
   info: KeluargaInfo
@@ -192,6 +193,23 @@ export function validateKunjunganRumah(input: ValidateInput): {
   }
   if (fotos.length === 0) {
     nextInvalid.fotos = true
+    ok = false
+  }
+
+  // [perbaikan] warga sasaran harus punya baris anggota dengan NIK yang sama —
+  //   expect: kolom `pekerjaan` (dan `tgl_lahir`, `jenis_kelamin`, `status_kawin`,
+  //   `pendidikan`) di `data_warga` hanya ada di baris anggota, bukan di
+  //   `KeluargaInfo`. Tanpa baris itu, insert warga ditolak server dengan pesan
+  //   yang tidak terbaca dari form.
+  const kepala = anggotaKepalaKeluarga(anggota, nikSasaran)
+  if (nikSasaran && !kepala) {
+    nextInvalid.anggotaNik = true
+    ok = false
+  } else if (kepala && !kePekerjaan(kepala.pekerjaan)) {
+    // Nilai `pekerjaan` dari form memakai label pendek ("Swasta", "Tidak
+    // bekerja"); `kePekerjaan` mengenali label enum `data_warga`. Nilai yang
+    // tidak dikenal ditolak di sini, bukan dibiarkan gagal di Postgres.
+    nextInvalid[`pekerjaan:${kepala.id}`] = true
     ok = false
   }
 

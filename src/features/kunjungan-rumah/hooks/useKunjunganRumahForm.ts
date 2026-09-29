@@ -175,8 +175,12 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
       const saved = editingId ? await updateRecord(rec) : await saveRecord(rec)
       toast(`Kunjungan rumah ${rec.info.namaKK || 'keluarga'} tersimpan di database.`)
       return saved
-    } catch {
-      toast('Gagal menyimpan ke database. Coba lagi.')
+    } catch (e) {
+      // [perbaikan] pesan server ikut ditampilkan — expect: validasi `data_warga`
+      //   (kolom NOT NULL) dan pesan petugas yang gagal ditulis server tidak
+      //   hilang, jadi user tahu bagian mana yang harus diperbaiki.
+      const detail = e instanceof Error ? e.message : String(e)
+      toast(`Gagal menyimpan ke database. ${detail}`.slice(0, 400))
       return null
     } finally {
       setSaving(false)

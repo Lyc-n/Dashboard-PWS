@@ -27,7 +27,7 @@ describe("uploadDataUrl (mocked fetch)", () => {
     const fetchMock = vi.fn(async () => okResponse());
     vi.stubGlobal("fetch", fetchMock);
     const url = await uploadDataUrl(DATA_URL_JPEG, "kunjungan-rumah");
-    expect(url).toContain("/storage/v1/object/public/dokumentasi/kunjungan-rumah/");
+    expect(url).toContain("/storage/v1/object/public/foto/kunjungan-rumah/");
     expect(url).not.toContain(FAKE_KEY);
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(init?.method).toBe("POST");

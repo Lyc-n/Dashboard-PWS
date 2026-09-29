@@ -147,7 +147,7 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             aria-label="Filter status akun"
-            className="max-w-[180px]"
+            className="max-w-45"
           >
             <option value="all">Semua status</option>
             <option value="on">Aktif</option>
@@ -170,7 +170,7 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
           rows={terfilter}
           emptyMessage="Tidak ada akun cocok."
           renderRow={(p) => (
-            <tr key={p.id} className="border-b border-[var(--color-surface-2)] last:border-none hover:bg-surface-2">
+            <tr key={p.id} className="border-b border-surface-2 last:border-none hover:bg-surface-2">
               <td className="px-3 py-2.5">
                 <div className="font-semibold text-ink">{p.nama}</div>
                 <div className="text-[11px] text-muted">{p.jabatan ?? "Jabatan belum diisi"}</div>
@@ -196,7 +196,7 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
             </tr>
           )}
           renderMobileRow={(p) => (
-            <div key={p.id} className="border-b border-[var(--color-surface-2)] last:border-none px-3.5 py-3">
+            <div key={p.id} className="border-b border-surface-2 last:border-none px-3.5 py-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="font-semibold text-ink">{p.nama}</div>

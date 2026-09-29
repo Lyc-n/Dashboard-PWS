@@ -9,6 +9,17 @@ import { SESSION_IDLE_MS, SESSION_PROFILE, SESSION_TTL_MS } from './constants'
 import type { AuthUser } from './auth'
 import { FORM_KUNJUNGAN_RUMAH, PEMBATAS_NAMA_FIELD } from '@/features/kunjungan-rumah/lib/template-from-rows'
 import type { TemplateQuestionRow } from '@/features/kunjungan-rumah/lib/template-from-rows'
+import {
+    barisDataWargaDariForm,
+    keAgama,
+    keHubunganKeluarga,
+    keJenisKelamin,
+    kePendidikan,
+    kePekerjaan,
+    keStatusKawin,
+} from '@/features/kunjungan-rumah/lib/warga-row'
+import type { BarisWarga, SasaranSuggestion } from '@/features/kunjungan-rumah/lib/warga-row'
+import type { AnggotaKeluarga, KeluargaInfo } from '@/features/kunjungan-rumah/models'
 
 
 /* ALUR SESI (hasil merge)
@@ -314,27 +325,177 @@ function headerDariPayload(rec: JsonRecord): { wargaNik: string; petugasId: stri
     }
 }
 
+// ---- pencarian warga sasaran di data import ----
+//
+// `data_warga` masih kosong; data warga yang ada berada di `data_warga_import`.
+// Form kunjungan memakai tabel itu sebagai sumber suggestion: user mengetik NIK
+// atau nama KK, server mencari yang mirip, dan baris terpilih dipakai untuk
+// mengisi form — bukan langsung di-insert. Insert ke `data_warga` tetap terjadi
+// saat user menekan Simpan.
+//
+// Pencocokan selalu `LIKE`, bukan persis: 8.277 dari 20.454 baris import punya
+// NIK kosong atau bukan 16 digit, jadi user yang hanya tahu nama KK tetap bisa
+// menemukan warga sasarannya.
+
+/** Kolom yang dibaca, dengan nama kolom aslinya di database. */
+const SELECT_SASARAN = sql`
+    raw_id                       AS "rawId",
+    nik                          AS "nik",
+    nama_art                     AS "namaArt",
+    nama_kk                      AS "namaKk",
+    hubungan_keluarga            AS "hubunganKeluarga",
+    to_char(tgl_lahir, 'YYYY-MM-DD') AS "tglLahir",
+    jenis_kelamin                AS "jenisKelamin",
+    status_kawin                 AS "statusKawin",
+    agama                        AS "agama",
+    pendidikan                   AS "pendidikan",
+    pekerjaan                    AS "pekerjaan",
+    alamat                       AS "alamat",
+    rt::text                     AS "rt",
+    rw::text                     AS "rw",
+    kecamatan                    AS "kecamatan",
+    kelurahan                    AS "kelurahan",
+    kab_kota                     AS "kabKota",
+    provinsi                     AS "provinsi"
+`
+
+type BarisImportSasaran = {
+    rawId?: unknown; nik?: unknown; namaArt?: unknown; namaKk?: unknown
+    hubunganKeluarga?: unknown; tglLahir?: unknown; jenisKelamin?: unknown
+    statusKawin?: unknown; agama?: unknown; pendidikan?: unknown; pekerjaan?: unknown
+    alamat?: unknown; rt?: unknown; rw?: unknown; kecamatan?: unknown
+    kelurahan?: unknown; kabKota?: unknown; provinsi?: unknown
+}
+
+/** Terjemahkan baris import ke label enum `data_warga`; yang tak cocok jadi `null`. */
+function normalkanSasaran(row: BarisImportSasaran): SasaranSuggestion {
+    const s = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null)
+    return {
+        rawId: s(row.rawId) ?? "",
+        nik: s(row.nik) ?? "",
+        namaArt: s(row.namaArt) ?? "",
+        namaKk: s(row.namaKk) ?? "",
+        hubunganKeluarga: keHubunganKeluarga(s(row.hubunganKeluarga)),
+        tglLahir: s(row.tglLahir),
+        jenisKelamin: keJenisKelamin(s(row.jenisKelamin)),
+        statusKawin: keStatusKawin(s(row.statusKawin)),
+        agama: keAgama(s(row.agama)),
+        pendidikan: kePendidikan(s(row.pendidikan)),
+        pekerjaan: kePekerjaan(s(row.pekerjaan)),
+        alamat: s(row.alamat),
+        rt: s(row.rt),
+        rw: s(row.rw),
+        kecamatan: s(row.kecamatan),
+        kelurahan: s(row.kelurahan),
+        kabKota: s(row.kabKota),
+        provinsi: s(row.provinsi),
+    }
+}
+
+// Kolom enum `data_warga_import` dideklarasikan di `src/lib/schema/data-import.ts`
+// tanpa nama kolom eksplisit, jadi pemetaannya menjadi camelCase
+// (`hubunganKeluarga`, `jenisKelamin`, `agama`, dst) yang tidak ada di database.
+// Select ditulis manual di `SELECT_SASARAN` supaya file schema tidak perlu
+// disentuh. Kolom sisanya (`rt`, `rw` bertipe smallint di import tapi varchar(3)
+// di `data_warga`) ikut dikonversi ke teks di sana.
+
 /**
- * Validasi header kunjungan sebelum ditulis ke `surveys`.
+ * Cari warga sasaran di `data_warga_import` yang mirip dengan `q`.
  *
- * NIK harus 16 digit dan sudah ada di `data_warga`; petugas harus akun aktif
- * non-admin di `users`. Pesan dibuat ramah petugas karena error FK Postgres
- * tidak bisa dibaca pengguna.
+ * `q` dicocokkan ke NIK, nama.artikel, dan nama KK. Baris tanpa NIK 16 digit
+ * tetap dikembalikan — user tetap butuh nama/alamat untuk mengisi form, walau
+ * NIK-nya nanti diisi manual. Urutan: NIK yang persis dulu, lalu nama.
  */
-async function pastikanHeaderKunjungan(head: { wargaNik: string; petugasId: string; tanggal: string }) {
-    if (!/^\d{16}$/.test(head.wargaNik)) {
-        throw new Error("NIK sasaran utama wajib 16 digit.")
+export async function querySasaranWarga(q: string): Promise<SasaranSuggestion[]> {
+    const cari = q.trim()
+    if (cari.length < 3) return []
+    const pola = `%${cari}%`
+    const rows = await db.execute(sql`
+        SELECT ${SELECT_SASARAN}
+        FROM data_warga_import
+        WHERE nik ILIKE ${pola} OR nama_art ILIKE ${pola} OR nama_kk ILIKE ${pola}
+        ORDER BY raw_id
+        LIMIT 30
+    `)
+    const hasil = (rows as unknown as BarisImportSasaran[]).map(normalkanSasaran)
+    // NIK persis naik ke atas supaya suggestion yang paling mungkin benar lebih dulu.
+    return hasil.sort((a, b) => {
+        const aTepat = a.nik === cari ? 0 : 1
+        const bTepat = b.nik === cari ? 0 : 1
+        return aTepat - bTepat || a.rawId.localeCompare(b.rawId)
+    })
+}
+
+/** Baris import untuk satu NIK; dipakai server saat menyimpan agar kolom yang
+ *  tidak ada di form (`rt`, `rw`, `agama`) tetap terisi tanpa kirim round-trip. */
+async function importUntukNik(nik: string): Promise<SasaranSuggestion | null> {
+    const rows = await db.execute(sql`
+        SELECT ${SELECT_SASARAN}
+        FROM data_warga_import
+        WHERE nik = ${nik}
+        LIMIT 1
+    `)
+    const [row] = rows as unknown as BarisImportSasaran[]
+    return row ? normalkanSasaran(row) : null
+}
+
+/** Pesan error berbahasa petugas untuk kolom `data_warga` yang belum terisi. */
+const LABEL_KOLOM_WARGA: Record<string, string> = {
+    nama_art: "nama warga sasaran",
+    nama_kk: "nama kepala keluarga",
+    hubungan_keluarga: "hubungan dengan kepala keluarga",
+    alamat: "alamat",
+    tgl_lahir: "tanggal lahir warga sasaran",
+    rt: "RT",
+    rw: "RW",
+    kecamatan: "kecamatan",
+    kelurahan: "kelurahan",
+    kota: "kota/kabupaten",
+    status_kawin: "status perkawinan",
+    staff: "petugas",
+    jenis_kelamin: "jenis kelamin warga sasaran",
+    agama: "agama warga sasaran",
+    pendidikan: "pendidikan warga sasaran",
+    pekerjaan: "pekerjaan warga sasaran",
+}
+
+/**
+ * Tulis warga sasaran ke `data_warga` bila NIK-nya belum terdaftar.
+ *
+ * Dipanggil di dalam transaksi yang sama dengan insert `surveys`, karena
+ * `surveys.wargaNik` punya FK ke `data_warga.nik`. NIK yang sudah ada tidak
+ * ditulis ulang — data master tidak ditimpa oleh form kunjungan.
+ */
+async function simpanWargaSasaran(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    baris: BarisWarga,
+): Promise<void> {
+    await tx
+        .insert(dataWargaTable)
+        .values(baris)
+        .onConflictDoNothing({ target: dataWargaTable.nik })
+}
+
+/** Susun baris `data_warga` dari payload form, atau lempar error yang menyebut
+ *  kolom yang kurang. Semua sumber sudah dinormalkan di `warga-row.ts`. */
+async function barisWargaDariPayload(rec: JsonRecord): Promise<BarisWarga> {
+    const info = (rec.info ?? {}) as JsonRecord
+    const anggota = Array.isArray(rec.anggota) ? (rec.anggota as AnggotaKeluarga[]) : []
+    const suggestion = (await importUntukNik((typeof info.nik === "string" ? info.nik : "").trim())) ?? null
+    const { nilai, hilang } = barisDataWargaDariForm({
+        info: info as unknown as KeluargaInfo,
+        anggota,
+        suggestion,
+    })
+    if (nilai) return nilai
+    if (hilang.includes("anggota")) {
+        throw new Error(
+            "Daftar anggota keluarga harus memuat NIK yang sama dengan NIK sasaran utama, agar data warga bisa disimpan."
+        )
     }
-    const [warga] = await db
-        .select({ nik: dataWargaTable.nik })
-        .from(dataWargaTable)
-        .where(eq(dataWargaTable.nik, head.wargaNik))
-        .limit(1)
-    if (!warga) {
-        throw new Error(`NIK ${head.wargaNik} tidak ada di Data Sasaran.`)
-    }
-    const petugas = await pastikanPetugasValid(head.petugasId)
-    return { wargaNik: head.wargaNik, petugasId: petugas.id, tanggal: head.tanggal }
+    throw new Error(
+        `Data warga sasaran belum lengkap. Isi dulu di form: ${hilang.map((k) => LABEL_KOLOM_WARGA[k] ?? k).join(", ")}.`
+    )
 }
 
 export async function listKunjunganRumahRecords() {
@@ -383,21 +544,29 @@ export async function saveKunjunganRumahRecord(payload: unknown) {
         )
     }
 
-    const head = await pastikanHeaderKunjungan(headerDariPayload(rec))
-    // `surveys.wargaNik` boleh NULL untuk form kegiatan, tetapi kunjungan rumah
-    // wajib menunjuk satu warga. Tanggal tidak bisa default karena dashboard,
-    // sasaran, dan laporan memakainya sebagai filter.
+    const head = headerDariPayload(rec)
+    // Petugas dicek lebih dulu: `data_warga.staff` menunjuk `users.id`, jadi
+    // petugas tidak sah akan menggagalkan insert warga dengan error FK yang
+    // tidak terbaca petugas.
+    const petugas = await pastikanPetugasValid(head.petugasId)
     if (!head.tanggal) throw new Error("Tanggal kunjungan wajib diisi")
+    if (!/^\d{16}$/.test(head.wargaNik)) {
+        throw new Error("NIK sasaran utama wajib 16 digit.")
+    }
 
     const id = typeof rec.id === "string" && rec.id ? rec.id : crypto.randomUUID()
     const clean: JsonRecord = { ...rec, id, fotos: cleanFotos(rec.fotos) }
+    const barisWarga = await barisWargaDariPayload(rec)
 
     await db.transaction(async (tx) => {
+        // `surveys.wargaNik` punya FK ke `data_warga.nik`, jadi warga sasaran
+        // ditulis lebih dulu. NIK yang sudah terdaftar tidak ditimpa.
+        await simpanWargaSasaran(tx, barisWarga)
         await tx.insert(surveys).values({
             id,
             formVersionId: form.formVersionId,
-            wargaNik: head.wargaNik,
-            petugasId: head.petugasId,
+            wargaNik: barisWarga.nik,
+            petugasId: petugas.id,
             tanggal: head.tanggal,
         })
         await tx.insert(surveyEntries).values({
@@ -425,13 +594,32 @@ export async function updateKunjunganRumahRecord(id: string, payload: unknown) {
 
     const head = headerDariPayload(clean)
     if (head.wargaNik && head.petugasId) {
-        const valid = await pastikanHeaderKunjungan(head)
-        await db
-            .update(surveys)
-            .set({ wargaNik: valid.wargaNik, petugasId: valid.petugasId, ...(valid.tanggal ? { tanggal: valid.tanggal } : {    })
-}
-)
-            .where(eq(surveys.id, id))
+        // Sama seperti saat menyimpan: warga sasaran ditulis dulu kalau belum
+        // terdaftar, supaya `surveys.wargaNik` tidak menggagalkan update.
+        const petugas = await pastikanPetugasValid(head.petugasId)
+        if (!/^\d{16}$/.test(head.wargaNik)) {
+            throw new Error("NIK sasaran utama wajib 16 digit.")
+        }
+        const barisWarga = await barisWargaDariPayload(clean)
+        await db.transaction(async (tx) => {
+            await simpanWargaSasaran(tx, barisWarga)
+            await tx
+                .update(surveys)
+                .set({
+                    wargaNik: barisWarga.nik,
+                    petugasId: petugas.id,
+                    ...(head.tanggal ? { tanggal: head.tanggal } : {}),
+                })
+                .where(eq(surveys.id, id))
+            // Entry lama ditimpa: `survey_entries` punya UNIQUE (surveyId, fieldId)
+            // dan tidak punya kolom untuk patch sebagian, jadi delete-then-insert
+            // satu baris — dalam transaksi yang sama supaya tidak pernah hilang.
+            await tx
+                .delete(surveyEntries)
+                .where(and(eq(surveyEntries.surveyId, id), eq(surveyEntries.fieldId, fieldId)))
+            await tx.insert(surveyEntries).values({ surveyId: id, fieldId, value: clean })
+        })
+        return { id, ...clean }
     }
 
     // Entry lama ditimpa: `survey_entries` punya UNIQUE (surveyId, fieldId) dan tidak

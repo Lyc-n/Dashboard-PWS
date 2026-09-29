@@ -7,6 +7,7 @@ import {
     isValidPin,
     listKunjunganRumahRecords,
     querySurveyors,
+    querySasaranWarga,
     querySurveysWithWarga,
     querySurveyStatsByNik,
     queryWargaList,
@@ -218,6 +219,15 @@ export const getKunjunganRumahTemplate = createServerFn({ method: "GET" })
 export const listKunjunganRumah = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
     .handler(async () => await listKunjunganRumahRecords())
+
+/** Suggestion warga sasaran untuk form Kunjungan Rumah, dibaca dari
+ *  `data_warga_import`. Dipakai saat user mengetik NIK atau nama KK; hasilnya
+ *  hanya mengisi form, tidak menyentuh `data_warga` — insert ke sana tetap
+ *  terjadi saat user menekan Simpan. */
+export const cariSasaranWarga = createServerFn({ method: "POST" })
+    .middleware([authSessionToken])
+    .validator((data: { q: string }) => data)
+    .handler(async ({ data }) => await querySasaranWarga(data.q))
 
 export const getKunjunganRumah = createServerFn({ method: "GET" })
     .middleware([authSessionToken])

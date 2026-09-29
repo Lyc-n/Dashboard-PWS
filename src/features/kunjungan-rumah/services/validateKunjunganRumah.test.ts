@@ -129,4 +129,30 @@ describe("validateKunjunganRumah", () => {
     expect(ok).toBe(false);
     expect(invalid.fotos).toBe(true);
   });
+
+  // Kolom `pekerjaan` di `data_warga` hanya ada di baris anggota, jadi form harus
+  // punya anggota dengan NIK yang sama persis dengan NIK sasaran utama.
+  it("tolak saat tidak ada anggota dengan NIK = NIK sasaran utama", () => {
+    const input = validInput();
+    input.anggota[0]!.nik = "3579011111111111";
+    const { ok, invalid } = validateKunjunganRumah(input);
+    expect(ok).toBe(false);
+    expect(invalid.anggotaNik).toBe(true);
+  });
+
+  it("tolak pekerjaan anggota yang tidak dikenal enum data_warga", () => {
+    const input = validInput();
+    input.anggota[0]!.pekerjaan = "nelayanJV";
+    const { ok, invalid } = validateKunjunganRumah(input);
+    expect(ok).toBe(false);
+    expect(invalid["pekerjaan:a1"]).toBe(true);
+  });
+
+  it("terima label pekerjaan versi pendek yang dipetakan ke enum", () => {
+    const input = validInput();
+    input.anggota[0]!.pekerjaan = "Tidak bekerja";
+    expect(validateKunjunganRumah(input).ok).toBe(true);
+    input.anggota[0]!.pekerjaan = "Swasta";
+    expect(validateKunjunganRumah(input).ok).toBe(true);
+  });
 });
