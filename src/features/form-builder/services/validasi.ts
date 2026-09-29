@@ -17,6 +17,7 @@ export type KodeValidasi =
   | 'PARENT_SAMA_DIRI'
   | 'PARENT_SIKLUS'
   | 'OPSI_KOSONG'
+  | 'OPSI_TIDAK_VALID'
   | 'ATURAN_TIDAK_LENGKAP'
   | 'ATURAN_SUMBER_BEDA_VERSI'
   | 'VERSI_BUKAN_DRAFT'
@@ -137,13 +138,26 @@ export interface OpsiField {
 /**
  * Field select/radio/checkbox tanpa opsi tidak bisa diisi, jadi petugas akan
  * melihat pertanyaan yang mustahil dijawab. Divalidasi saat simpan, bukan saat render.
+ *
+ * Pengecualian: field yang optsinya datang dari sumber dinamis (mis. daftar
+ * petugas dari tabel `users`) memang tidak punya baris di `form_field_rules`.
+ * Untuk field itu aturan "wajib punya opsi" tidak berlaku, karena opsinya dibaca
+ * dari database saat render dan saat penyimpanan. Yang tetap diperiksa adalah
+ * value-nya: apakah nilai yang dikirim benar-benar salah satu opsi yang berlaku
+ * saat itu (lihat `validasiNilaiOpsiTerpilih`).
  */
 export function validasiOpsiField(params: {
   tipe: TipeField
   opsi: Pick<OpsiField, 'value' | 'aktif'>[]
+  /**
+   * `optionSourceType` dari `form_fields`. Kalau terisi, opsi dianggap berasal
+   * dari sumber dinamis dan kewajiban punya opsi statis dilewati.
+   */
+  sumberOpsiDinamis?: string | null
 }): HasilValidasi {
-  const { tipe, opsi } = params
+  const { tipe, opsi, sumberOpsiDinamis } = params
   if (!TIPE_BUTUH_OPSI.includes(tipe)) return lolos
+  if (sumberOpsiDinamis) return lolos
 
   const aktif = opsi.filter((o) => o.aktif !== false)
   if (aktif.length === 0) {
@@ -159,6 +173,41 @@ export function validasiOpsiField(params: {
   }
   if (new Set(nilai).size !== nilai.length) {
     return gagal('OPSI_KOSONG', 'Ada opsi jawaban dengan nilai yang sama.')
+  }
+  return lolos
+}
+
+/**
+ * Pastikan nilai yang dikirim benar-benar salah satu opsi yang berlaku.
+ *
+ * Dipakai untuk select/radio/checkbox, termasuk yang sumbernya dinamis. Tanpa
+ * cek ini, petugas bisa mengirim nilai apa saja lewat request yang dimanipulasi
+ * dan nilai itu akan tersimpan di `survey_entries.value`.
+ *
+ * Opsi dinamis harus sudah di-resolve di server sebelum memanggil ini; fungsi ini
+ * tidak menyentuh database supaya tetap murni dan bisa diuji.
+ */
+export function validasiNilaiOpsiTerpilih(params: {
+  tipe: TipeField
+  /** Nilai dari payload, boleh string atau array string (checkbox). */
+  nilai: unknown
+  opsi: Pick<OpsiField, 'value' | 'aktif'>[]
+}): HasilValidasi {
+  const { tipe, nilai, opsi } = params
+  if (!TIPE_BUTUH_OPSI.includes(tipe)) return lolos
+
+  const boleh = new Set(
+    opsi.filter((o) => o.aktif !== false).map((o) => o.value.trim()).filter((v) => v !== ''),
+  )
+
+  const kirim = Array.isArray(nilai) ? nilai : [nilai]
+  // Checkbox yang tidak dicentang mengirim array kosong; itu sah, bukan error.
+  if (kirim.length === 0) return lolos
+
+  for (const v of kirim) {
+    if (typeof v !== 'string' || !boleh.has(v.trim())) {
+      return gagal('OPSI_TIDAK_VALID', 'Pilihan jawaban tidak ada di daftar yang tersedia.')
+    }
   }
   return lolos
 }

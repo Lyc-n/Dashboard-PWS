@@ -96,7 +96,7 @@ function Laporan() {
         (gKel === "all" || r.kel === gKel) &&
         (gJenis === "all" || r.jenis === gJenis) &&
         (gPosy === "all" || r.posy === gPosy) &&
-        (!gCari || r.nama.toLowerCase().includes(gCari.toLowerCase()) || r.pj.toLowerCase().includes(gCari.toLowerCase()) || r.lokasi.toLowerCase().includes(gCari.toLowerCase())),
+        (!gCari || r.nama.toLowerCase().includes(gCari.toLowerCase()) || r.petugas.toLowerCase().includes(gCari.toLowerCase()) || r.lokasi.toLowerCase().includes(gCari.toLowerCase())),
     );
   }, [kegiatanRows, gDari, gSampai, gKel, gJenis, gPosy, gCari]);
 
@@ -125,9 +125,9 @@ function Laporan() {
   };
 
   const downloadKegiatanCsv = () => {
-    const head = ["No", "Tanggal", "Jam", "Nama", "Jenis", "Kelurahan", "Posyandu", "Lokasi", "PJ", "Target", "Hadir", "Total", "Foto", "Deskripsi"];
+    const head = ["No", "Tanggal", "Jam", "Nama", "Jenis", "Kelurahan", "Posyandu", "Lokasi", "Petugas", "Target", "Hadir", "Total", "Foto", "Deskripsi"];
     const csvRows = filteredKegiatan.map((r, i) =>
-      [i + 1, r.tgl, r.jam, r.nama, r.jenis, r.kel, r.posy, r.lokasi, r.pj, r.target, r.hadir, r.total, r.foto, r.deskripsi],
+      [i + 1, r.tgl, r.jam, r.nama, r.jenis, r.kel, r.posy, r.lokasi, r.petugas, r.target, r.hadir, r.total, r.foto, r.deskripsi],
     );
     downloadCsv("laporan-kegiatan.csv", head, csvRows);
     toast("Laporan kegiatan CSV diunduh.");
@@ -478,7 +478,7 @@ function Laporan() {
               <table className="w-full border-collapse text-[11px]">
                 <thead>
                   <tr>
-                    {["No", "Tanggal", "Nama Kegiatan", "Wilayah", "PJ", "Peserta", "Deskripsi"].map((h) => (
+                    {["No", "Tanggal", "Nama Kegiatan", "Wilayah", "Petugas", "Peserta", "Deskripsi"].map((h) => (
                       <th key={h} className="border-b border-line bg-surface-2 px-2.5 py-2 text-left font-semibold uppercase tracking-wider text-muted">
                         {h}
                       </th>
@@ -500,7 +500,7 @@ function Laporan() {
                           <div className="text-muted">{r.jenis}</div>
                         </td>
                         <td className="whitespace-nowrap px-2.5 py-2">Kel. {r.kel} {r.posy ? `· ${r.posy}` : ""} · {r.lokasi}</td>
-                        <td className="px-2.5 py-2">{r.pj}</td>
+                        <td className="px-2.5 py-2">{r.petugas}</td>
                         <td className="whitespace-nowrap px-2.5 py-2">{r.hadir}/{r.total}</td>
                         <td className="px-2.5 py-2 text-muted">{r.deskripsi || "—"}</td>
                       </tr>
@@ -525,7 +525,7 @@ function Laporan() {
                 { key: "tgl", label: "Tanggal" },
                 { key: "nama", label: "Nama & jenis" },
                 { key: "wilayah", label: "Wilayah" },
-                { key: "pj", label: "PJ" },
+                { key: "petugas", label: "Petugas" },
                 { key: "peserta", label: "Peserta" },
                 { key: "deskripsi", label: "Deskripsi" },
               ]}
@@ -545,7 +545,7 @@ function Laporan() {
                     <div>Kel. {r.kel} {r.posy ? `· ${r.posy}` : ""}</div>
                     <div className="text-[11px] text-muted">{r.lokasi}</div>
                   </td>
-                  <td className="px-3 py-2.5">{r.pj}</td>
+                  <td className="px-3 py-2.5">{r.petugas}</td>
                   <td className="whitespace-nowrap px-3 py-2.5">
                     {r.hadir}/{r.total}
                     <div className="text-[11px] text-muted">{r.foto} foto</div>
@@ -559,7 +559,7 @@ function Laporan() {
                   <div className="text-[11px] text-muted">{r.jenis} · {fmtDate(r.tgl)} {r.jam}</div>
                   <div className="mt-1 text-[11px] text-muted">Kel. {r.kel} {r.posy ? `· ${r.posy}` : ""} · {r.lokasi}</div>
                   <div className="mt-1 flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-muted">PJ: {r.pj}</span>
+                    <span className="text-[11px] text-muted">Petugas: {r.petugas}</span>
                     <span className="text-[11px] text-muted">{r.hadir}/{r.total} hadir · {r.foto} foto</span>
                   </div>
                   {r.deskripsi ? <div className="mt-1 text-[11px] text-muted truncate">{r.deskripsi}</div> : null}

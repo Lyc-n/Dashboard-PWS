@@ -6,7 +6,7 @@ import { computeRekap, rekapScopeId, SASARAN_GROUP_LABELS } from "@/lib/rekap-ku
 import type { RekapAuto } from "@/lib/rekap-kunjungan-rumah";
 import { useRekapKunjunganRumah } from "@/hooks/use-rekap-kunjungan-rumah";
 import type { RekapField } from "@/hooks/use-rekap-kunjungan-rumah";
-import { useAdminMaster } from "@/hooks/use-admin-master";
+import { useKaderAktif } from "@/hooks/use-kader-aktif";
 import { useAuth } from "@/providers/auth";
 import { isAdminUser } from "@/lib/auth";
 import { useToast } from "@/providers/toast";
@@ -99,8 +99,9 @@ export function RekapKunjunganRumahSection({
   const { user } = useAuth();
   const toast = useToast();
   const admin = isAdminUser(user);
-  // Daftar staf dari database (sama dengan yang dipakai /kelola), bukan localStorage.
-  const { staff } = useAdminMaster();
+  // Daftar kader dari tabel `users` (role='kader', aktif), sama dengan sumber yang
+  // dipakai /kelola. `listKaderAktif()` sudah menyaring, jadi tidak perlu filter peran lagi.
+  const { staff } = useKaderAktif();
 
   const [period, setPeriod] = useState(DEFAULT_MONTH);
   const [kel, setKel] = useState("all");
@@ -112,7 +113,7 @@ export function RekapKunjunganRumahSection({
   const effPosy = admin ? posy : (user?.posy ?? "all");
   const effKader = admin ? kader : (user?.name ?? "all");
 
-  const kaderList = useMemo(() => staff.filter((s) => s.peran === "Kader" && s.on).map((s) => s.nama), [staff]);
+  const kaderList = useMemo(() => staff.map((s) => s.nama), [staff]);
 
   const { templates, records, getValue, setValue, clearScope } = useRekapKunjunganRumah();
 

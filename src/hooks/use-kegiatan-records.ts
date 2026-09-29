@@ -2,6 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { listKegiatan, saveKegiatan } from "@/lib/utils.functions";
 import type { KegiatanRecord, Peserta } from "@/hooks/use-kegiatan";
 
+/**
+ * Baris kegiatan yang tampil di UI.
+ *
+ * `petugas` berisi NAMA petugas, bukan `users.id`. Bentuk simpanannya
+ * berbeda: kolom itu `users.id` supaya bisa dipakai sebagai
+ * `surveys.petugasId`, dan begitu data dibaca balik namanya diambil dari tabel
+ * `users` supaya tidak ada nama yang bisa basi di dua tempat.
+ */
 export interface KegiatanRow extends KegiatanRecord {
   id: string;
   peserta?: Peserta[];

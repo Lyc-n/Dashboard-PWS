@@ -44,6 +44,7 @@ function makeRecord(over: RecOver): KunjunganRumahRecord {
       hpKK: "",
       ...over.info,
       // setelah spread agar tipe tetap string (Partial bisa undefined)
+      nik: over.info?.nik ?? "3579015202800001",
       petugasId: over.info?.petugasId ?? "sv1",
       petugasNama: over.info?.petugasNama ?? "Siti Aminah",
     },

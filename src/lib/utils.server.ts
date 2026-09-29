@@ -1,5 +1,6 @@
 import { db } from './db.server'
-import { formFieldRules, formFields, formSections, formVersions, forms, surveyEntries, surveys, validSession } from './schema/schema'
+import { dataWargaTable, formFieldRules, formFields, formSections, formVersions, forms, surveyEntries, surveys, validSession } from './schema/schema'
+import { pastikanPetugasValid } from './user-registry.server'
 import { jwtVerify, SignJWT } from 'jose'
 import { createHash, randomBytes } from 'node:crypto';
 import { setCookie } from '@tanstack/react-start/server';
@@ -313,6 +314,29 @@ function headerDariPayload(rec: JsonRecord): { wargaNik: string; petugasId: stri
     }
 }
 
+/**
+ * Validasi header kunjungan sebelum ditulis ke `surveys`.
+ *
+ * NIK harus 16 digit dan sudah ada di `data_warga`; petugas harus akun aktif
+ * non-admin di `users`. Pesan dibuat ramah petugas karena error FK Postgres
+ * tidak bisa dibaca pengguna.
+ */
+async function pastikanHeaderKunjungan(head: { wargaNik: string; petugasId: string; tanggal: string }) {
+    if (!/^\d{16}$/.test(head.wargaNik)) {
+        throw new Error("NIK sasaran utama wajib 16 digit.")
+    }
+    const [warga] = await db
+        .select({ nik: dataWargaTable.nik })
+        .from(dataWargaTable)
+        .where(eq(dataWargaTable.nik, head.wargaNik))
+        .limit(1)
+    if (!warga) {
+        throw new Error(`NIK ${head.wargaNik} tidak ada di Data Sasaran.`)
+    }
+    const petugas = await pastikanPetugasValid(head.petugasId)
+    return { wargaNik: head.wargaNik, petugasId: petugas.id, tanggal: head.tanggal }
+}
+
 export async function listKunjunganRumahRecords() {
     const form = await getKunjunganRumahForm()
     if (!form) return []
@@ -359,12 +383,10 @@ export async function saveKunjunganRumahRecord(payload: unknown) {
         )
     }
 
-    const head = headerDariPayload(rec)
-    // `surveys.wargaNik` dan `petugasId` NOT NULL + FK ke `data_warga`/`users`, jadi
-    // tidak bisa diisi default. Tolak di sini dengan pesan yang bisa ditindaklanjuti,
-    // bukan andalkan error constraint Postgres.
-    if (!head.wargaNik) throw new Error("NIK wajib diisi sebelum menyimpan kunjungan")
-    if (!head.petugasId) throw new Error("Petugas wajib dipilih sebelum menyimpan kunjungan")
+    const head = await pastikanHeaderKunjungan(headerDariPayload(rec))
+    // `surveys.wargaNik` boleh NULL untuk form kegiatan, tetapi kunjungan rumah
+    // wajib menunjuk satu warga. Tanggal tidak bisa default karena dashboard,
+    // sasaran, dan laporan memakainya sebagai filter.
     if (!head.tanggal) throw new Error("Tanggal kunjungan wajib diisi")
 
     const id = typeof rec.id === "string" && rec.id ? rec.id : crypto.randomUUID()
@@ -403,9 +425,12 @@ export async function updateKunjunganRumahRecord(id: string, payload: unknown) {
 
     const head = headerDariPayload(clean)
     if (head.wargaNik && head.petugasId) {
+        const valid = await pastikanHeaderKunjungan(head)
         await db
             .update(surveys)
-            .set({ wargaNik: head.wargaNik, petugasId: head.petugasId, ...(head.tanggal ? { tanggal: head.tanggal } : {}) })
+            .set({ wargaNik: valid.wargaNik, petugasId: valid.petugasId, ...(valid.tanggal ? { tanggal: valid.tanggal } : {    })
+}
+)
             .where(eq(surveys.id, id))
     }
 
@@ -421,29 +446,6 @@ export async function updateKunjunganRumahRecord(id: string, payload: unknown) {
 export async function removeKunjunganRumahRecord(id: string) {
     // `survey_entries` cascade dari `surveys`, jadi cukup hapus header.
     await db.delete(surveys).where(eq(surveys.id, id))
-}
-
-// ---- kegiatan pemberdayaan langsung ke DB — pengganti localStorage `pws-kegiatan` ----
-const KEGIATAN_REQUIRED = ["nama", "pj", "tgl", "kel", "lokasi"] as const;
-
-export async function listKegiatanRecords() {
-    const rows = await db.query.kegiatanRecords.findMany({ orderBy: (t, { desc }) => [desc(t.createdAt)] });
-    return rows.map((r) => ({ id: r.id, ...(r.payload as JsonRecord) }));
-}
-
-export async function saveKegiatanRecord(payload: unknown) {
-    const rec = asJsonRecord(payload);
-    for (const k of KEGIATAN_REQUIRED) {
-        const v = rec[k];
-        if (typeof v !== "string" || !v.trim()) throw new Error(`Field ${k} wajib diisi`);
-    }
-    const [row] = await db.insert(kegiatanRecords).values({ payload: rec }).returning();
-    if (!row) throw new Error("Gagal menyimpan kegiatan");
-    return { id: row.id, ...(row.payload as JsonRecord) };
-}
-
-export async function removeKegiatanRecord(id: string) {
-    await db.delete(kegiatanRecords).where(eq(kegiatanRecords.id, id));
 }
 
 // ---- read model DB (sumber tunggal UI; tanpa data dummy) ----
@@ -472,14 +474,16 @@ export async function querySurveyStatsByNik(): Promise<Array<{ nik: string; tota
     // dengan "column nik does not exist", bukan error TypeScript.
     const rows = await db.execute(sql`
         SELECT "wargaNik" AS "nik", COUNT(*)::int AS "total", MAX("tanggal")::text AS "terakhir"
-        FROM surveys GROUP BY "wargaNik"
+        FROM surveys
+        WHERE "wargaNik" IS NOT NULL
+        GROUP BY "wargaNik"
     `)
     return rows as unknown as Array<{ nik: string; total: number; terakhir: string | null }>
 }
 
 export async function querySurveysWithWarga(limit = 500) {
     const [surveyList, wargaList, staff] = await Promise.all([
-        db.query.surveys.findMany({ orderBy: (t, { desc }) => [desc(t.tanggal)], limit }),
+        db.query.surveys.findMany({ orderBy: (t, cols) => [cols.desc(t.tanggal)], limit }),
         db.query.dataWargaTable.findMany({ columns: { nik: true, nama_art: true, kelurahan: true } }),
         // Petugas ada di `users`, bukan tabel `surveyor` yang sudah dihapus.
         db.query.users.findMany({ columns: { id: true, nama: true } }),
@@ -504,112 +508,3 @@ export async function querySurveysWithWarga(limit = 500) {
     })
 }
 
-// ---- master data admin /kelola ----
-// Dipindah dari localStorage + hard-code. `password` sengaja tidak ada di tabel
-// `admin_staff`: login aplikasi pakai PIN tunggal dari env, bukan akun per staf.
-
-type PrioritasRow = typeof adminPriorities.$inferSelect;
-type ItemRow = typeof adminItems.$inferSelect;
-type StaffRow = typeof adminStaff.$inferSelect;
-
-const toPrioritas = (r: PrioritasRow) => ({ nama: r.nama, desk: r.desk, warna: r.warna, on: r.on });
-const toItem = (r: ItemRow) => ({ kode: r.kode, prio: r.prio, judul: r.judul, desk: r.desk, on: r.on });
-const toStaff = (r: StaffRow) => ({
-    nama: r.nama, peran: r.peran, kel: r.kel, posy: r.posy,
-    hp: r.hp, username: r.username, on: r.on,
-});
-
-export async function listAdminMaster() {
-    const [prios, items, staff] = await Promise.all([
-        db.select().from(adminPriorities).orderBy(adminPriorities.nama),
-        db.select().from(adminItems).orderBy(adminItems.prio, adminItems.kode),
-        db.select().from(adminStaff).orderBy(adminStaff.nama),
-    ]);
-    return { prios: prios.map(toPrioritas), items: items.map(toItem), staff: staff.map(toStaff) };
-}
-
-function requireText(rec: JsonRecord, key: string): string {
-    const v = rec[key];
-    if (typeof v !== "string" || !v.trim()) throw new Error(`Field "${key}" wajib diisi`);
-    return v.trim();
-}
-
-export async function saveAdminPriority(nama: string, data: unknown) {
-    const rec = asJsonRecord(data);
-    const namaBaru = requireText(rec, "nama");
-    const values = {
-        nama: namaBaru,
-        desk: typeof rec.desk === "string" ? rec.desk : "",
-        warna: typeof rec.warna === "string" && rec.warna ? rec.warna : "tag-default",
-        on: rec.on !== false,
-        updatedAt: new Date(),
-    };
-    // `nama` adalah kunci item, jadi ganti nama = insert baris baru lalu item lama
-    // ikut pindah, bukan update yang diam-diam meninggalkan item terlantar.
-    if (nama !== namaBaru) {
-        await db.update(adminItems).set({ prio: namaBaru }).where(eq(adminItems.prio, nama));
-        await db.delete(adminPriorities).where(eq(adminPriorities.nama, nama));
-    }
-    const [row] = await db
-        .insert(adminPriorities)
-        .values(values)
-        .onConflictDoUpdate({ target: adminPriorities.nama, set: values })
-        .returning();
-    if (!row) throw new Error("Gagal menyimpan prioritas");
-    return toPrioritas(row);
-}
-
-export async function removeAdminPriority(nama: string) {
-    // Item ikut dihapus karena `admin_items.prio` menunjuk ke `admin_priorities.nama`.
-    await db.delete(adminItems).where(eq(adminItems.prio, nama));
-    await db.delete(adminPriorities).where(eq(adminPriorities.nama, nama));
-}
-
-export async function saveAdminItem(kode: string | null, data: unknown) {
-    const rec = asJsonRecord(data);
-    const kodeBaru = kode ?? requireText(rec, "kode");
-    const values = {
-        kode: kodeBaru,
-        prio: requireText(rec, "prio"),
-        judul: requireText(rec, "judul"),
-        desk: typeof rec.desk === "string" ? rec.desk : "",
-        on: rec.on !== false,
-        updatedAt: new Date(),
-    };
-    const [row] = await db
-        .insert(adminItems)
-        .values(values)
-        .onConflictDoUpdate({ target: adminItems.kode, set: values })
-        .returning();
-    if (!row) throw new Error("Gagal menyimpan item");
-    return toItem(row);
-}
-
-export async function removeAdminItem(kode: string) {
-    await db.delete(adminItems).where(eq(adminItems.kode, kode));
-}
-
-export async function saveAdminStaff(nama: string, data: unknown) {
-    const rec = asJsonRecord(data);
-    const values = {
-        nama: requireText(rec, "nama"),
-        peran: typeof rec.peran === "string" && rec.peran ? rec.peran : "Kader",
-        kel: typeof rec.kel === "string" ? rec.kel : "",
-        posy: typeof rec.posy === "string" ? rec.posy : "",
-        hp: typeof rec.hp === "string" ? rec.hp : "",
-        username: typeof rec.username === "string" ? rec.username : "",
-        on: rec.on !== false,
-        updatedAt: new Date(),
-    };
-    // Staf dicocokkan lewat `nama` karena tidak ada kolom id di sisi UI.
-    const [updated] = await db.update(adminStaff).set(values).where(eq(adminStaff.nama, nama)).returning();
-    if (updated) return toStaff(updated);
-
-    const [inserted] = await db.insert(adminStaff).values(values).returning();
-    if (!inserted) throw new Error("Gagal menyimpan staf");
-    return toStaff(inserted);
-}
-
-export async function removeAdminStaff(nama: string) {
-    await db.delete(adminStaff).where(eq(adminStaff.nama, nama));
-}

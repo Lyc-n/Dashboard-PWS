@@ -6,9 +6,9 @@ import {
   validasiNilaiField,
   validasiNilaiGroup,
   validasiOpsiField,
+  validasiNilaiOpsiTerpilih,
   validasiParentSection,
-  validasiTerbitkanVersi
-  
+  validasiTerbitkanVersi,
 } from '@/features/form-builder/services/validasi'
 import type {HasilValidasi} from '@/features/form-builder/services/validasi';
 import { maskNik } from '@/features/form-builder/services/masking'
@@ -374,5 +374,81 @@ describe('maskNik', () => {
     const nik = '3273010101900001'
     expect(maskNik(nik)).not.toContain(nik)
     expect(maskNik(nik)).toHaveLength(12)
+  })
+})
+
+describe('validasiOpsiField dengan sumber opsi dinamis', () => {
+  it('field select tanpa opsi statis ditolak kalau sumbernya tidak dinamis', () => {
+    expect(kode(validasiOpsiField({ tipe: 'select', opsi: [] }))).toBe('OPSI_KOSONG')
+  })
+
+  it('field dengan optionSourceType boleh tanpa opsi statis', () => {
+    // Opsinya dibaca dari tabel `users` saat render, jadi tidak ada baris di
+    // form_field_rules. Menolaknya di sini akan membuat field Petugas mustahil
+    // disimpan.
+    expect(validasiOpsiField({ tipe: 'select', opsi: [], sumberOpsiDinamis: 'users' })).toEqual({ ok: true })
+  })
+
+  it('sumber dinamis hanya membebaskan field yang butuh opsi', () => {
+    // Field teks tidak butuh opsi sama sekali, jadi aturan ini tidak berlaku
+    // untuk tipe lain meski sumbernya terisi.
+    expect(validasiOpsiField({ tipe: 'text', opsi: [], sumberOpsiDinamis: null })).toEqual({ ok: true })
+  })
+
+  it('sumber dinamis melompati pengecekan duplikasi opsi statis', () => {
+    // Batasan yang diketahui: begitu `optionSourceType` terisi, seluruh
+    // pemeriksaan opsi statis dilewati, termasuk duplikasi. Untuk field dynamic
+    // ini tidak menimbulkan masalah karena memang tidak ada opsi statis yang
+    // dipakai — nilainya selalu dari tabel tujuan. Kalau suatu saat ada field
+    // yang mencampur keduanya, aturan ini perlu diperketat.
+    const hasil = validasiOpsiField({
+      tipe: 'radio',
+      opsi: [{ value: 'a' }, { value: 'a' }],
+      sumberOpsiDinamis: 'users',
+    })
+    expect(hasil.ok).toBe(true)
+  })
+})
+
+describe('validasiNilaiOpsiTerpilih', () => {
+  const opsi = [{ value: 'a' }, { value: 'b' }, { value: 'c', aktif: false }]
+
+  it('nilai yang ada di daftar diterima', () => {
+    expect(validasiNilaiOpsiTerpilih({ tipe: 'select', nilai: 'a', opsi })).toEqual({ ok: true })
+  })
+
+  it('nilai yang tidak ada di daftar ditolak', () => {
+    // Ini yang mencegah request yang dimanipulasi storing nilai bebas di
+    // survey_entries.
+    expect(kode(validasiNilaiOpsiTerpilih({ tipe: 'select', nilai: 'zzz', opsi }))).toBe('OPSI_TIDAK_VALID')
+  })
+
+  it('opsi nonaktif tidak bisa dipilih', () => {
+    expect(kode(validasiNilaiOpsiTerpilih({ tipe: 'select', nilai: 'c', opsi }))).toBe('OPSI_TIDAK_VALID')
+  })
+
+  it('checkbox accepts some options and rejects unknown ones', () => {
+    expect(validasiNilaiOpsiTerpilih({ tipe: 'checkbox', nilai: ['a', 'b'], opsi })).toEqual({ ok: true })
+    expect(kode(validasiNilaiOpsiTerpilih({ tipe: 'checkbox', nilai: ['a', 'zzz'], opsi }))).toBe(
+      'OPSI_TIDAK_VALID',
+    )
+  })
+
+  it('checkbox yang tidak dicentang (array kosong) tetap sah', () => {
+    // Kalau ini ditolak, petugas tidak bisa menyimpan form tanpa memilih
+    // salah satu checkbox pun.
+    expect(validasiNilaiOpsiTerpilih({ tipe: 'checkbox', nilai: [], opsi })).toEqual({ ok: true })
+  })
+
+  it('nilai dengan spasi excess diterima karena dibandingkan setelah trim', () => {
+    expect(validasiNilaiOpsiTerpilih({ tipe: 'select', nilai: '  a  ', opsi })).toEqual({ ok: true })
+  })
+
+  it('nilai non-string ditolak', () => {
+    expect(kode(validasiNilaiOpsiTerpilih({ tipe: 'select', nilai: 42, opsi }))).toBe('OPSI_TIDAK_VALID')
+  })
+
+  it('field tanpa opsi (teks) tidak dicek kelistanya', () => {
+    expect(validasiNilaiOpsiTerpilih({ tipe: 'text', nilai: 'apa saja', opsi: [] })).toEqual({ ok: true })
   })
 })

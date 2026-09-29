@@ -51,6 +51,8 @@ export interface KeluargaInfo {
   pustu: string;
   posyandu: string;
   namaKK: string;
+  /** NIK 16 digit untuk satu warga yang dihitung sebagai sasaran utama kunjungan ini. */
+  nik: string;
   // [perbaikan] atribusi petugas eksplisit — expect: ikut tersimpan di record.info,
   //   lalu dipetakan ke surveys.petugasId (uuid FK surveyor) saat sinkron ke DB nanti.
   petugasId: string;

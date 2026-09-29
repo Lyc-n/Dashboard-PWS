@@ -35,13 +35,14 @@ import type {
 } from "@/lib/kunjungan-rumah-templates";
 import { SASARAN_KEYS } from "@/lib/kunjungan-rumah-form";
 import { namaFieldUnik } from "@/features/kunjungan-rumah/lib/template-from-rows";
-import { JENIS_KEGIATAN } from "@/lib/constants";
+import { JENIS_KEGIATAN, KODE_FORM_BAWAAN } from "@/lib/constants";
 
-/** `forms.kode` untuk kedua form bawaan. Jangan diubah: seeding idempotent bergantung padanya. */
-export const KODE_FORM = {
-  kegiatan: "KEGIATAN_PEMBERDAYAAN",
-  kunjunganRumah: "CHECKLIST_KUNJUNGAN_RUMAH",
-} as const;
+/**
+ * Di-re-export dari `src/lib/constants.ts` supaya seeder dan kode runtime memakai
+ * satu sumber. Kalau kodenya hanya hidup di `scripts/`, reader di `src/` akan
+ *reachable lewat import yang arahnya terbalik.
+ */
+export const KODE_FORM = KODE_FORM_BAWAAN;
 
 const NAMA_FORM = {
   kegiatan: "Form Kegiatan Pemberdayaan",
@@ -76,6 +77,8 @@ interface BarisField {
   tipe: JenisFieldDb;
   wajib: boolean;
   urutan: number;
+  /** Tipe sumber opsi dinamis (mis. "users"). null = opsi statis dari `options`. */
+  optionSourceType: string | null;
   optionSourceKey: string | null;
   options: string[];
   jumlahKolom: number | null;
@@ -109,9 +112,10 @@ function sectionsKunjunganRumah(): BarisSection[] {
     list.push({
       nama: namaFieldUnik(sectionNama, f.id),
       label: f.label,
-      tipe: f.kind as JenisFieldDb,
+      tipe: f.kind,
       wajib: f.required,
       urutan: f.order,
+      optionSourceType: null,
       optionSourceKey: kunciBucket(bucket),
       options: f.options ?? [],
       jumlahKolom: null,
@@ -119,7 +123,7 @@ function sectionsKunjunganRumah(): BarisSection[] {
   };
 
   (SECTION_UI_PLAIN as readonly string[]).forEach((nama, i) => {
-    const fields = t[nama as (typeof SECTION_UI_PLAIN)[number]] ?? [];
+    const fields = t[nama as (typeof SECTION_UI_PLAIN)[number]];
     const list: BarisField[] = [];
     fields.forEach((f) => pushField(list, f, nama, null));
     sections.push({ nama, urutan: i, fields: list });
@@ -138,6 +142,7 @@ function sectionsKunjunganRumah(): BarisSection[] {
         tipe: "group",
         wajib: false,
         urutan: 0,
+        optionSourceType: null,
         optionSourceKey: null,
         options: [],
         jumlahKolom: null,
@@ -188,6 +193,7 @@ function sectionsKegiatan(): BarisSection[] {
     tipe,
     wajib: false,
     urutan,
+    optionSourceType: null,
     optionSourceKey: null,
     options: [],
     jumlahKolom: null,
@@ -208,7 +214,20 @@ function sectionsKegiatan(): BarisSection[] {
         field("identitas", "jam", "Jam", "time", 3),
         field("identitas", "lokasi", "Lokasi", "text", 4, { wajib: true }),
         field("identitas", "kel", "Kelurahan", "text", 5, { wajib: true }),
-        field("identitas", "pj", "Penanggung jawab", "text", 6, { wajib: true }),
+        // Petugas dipilih manual dari registry `users`, bukan diambil dari sesi
+        // login. Alasannya login masih pakai satu PIN global dengan role
+        // hard-coded, jadi tidak ada `users.id` yang bisa dipercaya sebagai
+        // "siapa yang sedang login".
+        //
+        // Opsi field ini TIDAK ditulis ke `form_field_rules`. Oksinya diambil
+        // saat render dan saat validasi dari tabel `users` lewat
+        // `optionSourceType`/`optionSourceKey`, jadi menambah petugas di
+        // /kelola langsung mengubah pilihan di form tanpa seeding ulang.
+        field("identitas", "petugas", "Petugas", "select", 6, {
+          wajib: true,
+          optionSourceType: "users",
+          optionSourceKey: "petugas",
+        }),
         field("identitas", "target", "Target", "text", 7),
         field("identitas", "posy", "Posyandu", "text", 8),
         field("identitas", "deskripsi", "Deskripsi", "textarea", 9),
@@ -324,6 +343,7 @@ async function seedForm(params: {
             tipe: f.tipe,
             wajib: f.wajib,
             urutan: f.urutan,
+            optionSourceType: f.optionSourceType,
             optionSourceKey: f.optionSourceKey,
             jumlahKolom: f.jumlahKolom,
           })),
@@ -337,9 +357,14 @@ async function seedForm(params: {
 
       // Semua opsi di seluruh section di-insert sekaligus. `form_field_rules`
       // tidak butuh id balikan per opsi, jadi ini cukup satu round trip.
+      // Opsi statis di seluruh section di-insert sekaligus, jadi cukup satu
+      // round trip. Field dengan `optionSourceType` (mis. daftar petugas dari
+      // `users`) sengaja TIDAK ditulis di sini: opsinya dibaca dari database
+      // saat render dan saat validasi, jadi menambah petugas di /kelola tidak
+      // butuh seeding ulang dan tidak bisa basi.
       const opsiRows = kolom.flatMap((col) => {
         const f = s.fields.find((x) => x.nama === col.nama)
-        if (!f || f.options.length === 0) return []
+        if (!f || f.optionSourceType || f.options.length === 0) return []
         return f.options.map((value, i) => ({
           fieldId: col.id,
           tipe: "option" as const,

@@ -68,10 +68,11 @@ function uniqueId(base: string, existing: Set<string>): string {
 
 // ── Default ──
 export function createDefaultKunjunganRumahTemplates(): KunjunganRumahTemplates {
-  // KeluargaInfo 11 field
+  // KeluargaInfo 12 field
   const keluargaDefs: { id: string; label: string; kind: KunjunganRumahFieldKind; required: boolean }[] = [
     { id: "tglPengumpulan", label: "Tanggal pengumpulan data", kind: "date", required: true },
     { id: "posyandu", label: "Posyandu", kind: "text", required: true },
+    { id: "nik", label: "NIK sasaran utama", kind: "text", required: true },
     { id: "kelurahan", label: "Desa/Kelurahan", kind: "text", required: false },
     { id: "kecamatan", label: "Kecamatan", kind: "text", required: false },
     { id: "puskesmas", label: "Puskesmas", kind: "text", required: false },

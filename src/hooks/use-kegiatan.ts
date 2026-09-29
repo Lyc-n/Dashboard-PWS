@@ -14,7 +14,15 @@ export interface Foto {
 
 export interface KegiatanFieldState {
   nama: string;
-  pj: string;
+  /**
+   * `users.id` petugas pencatat, hasil dropdown Petugas.
+   *
+   * Ini bukan nama bebas seperti field `pj` yang sebelumnya ada: nilai yang
+   * disimpan harus bisa dicocokkan ke baris `users`, karena itulah yang mengisi
+   * `surveys.petugasId`. Nama petugas untuk ditampilkan diambil ulang dari
+   * `users` saat data dibaca, bukan disimpan dua kali.
+   */
+  petugas: string;
   tgl: string;
   jam: string;
   target: string;
@@ -31,7 +39,7 @@ export interface KegiatanRecord extends KegiatanFieldState {
   foto: number;
 }
 
-const REQUIRED = ["nama", "pj", "tgl", "kel", "lokasi"] as const;
+const REQUIRED = ["nama", "petugas", "tgl", "kel", "lokasi"] as const;
 const MAX_FOTO = 6;
 const MAX_SIZE = 2 * 1024 * 1024;
 
@@ -55,7 +63,7 @@ export function useKegiatan() {
   const [pesertaEmpty, setPesertaEmpty] = useState(false);
   const [fields, setFields] = useState<KegiatanFieldState>({
     nama: "",
-    pj: "",
+    petugas: "",
     tgl: "2026-02-14",
     jam: "09:00",
     target: "",
@@ -146,7 +154,7 @@ export function useKegiatan() {
   }, [validate, fields, jenis, hadirCount, peserta.length, fotos.length]);
 
   const clearAll = useCallback(() => {
-    setFields({ nama: "", pj: "", tgl: "2026-02-14", jam: "09:00", target: "", kel: "", posy: "", lokasi: "", deskripsi: "" });
+    setFields({ nama: "", petugas: "", tgl: "2026-02-14", jam: "09:00", target: "", kel: "", posy: "", lokasi: "", deskripsi: "" });
     setPeserta([]);
     setFotos((f) => {
       f.forEach((x) => URL.revokeObjectURL(x.url));
@@ -160,7 +168,10 @@ export function useKegiatan() {
     setFields((f) => ({
       ...f,
       nama: "Penyuluhan Gizi Balita",
-      pj: "Siti Aminah",
+      // `petugas` sengaja tidak diisi: isinya `users.id`, dan tidak ada UUID
+      // yang boleh di-hard-code di sini. Petugas tetap dipilih manual, sama
+      // seperti di form sungguhan.
+      petugas: "",
       kel: "Trajeng",
       posy: "Melati 1",
       lokasi: "Balai RW 02",

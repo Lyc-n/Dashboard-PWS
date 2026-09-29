@@ -1,14 +1,11 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db.server'
 import { formFieldRules, formFields, surveys, surveyEntries } from '@/lib/schema/schema'
-import {
-  validasiNilaiField
-  
-  
-} from '@/features/form-builder/services/validasi'
+import { validasiNilaiField } from '@/features/form-builder/services/validasi'
 import type {HasilValidasi, TipeField} from '@/features/form-builder/services/validasi';
 import { KesalahanValidasi } from '@/features/form-builder/services/form-version.server'
 import { catatAudit } from '@/features/form-builder/services/audit.server'
+import { resolveOpsiDinamis } from '@/features/form-builder/services/option-source.server'
 
 /**
  * Integritas versi untuk sisi survei.
@@ -36,6 +33,11 @@ export interface CekField {
   id: string
   formVersionId: string
   tipe: TipeField
+  /**
+   * Sumber opsi dinamis dari `form_fields.optionSourceType`, mis. "users" untuk
+   * field Petugas. null = field pakai opsi statis dari `form_field_rules`.
+   */
+  optionSourceType: string | null
 }
 
 /**
@@ -87,7 +89,12 @@ export async function assertFieldMilikVersiSurvei(
   }
 
   const ditemukan = await db
-    .select({ id: formFields.id, formVersionId: formFields.formVersionId, tipe: formFields.tipe })
+    .select({
+      id: formFields.id,
+      formVersionId: formFields.formVersionId,
+      tipe: formFields.tipe,
+      optionSourceType: formFields.optionSourceType,
+    })
     .from(formFields)
     .where(inArray(formFields.id, unik))
 
@@ -104,6 +111,7 @@ export async function assertFieldMilikVersiSurvei(
       id: field.id,
       formVersionId: field.formVersionId,
       tipe: field.tipe,
+      optionSourceType: field.optionSourceType,
     })
   }
 
@@ -146,8 +154,19 @@ export async function simpanJawaban(params: {
 
   // Opsi diambil sekali per field, bukan per jawaban, supaya field yang dijawab
   // beberapa kali tidak mengambil opsi berulang.
+  //
+  // Field dengan `optionSourceType` (mis. Petugas, yang opsinya adalah akun
+  // `users` aktif) tidak punya baris di `form_field_rules`, jadi opsinya
+  // di-resolve dari tabel tujuan. Tanpa ini, pilihan petugas yang sah akan
+  // ditolak sebagai "nilai tidak cocok" hanya karena daftarnya kosong.
   const opsiPerField = new Map<string, { value: string; aktif: boolean }[]>()
   for (const fieldId of new Set(jawaban.map((j) => j.fieldId))) {
+    const field = fields.get(fieldId)
+    if (field?.optionSourceType) {
+      const { opsi } = await resolveOpsiDinamis({ optionSourceType: field.optionSourceType })
+      opsiPerField.set(fieldId, opsi.map((o) => ({ value: o.value, aktif: true })))
+      continue
+    }
     opsiPerField.set(fieldId, await ambilOpsi(db, fieldId))
   }
 

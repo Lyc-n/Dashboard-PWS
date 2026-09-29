@@ -49,6 +49,7 @@ function makeInfo(raw: unknown): KeluargaInfo {
     pustu: "",
     posyandu: "",
     namaKK: "",
+    nik: "",
     // [perbaikan] record lama tanpa petugas → "" — expect: diminta pilih petugas saat diedit ulang.
     petugasId: "",
     petugasNama: "",

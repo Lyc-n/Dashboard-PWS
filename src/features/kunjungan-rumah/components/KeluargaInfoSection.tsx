@@ -66,6 +66,36 @@ export function KeluargaInfoSection({ state, templates, dispatch }: Props) {
         </Select>
       </FormField>
       {keluargaInfoFields.map((f) => {
+        if (f.id === "nik") {
+          const nikInvalid = !!state.invalid.nik;
+          return (
+            <FormField
+              key={f.id}
+              label="NIK sasaran utama"
+              required
+              invalid={nikInvalid}
+              error="Wajib 16 digit dan harus ada di Data Sasaran."
+              hint="Satu kunjungan dihitung untuk NIK ini di dashboard dan laporan."
+              errorId="nik-error"
+            >
+              <Input
+                value={state.info.nik}
+                onChange={(e) =>
+                  dispatch({
+                    type: "SET_FIELD",
+                    key: "nik",
+                    value: e.target.value.replace(/\D/g, "").slice(0, 16),
+                  })
+                }
+                inputMode="numeric"
+                maxLength={16}
+                placeholder="16 digit NIK"
+                invalid={nikInvalid}
+                aria-describedby={nikInvalid ? "nik-error" : undefined}
+              />
+            </FormField>
+          );
+        }
         const val = state.info[f.id] ?? "";
         const invalid = !!state.invalid[f.id] || (f.id === "tglPengumpulan" ? !!state.invalid.tgl : f.id === "posyandu" ? !!state.invalid.posyandu : false);
         const errorId = `${f.id}-error`;

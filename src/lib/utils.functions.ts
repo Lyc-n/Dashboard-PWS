@@ -5,26 +5,29 @@ import {
     getKunjunganRumahRecord,
     getKunjunganRumahTemplateRows,
     isValidPin,
-    listAdminMaster as queryAdminMaster,
-    listKegiatanRecords,
     listKunjunganRumahRecords,
     querySurveyors,
     querySurveysWithWarga,
     querySurveyStatsByNik,
     queryWargaList,
-    removeAdminItem as deleteAdminItem,
-    removeAdminPriority as deleteAdminPriority,
-    removeAdminStaff as deleteAdminStaff,
-    removeKegiatanRecord,
     removeKunjunganRumahRecord,
-    saveAdminItem as upsertAdminItem,
-    saveAdminPriority as upsertAdminPriority,
-    saveAdminStaff as upsertAdminStaff,
-    saveKegiatanRecord,
     saveKunjunganRumahRecord,
     touchSession,
     updateKunjunganRumahRecord,
 } from "./utils.server";
+import {
+    hapusKegiatan,
+    listKegiatan as listKegiatanV2,
+    simpanKegiatan,
+} from "@/features/survey/services/kegiatan.server";
+import {
+    listFasKes,
+    listKaderAktif,
+    listPengguna,
+    listPetugasOpsi,
+    simpanPengguna,
+    setPenggunaAktif,
+} from "./user-registry.server";
 
 
 /* ALUR LOGIN
@@ -238,66 +241,61 @@ export const removeKunjunganRumah = createServerFn({ method: "POST" })
         await removeKunjunganRumahRecord(data.id)
     })
 
-// ---- kegiatan pemberdayaan — CRUD langsung ke DB, tanpa localStorage ----
+// ---- kegiatan pemberdayaan — generic submission v2 ----
+// formerly ditulis ke tabel `kegiatan_records`, yang sudah dihapus dari database
+// sehingga fitur ini mati saat runtime. Sekarang lewat `surveys` + `survey_entries`
+// dengan `surveys.petugasId` menunjuk `users.id` hasil dropdown Petugas.
 export const listKegiatan = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
-    .handler(async () => await listKegiatanRecords())
+    .handler(async () => await listKegiatanV2())
 
 export const saveKegiatan = createServerFn({ method: "POST" })
     .middleware([authSessionToken])
     .validator((data: { record: Record<string, unknown> }) => data)
-    .handler(async ({ data }) => await saveKegiatanRecord(data.record))
+    .handler(async ({ data }) => await simpanKegiatan(data.record))
 
 export const removeKegiatan = createServerFn({ method: "POST" })
     .middleware([authSessionToken])
     .validator((data: { id: string }) => data)
     .handler(async ({ data }) => {
-        await removeKegiatanRecord(data.id)
+        await hapusKegiatan(data.id)
     })
 
-// ---- master data admin /kelola ----
-// Semua server fn di sini lewat authSessionToken. Penulisan hanya bisa dari /kelola,
-// yang route-nya sudah dilindungi requireAdmin.
-type BarisPrioritas = { nama: string; desk?: string; warna?: string; on?: boolean };
-type BarisItem = { prio: string; judul: string; desk?: string; on?: boolean; kode?: string };
-type BarisStaf = { nama: string; peran?: string; kel?: string; posy?: string; hp?: string; username?: string; on?: boolean };
-
-export const listAdminMaster = createServerFn({ method: "GET" })
+// ---- registry pengguna (pengganti master admin /kelola) ----
+// Penulisan hanya bisa dari /kelola, yang route-nya sudah dilindungi requireAdmin.
+//
+// CATATAN: `requireAdmin` membaca role dari `SESSION_PROFILE` yang hard-coded
+// "Admin" (lihat src/lib/auth.ts), jadi "hanya admin" di sini sama sekali belum
+// merupakan penjaga akses yang sebenarnya. Yang dicek di sini adalah data:
+// facility yang dipilih harus benar-benar ada.
+export const listUserRegistry = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
-    .handler(async () => await queryAdminMaster());
+    .handler(async () => await listPengguna());
 
-export const saveAdminPriority = createServerFn({ method: "POST" })
+export const listFasKesOpsi = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
-    .validator((data: { nama: string; row: BarisPrioritas }) => data)
-    .handler(async ({ data }) => await upsertAdminPriority(data.nama, data.row));
+    .handler(async () => await listFasKes());
 
-export const removeAdminPriority = createServerFn({ method: "POST" })
+export const saveUserRegistry = createServerFn({ method: "POST" })
     .middleware([authSessionToken])
-    .validator((data: { nama: string }) => data)
+    .validator((data: { namaLama: string | null; row: unknown }) => data)
+    .handler(async ({ data }) => await simpanPengguna(data.namaLama, data.row));
+
+export const setUserRegistryAktif = createServerFn({ method: "POST" })
+    .middleware([authSessionToken])
+    .validator((data: { nama: string; aktif: boolean }) => data)
     .handler(async ({ data }) => {
-        await deleteAdminPriority(data.nama);
+        await setPenggunaAktif(data.nama, data.aktif);
     });
 
-export const saveAdminItem = createServerFn({ method: "POST" })
+/** Dipakai /kelola untuk mengisi dropdown kader, dan Form Kunjungan Rumah untuk petugas. */
+export const listPetugasAktif = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
-    .validator((data: { kode: string | null; row: BarisItem }) => data)
-    .handler(async ({ data }) => await upsertAdminItem(data.kode, data.row));
+    .validator((data: { fasKesId?: number | null }) => data)
+    .handler(async ({ data }) => await listPetugasOpsi(data.fasKesId ?? null));
 
-export const removeAdminItem = createServerFn({ method: "POST" })
+/** Daftar kader aktif untuk filter Rekap Kunjungan Rumah. */
+export const listKaderUntukRekap = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
-    .validator((data: { kode: string }) => data)
-    .handler(async ({ data }) => {
-        await deleteAdminItem(data.kode);
-    });
-
-export const saveAdminStaff = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: { nama: string; row: BarisStaf }) => data)
-    .handler(async ({ data }) => await upsertAdminStaff(data.nama, data.row));
-
-export const removeAdminStaff = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: { nama: string }) => data)
-    .handler(async ({ data }) => {
-        await deleteAdminStaff(data.nama);
-    });
+    .validator((data: { fasKesId?: number | null }) => data)
+    .handler(async ({ data }) => await listKaderAktif(data.fasKesId ?? null));

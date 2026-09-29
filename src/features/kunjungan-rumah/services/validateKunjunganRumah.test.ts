@@ -28,6 +28,7 @@ function validInput(): ValidateInput {
       pustu: "",
       posyandu: "Mawar 2",
       namaKK: "Bpk. Salim",
+      nik: "3579015202800001",
       petugasId: "sv1",
       petugasNama: "Siti Aminah",
     },
@@ -75,6 +76,14 @@ describe("validateKunjunganRumah", () => {
     expect(invalid.anggota).toBe(true);
     expect(invalid.penilaian).toBe(true);
     expect(invalid.ttd).toBe(true);
+  });
+
+  it("tolak NIK sasaran utama yang tidak 16 digit", () => {
+    const input = validInput();
+    input.info.nik = "123";
+    const res = validateKunjunganRumah(input);
+    expect(res.ok).toBe(false);
+    expect(res.invalid.nik).toBe(true);
   });
 
   it("tolak NIK duplikat dan NIK tidak 16 digit", () => {

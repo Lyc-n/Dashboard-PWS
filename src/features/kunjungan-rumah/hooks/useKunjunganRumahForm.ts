@@ -3,7 +3,7 @@ import { useKunjunganRumahTemplates } from '@/hooks/use-kunjungan-rumah-template
 import { useKunjunganRumahRecords } from '@/hooks/use-kunjungan-rumah-records'
 import { useToast } from '@/providers/toast'
 import { prepareFotos } from '@/features/kunjungan-rumah/lib/fotos'
-import { uploadDataUrl } from '@/lib/supabase-storage'
+import { StorageUploadError, uploadDataUrl } from '@/lib/supabase-storage'
 import { validateKunjunganRumah } from '@/features/kunjungan-rumah/services/validateKunjunganRumah'
 import {
   initialKunjunganRumahState,
@@ -114,6 +114,8 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
     setSaving(true)
     try {
       // Foto ke Supabase Storage bila bucket tersedia; gagal upload → simpan inline (DB jsonb).
+      // Log aman: hanya status/detail infra + ukuran/tipe. Tanpa token, secret, data warga, isi foto.
+      const uploadErrors: Array<{ status: number; detail: string }> = []
       const fotos = await Promise.all(
         state.fotos.map(async (f) => {
           if (f.fileUrl || !f.dataUrl) return { ...f };
@@ -121,11 +123,34 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
             const fileUrl = await uploadDataUrl(f.dataUrl, 'kunjungan-rumah');
             const { dataUrl: _drop, ...rest } = f;
             return { ...rest, fileUrl };
-          } catch {
+          } catch (e) {
+            if (e instanceof StorageUploadError) {
+              uploadErrors.push({ status: e.status, detail: e.detail })
+              console.error(
+                '[upload-foto]',
+                JSON.stringify({
+                  bucket: e.bucket,
+                  status: e.status,
+                  detail: e.detail,
+                  bytes: e.bytes,
+                  contentType: e.contentType,
+                }),
+              )
+            } else {
+              const detail = (e instanceof Error ? e.message : String(e)).slice(0, 300)
+              uploadErrors.push({ status: -1, detail })
+              console.error('[upload-foto]', JSON.stringify({ status: -1, detail }))
+            }
             return { ...f };
           }
         }),
       )
+      if (uploadErrors.length > 0) {
+        const first = uploadErrors[0]!
+        toast(
+          `Upload ${uploadErrors.length} foto gagal (${first.status}): ${first.detail}. Data tetap tersimpan lokal — salin pesan ini untuk diagnosis.`,
+        )
+      }
       const rec: KunjunganRumahRecord = {
         id: editingId ?? createRecordId(),
         schemaVersion: KUNJUNGAN_RUMAH_SCHEMA_VERSION,

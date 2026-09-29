@@ -36,6 +36,7 @@ const EMPTY_INFO: KeluargaInfo = {
   pustu: "",
   posyandu: "",
   namaKK: "",
+  nik: "",
   // [perbaikan] default kosong — expect: simpan baru selalu gagal validasi sampai petugas dipilih.
   petugasId: "",
   petugasNama: "",
@@ -212,6 +213,7 @@ export function kunjunganRumahReducer(state: KunjunganRumahState, action: Kunjun
           pustu: "Pustu Ngemplakrejo",
           posyandu: "Mawar 2",
           namaKK: "Bpk. Salim",
+          nik: "",
           // [perbaikan] FILL_DEMO sengaja tanpa petugasId — expect: simulasi terisi tapi
           //   penyimpanan tetap minta pilih petugas nyata dari daftar.
           petugasId: "",

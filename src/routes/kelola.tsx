@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { useAdminMaster } from "@/hooks/use-admin-master";
+import { useUserRegistry } from "@/hooks/use-user-registry";
 import { useKunjunganRumahTemplates } from "@/hooks/use-kunjungan-rumah-templates";
 import { AppShell } from "@/components/organisms";
 import { PageHeader, StatCard } from "@/components/molecules";
@@ -12,8 +12,7 @@ import { requireAdmin } from "@/lib/auth";
 import { TABS } from "@/features/kelola/types";
 import type { KelolaTab } from "@/features/kelola/types";
 import { FormKunjunganRumahSection } from "@/features/kelola/components/FormKunjunganRumahSection";
-import { PrioritasSection } from "@/features/kelola/components/PrioritasSection";
-import { StaffSection } from "@/features/kelola/components/StaffSection";
+import { UserSection } from "@/features/kelola/components/UserSection";
 
 export const Route = createFileRoute("/kelola")({
   beforeLoad: requireAdmin,
@@ -21,7 +20,7 @@ export const Route = createFileRoute("/kelola")({
 });
 
 function Kelola() {
-  const { items, prios, staff, error: masterError, loading: masterLoading, savePrio, saveStaff } = useAdminMaster();
+  const { pengguna, fasilitas, error: registryError, loading: registryLoading, save, setAktif } = useUserRegistry();
   const { templates, setTemplates, resetTemplates, exportJson, importJson, readOnly, source, error, loading } = useKunjunganRumahTemplates();
 
   const [tab, setTab] = useState<KelolaTab>("form-kunjungan-rumah");
@@ -32,23 +31,21 @@ function Kelola() {
     templates.sanitasi.filter((f) => f.active).length +
     templates.masalah.filter((f) => f.active).length +
     Object.values(templates.sasaran).reduce((a, s) => a + s.fields.filter((f) => f.active).length, 0);
-  const prioOn = prios.filter((p) => p.on).length;
-  const staffOn = staff.filter((s) => s.on).length;
+  const petugasAktif = pengguna.filter((p) => p.aktif && p.role !== "admin").length;
 
   return (
     <AppShell>
       <PageHeader
         title="Kelola Master Data"
-        description="Admin mengatur template kunjungan rumah fleksibel, prioritas, dan akun staff. Perubahan langsung sinkron ke form kader."
+        description="Admin mengatur template kunjungan rumah dan akun staff/kader. Perubahan langsung sinkron ke form kader."
       />
 
-      {masterError ? <p className="mt-3 text-sm text-destructive">{masterError}</p> : null}
-      {masterLoading ? <p className="mt-3 text-sm text-muted-foreground">Memuat master data…</p> : null}
+      {registryError ? <p className="mt-3 text-sm text-destructive">{registryError}</p> : null}
+      {registryLoading ? <p className="mt-3 text-sm text-muted-foreground">Memuat daftar akun…</p> : null}
 
-      <div className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-1">
+      <div className="mt-4 grid grid-cols-2 gap-3 max-md:grid-cols-1">
         <StatCard caption="Field Kunjungan Rumah aktif" value={activeFieldCount} />
-        <StatCard caption="Prioritas aktif" value={prioOn} />
-        <StatCard caption="Staff aktif" value={staffOn} />
+        <StatCard caption="Petugas aktif" value={petugasAktif} />
       </div>
 
       <div role="tablist" aria-label="Kelola" className="mt-4 flex flex-wrap gap-2">
@@ -73,12 +70,8 @@ function Kelola() {
         />
       ) : null}
 
-      {tab === "prioritas" ? (
-        <PrioritasSection prios={prios} items={items} savePrio={savePrio} />
-      ) : null}
-
       {tab === "staff" ? (
-        <StaffSection staff={staff} saveStaff={saveStaff} />
+        <UserSection pengguna={pengguna} fasilitas={fasilitas} save={save} setAktif={setAktif} />
       ) : null}
     </AppShell>
   );

@@ -17,6 +17,7 @@ const emptyInfo = {
   pustu: "",
   posyandu: "",
   namaKK: "",
+  nik: "",
   petugasId: "",
   petugasNama: "",
 } satisfies KeluargaInfo;
@@ -58,7 +59,7 @@ describe("computeFillPercent", () => {
 
   it("100% saat semua wajib terisi", () => {
     const pct = computeFillPercent({
-      info: { ...emptyInfo, tglPengumpulan: "2026-02-14", posyandu: "Mawar 2" },
+      info: { ...emptyInfo, tglPengumpulan: "2026-02-14", posyandu: "Mawar 2", nik: "3579015202800001" },
       anggota: [anggota],
       penilaian: [{ id: "p1", anggotaId: "a1", sasaran: "dewasa", values: {}, checks: {}, prioritas: [] }],
       masalah: [],
@@ -90,7 +91,7 @@ describe("computeFillPercent", () => {
       { id: "p1", anggotaId: "a1", sasaran: "dewasa", values: {}, checks: {}, prioritas: [] },
     ];
     const base = {
-      info: { ...emptyInfo, tglPengumpulan: "2026-02-14", posyandu: "Mawar 2" },
+      info: { ...emptyInfo, tglPengumpulan: "2026-02-14", posyandu: "Mawar 2", nik: "3579015202800001" },
       anggota: [anggota],
       penilaian,
       masalah: [] as MasalahTindak[],

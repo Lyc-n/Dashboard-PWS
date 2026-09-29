@@ -12,6 +12,18 @@ export const JENIS_KEGIATAN = [
 ] as const;
 export const HASIL_KUNJUNGAN_RUMAH = ["Selesai — sehat / terkendali", "Kontrol ulang", "Rujuk ke Puskesmas"] as const;
 
+/**
+ * `forms.kode` untuk dua form bawaan.
+ *
+ * Dipisah dari `forms.nama` karena `nama` boleh diubah admin, sedangkan seeder dan
+ * pembacaan form harus menemukan form yang sama apa pun nama yang dipilih admin.
+ * Jangan diubah: idempotensi seeding bergantung padanya.
+ */
+export const KODE_FORM_BAWAAN = {
+  kegiatan: "KEGIATAN_PEMBERDAYAAN",
+  kunjunganRumah: "CHECKLIST_KUNJUNGAN_RUMAH",
+} as const;
+
 export const APP_BRAND = {
   name: "DINAS KESEHATAN",
   region: "KOTA PASURUAN",

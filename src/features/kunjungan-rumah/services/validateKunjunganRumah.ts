@@ -42,6 +42,11 @@ export function validateKunjunganRumah(input: ValidateInput): {
       ok = false
     }
   }
+  const nikSasaran = info.nik.trim()
+  if (!/^\d{16}$/.test(nikSasaran)) {
+    nextInvalid.nik = true
+    ok = false
+  }
   if (!info.tglPengumpulan) {
     if (!nextInvalid.tgl) {
       nextInvalid.tgl = true

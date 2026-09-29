@@ -1,17 +1,6 @@
-import type { Priority, Staff } from "@/lib/staff";
 import type { KunjunganRumahSection } from "@/lib/kunjungan-rumah-templates";
 import type { SasaranKey } from "@/lib/kunjungan-rumah-form";
 import type { TagVariant } from "@/lib/utils";
-
-export type DlgKind = "prio" | "staff";
-
-export interface DlgState {
-  kind: DlgKind;
-  title: string;
-  edit?: Priority | Staff;
-  form: Record<string, string | undefined>;
-  errs: Record<string, string>;
-}
 
 export interface FieldDlgState {
   mode: "add" | "edit";
@@ -30,10 +19,13 @@ export interface FieldDlgState {
   errs: Record<string, string>;
 }
 
+// Tab "Prioritas" dihapus. Prioritas dan item kegiatan sekarang hanya hidup di
+// `PRIOS`/`JENIS_KEGIATAN` pada `src/lib/constants.ts` dan dibaca langsung oleh
+// FormKunjunganRumahSection + SasaranForm, jadi tabel `admin_priorities`/
+// `admin_items` beserta UI-nya tidak pernah jadi sumber kebenaran.
 export const TABS = [
   { key: "form-kunjungan-rumah", label: "Form Kunjungan Rumah" },
-  { key: "prioritas", label: "Prioritas" },
-  { key: "staff", label: "Staff" },
+  { key: "staff", label: "Staff & kader" },
 ] as const;
 
 export type KelolaTab = (typeof TABS)[number]["key"];

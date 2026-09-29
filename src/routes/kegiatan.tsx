@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useKegiatan  } from "@/hooks/use-kegiatan";
 import { useKegiatanRecords } from "@/hooks/use-kegiatan-records";
+import { usePetugasOpsi } from "@/hooks/use-petugas-opsi";
 import type { KegiatanRow } from "@/hooks/use-kegiatan-records";
 import { JENIS_KEGIATAN, KELS, POSY } from "@/lib/constants";
 import { fmtDate } from "@/lib/utils";
@@ -21,6 +22,7 @@ function Kegiatan() {
   const k = useKegiatan();
   const toast = useToast();
   const { records, loading: recordsLoading, saveRecord } = useKegiatanRecords();
+  const { petugasOpsi, loading: petugasLoading } = usePetugasOpsi();
   const [saved, setSaved] = useState<KegiatanRow | null>(null);
   const [fotoErr, setFotoErr] = useState("");
   const [saving, setSaving] = useState(false);
@@ -81,8 +83,28 @@ function Kegiatan() {
         <FormField label="Nama kegiatan" required invalid={!!k.invalid.nama} error="Wajib diisi.">
           <Input value={k.fields.nama} onChange={(e) => k.setField("nama", e.target.value)} placeholder="cth. Penyuluhan Gizi Balita" invalid={!!k.invalid.nama} />
         </FormField>
-        <FormField label="Penanggung jawab" required invalid={!!k.invalid.pj} error="Wajib diisi.">
-          <Input value={k.fields.pj} onChange={(e) => k.setField("pj", e.target.value)} placeholder="cth. Siti Aminah" invalid={!!k.invalid.pj} />
+        <FormField
+          label="Petugas"
+          required
+          invalid={!!k.invalid.petugas}
+          error="Wajib diisi."
+          hint="Dipilih dari daftar petugas. Nama dan fasilitas ikut ke database, jadi rekap bisa men-filter petugas ini."
+        >
+          <Select
+            value={k.fields.petugas}
+            onChange={(e) => k.setField("petugas", e.target.value)}
+            invalid={!!k.invalid.petugas}
+            disabled={petugasLoading}
+          >
+            <option value="">
+              {petugasLoading ? "Memuat daftar petugas…" : "— Pilih petugas —"}
+            </option>
+            {petugasOpsi.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nama} — {p.fasKes}
+              </option>
+            ))}
+          </Select>
         </FormField>
         <div className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
           <FormField label="Tanggal" required invalid={!!k.invalid.tgl} error="Wajib diisi.">

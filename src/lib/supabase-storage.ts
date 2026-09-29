@@ -2,11 +2,48 @@
  *  Dipakai sebelum simpan record — DB hanya menyimpan fileUrl, bukan base64.
  */
 const BUCKET = "dokumentasi";
+const MAX_DETAIL_LEN = 300;
+
+export class StorageUploadError extends Error {
+  status: number;
+  detail: string;
+  bucket: string;
+  bytes: number;
+  contentType: string;
+  constructor(opts: { status: number; detail: string; bytes: number; contentType: string }) {
+    super(`Upload foto gagal (${opts.status}): ${opts.detail}`);
+    this.name = "StorageUploadError";
+    this.status = opts.status;
+    this.detail = opts.detail;
+    this.bucket = BUCKET;
+    this.bytes = opts.bytes;
+    this.contentType = opts.contentType;
+  }
+}
 
 function env(name: string): string {
   const v = (import.meta as unknown as { env: Record<string, string> }).env[name];
   if (!v) throw new Error(`${name} belum diisi`);
   return v;
+}
+
+/** Ambil pesan relevan dari body error Supabase. Tahan terhadap JSON tidak valid. */
+function extractDetail(raw: string, statusText: string): string {
+  const text = raw.trim().slice(0, MAX_DETAIL_LEN);
+  if (!text) return statusText || "unknown error";
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (parsed && typeof parsed === "object") {
+      const obj = parsed as Record<string, unknown>;
+      for (const key of ["message", "error_description", "error", "msg"]) {
+        const val = obj[key];
+        if (typeof val === "string" && val.trim()) return val.trim().slice(0, MAX_DETAIL_LEN);
+      }
+    }
+    return text;
+  } catch {
+    return text || statusText || "unknown error";
+  }
 }
 
 function objectPath(prefix: string, name: string): string {
@@ -20,16 +57,41 @@ function objectPath(prefix: string, name: string): string {
 async function putObject(path: string, body: Blob, contentType: string): Promise<string> {
   const base = env("VITE_SUPABASE_URL").replace(/\/$/, "");
   const anon = env("VITE_SUPABASE_PUBLISHABLE_KEY");
-  const res = await fetch(`${base}/storage/v1/object/${BUCKET}/${path}`, {
-    method: "POST",
-    headers: {
-      apikey: anon,
-      Authorization: `Bearer ${anon}`,
-      "Content-Type": contentType,
-    },
-    body,
-  });
-  if (!res.ok) throw new Error(`Upload foto gagal (${res.status})`);
+  const bytes = typeof body.size === "number" ? body.size : 0;
+  let res: Response;
+  try {
+    res = await fetch(`${base}/storage/v1/object/${BUCKET}/${path}`, {
+      method: "POST",
+      headers: {
+        apikey: anon,
+        Authorization: `Bearer ${anon}`,
+        "Content-Type": contentType,
+      },
+      body,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new StorageUploadError({
+      status: 0,
+      detail: `jaringan/fetch gagal: ${msg}`.slice(0, MAX_DETAIL_LEN),
+      bytes,
+      contentType,
+    });
+  }
+  if (!res.ok) {
+    let raw = "";
+    try {
+      raw = await res.text();
+    } catch {
+      raw = "";
+    }
+    throw new StorageUploadError({
+      status: res.status,
+      detail: extractDetail(raw, res.statusText),
+      bytes,
+      contentType,
+    });
+  }
   return `${base}/storage/v1/object/public/${BUCKET}/${path}`;
 }
 

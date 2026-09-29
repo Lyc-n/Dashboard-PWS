@@ -1,0 +1,182 @@
+/**
+ * Seed data uji coba yang persisten.
+ *
+ * Isi database uji dengan akun petugas sintetis dan dua warga dummy supaya alur
+ * utama bisa dicoba lewat UI tanpa memakai data nyata. Tidak membuat akun login:
+ * login tetap memakai satu PIN global dari environment.
+ *
+ * PENGAMAN DATABASE
+ * -----------------
+ * Skrip ini hanya boleh menunjuk database uji. Ia menolak berjalan kalau nama
+ * database/URL tidak mengandung salah satu penanda: uji, trial, test,
+ * staging, dev, localhost, atau 127.0.0.1. Contoh:
+ *
+ *     DATABASE_URL="postgresql://.../dashboard_pws_uji_schema" \
+ *       pnpm db:seed-uji
+ *
+ * Skrip ini mengganti seluruh isi `users` dan warga dummy sintetis, jadi hanya
+ * dijalankan bila tidak ada submission di `surveys`. Idempoten untuk pemakaian
+ * uji coba: warga dummy lama dengan NIK sintetis dibuat ulang dari awal.
+ */
+import { eq, inArray, sql } from "drizzle-orm";
+import { db } from "@/lib/db.server";
+import {
+  dataWargaTable,
+  fasilitasKesehatan,
+  surveys,
+  users,
+} from "@/lib/schema/schema";
+import { PENANDA_PIN_TIDAK_DIGUNAKAN } from "@/lib/user-registry.server";
+
+const NAMA_DB_DIIZINKAN = /(uji|trial|test|staging|dev|localhost|127\.0\.0\.1)/i;
+const NIK_DUMMY = ["9000000000000001", "9000000000000002"] as const;
+
+const PENGGUNA_UJI = [
+  {
+    nama: "Admin Uji",
+    role: "admin",
+    jabatan: "Admin",
+    fasilitas: "Melati 1",
+  },
+  {
+    nama: "Bidan Uji",
+    role: "staff",
+    jabatan: "Bidan",
+    fasilitas: "Kenanga",
+  },
+  {
+    nama: "Kader Uji Melati",
+    role: "kader",
+    jabatan: "Kader",
+    fasilitas: "Melati 1",
+  },
+  {
+    nama: "Kader Uji Flamboyan",
+    role: "kader",
+    jabatan: "Kader",
+    fasilitas: "Flamboyan",
+  },
+] as const;
+
+function pastikanDatabaseUji(): void {
+  const url = process.env.DATABASE_URL ?? "";
+  if (!url) throw new Error("DATABASE_URL belum diisi.");
+  const nama = (() => {
+    try {
+      return new URL(url).pathname.replace(/^\//, "");
+    } catch {
+      return "";
+    }
+  })();
+  if (!NAMA_DB_DIIZINKAN.test(`${url} ${nama}`)) {
+    throw new Error(
+      `Database "${nama || "tidak dikenal"}" bukan database uji. ` +
+        "Set DATABASE_URL ke database uji sebelum menjalankan seed ini.",
+    );
+  }
+  console.log(`Database uji: ${nama}`);
+}
+
+async function utama(): Promise<void> {
+  pastikanDatabaseUji();
+
+  const [jumlahSurvey] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(surveys);
+  if ((jumlahSurvey?.n ?? 0) > 0) {
+    throw new Error(
+      "Database uji sudah berisi submission. Hapus data uji dulu sebelum mengganti akun dan warga dummy.",
+    );
+  }
+
+  const fasilitas = await db
+    .select({ id: fasilitasKesehatan.id, nama: fasilitasKesehatan.nama })
+    .from(fasilitasKesehatan);
+  const fasilitasId = new Map(fasilitas.map((f) => [f.nama, f.id]));
+  for (const p of PENGGUNA_UJI) {
+    if (!fasilitasId.get(p.fasilitas)) {
+      throw new Error(
+        `Fasilitas "${p.fasilitas}" tidak ada. Siapkan data referensi database uji dulu.`,
+      );
+    }
+  }
+
+  await db.delete(dataWargaTable).where(inArray(dataWargaTable.nik, [...NIK_DUMMY]));
+  await db.delete(users);
+
+  const penggunaBaru = await db
+    .insert(users)
+    .values(
+      PENGGUNA_UJI.map((p) => ({
+        nama: p.nama,
+        role: p.role,
+        jabatan: p.jabatan,
+        phone: null,
+        aktif: true,
+        fasKesId: fasilitasId.get(p.fasilitas)!,
+        pinHash: PENANDA_PIN_TIDAK_DIGUNAKAN,
+      })),
+    )
+    .returning({ id: users.id, nama: users.nama });
+  const idPengguna = new Map(penggunaBaru.map((p) => [p.nama, p.id]));
+  const idStaf = idPengguna.get("Bidan Uji");
+  const idKader = idPengguna.get("Kader Uji Melati");
+  if (!idStaf || !idKader) throw new Error("Akun uji gagal dibuat.");
+
+  await db.insert(dataWargaTable).values([
+    {
+      nik: NIK_DUMMY[0],
+      nama_art: "WARGA UJI SATU",
+      nama_kk: "WARGA UJI SATU",
+      hubungan_keluarga: "Kepala Keluarga",
+      alamat: "JL UJI COBA 1",
+      tgl_lahir: "1990-01-01",
+      rt: "001",
+      rw: "001",
+      kecamatan: "PANGGUNGREJO",
+      kelurahan: "Trajeng",
+      kota: "Kota Pasuruan",
+      status_kawin: "kawin",
+      staff: idStaf,
+      jenis_kelamin: "perempuan",
+      wanita_usia_hamil: false,
+      agama: "Islam",
+      pendidikan: "SLTA/Sederajat",
+      pekerjaan: "IRT",
+    },
+    {
+      nik: NIK_DUMMY[1],
+      nama_art: "WARGA UJI DUA",
+      nama_kk: "WARGA UJI DUA",
+      hubungan_keluarga: "Kepala Keluarga",
+      alamat: "JL UJI COBA 2",
+      tgl_lahir: "1985-05-05",
+      rt: "002",
+      rw: "001",
+      kecamatan: "PANGGUNGREJO",
+      kelurahan: "Ngemplakrejo",
+      kota: "Kota Pasuruan",
+      status_kawin: "kawin",
+      staff: idKader,
+      jenis_kelamin: "laki-laki",
+      wanita_usia_hamil: false,
+      agama: "Islam",
+      pendidikan: "SLTA/Sederajat",
+      pekerjaan: "Buruh",
+    },
+  ]);
+
+  const [cekWarga] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(dataWargaTable)
+    .where(inArray(dataWargaTable.nik, [...NIK_DUMMY]));
+  console.log(`OK akun uji: ${penggunaBaru.length} akun.`);
+  console.log(`OK warga dummy: ${cekWarga?.n ?? 0} baris (${NIK_DUMMY.join(", ")}).`);
+}
+
+utama()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error("SEED UJI GAGAL:", e);
+    process.exit(1);
+  });
