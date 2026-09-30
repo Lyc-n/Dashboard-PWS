@@ -61,6 +61,13 @@ function SasaranDetail() {
         meta={`NIK ${row.nik} · Kel. ${row.kelurahan} · ${row.jenis_kelamin}`}
       />
 
+      {row.needsUpdate ? (
+        <div className="mt-3.5 rounded-[10px] border border-warn/40 bg-warn/10 px-3.5 py-2.5 text-xs font-semibold text-warn">
+          NIK sementara (bukan NIK asli) — data dari impor belum punya NIK valid.
+          Perbarui NIK sebelum menyimpan kunjungan rumah untuk sasaran ini.
+        </div>
+      ) : null}
+
       <div className={`no-print mt-3.5 rounded-[10px] border p-3.5 text-xs ${note.cls}`}>
         <b>{note.title}</b>
         <span> {note.desc}</span>

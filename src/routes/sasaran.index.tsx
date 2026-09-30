@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { getSasaranList } from "@/lib/utils.functions";
 import { requireAuth } from "@/lib/auth";
 import { KELS } from "@/lib/constants";
@@ -8,49 +8,83 @@ import { DataTable, FilterCard } from "@/components/organisms";
 import { PageHeader, SectionCard, Toolbar } from "@/components/molecules";
 import { Button, Input, Select, StatusBadge } from "@/components/atoms";
 
+const PAGE_SIZE = 10;
+const DEBOUNCE_MS = 500;
+
+function opsiSearch(search: Record<string, unknown>): {
+  q?: string;
+  status?: string;
+  kel?: string;
+  page?: number;
+} {
+  const q = typeof search.q === "string" ? search.q : undefined;
+  const status = typeof search.status === "string" ? search.status : undefined;
+  const kel = typeof search.kel === "string" ? search.kel : undefined;
+  const page = typeof search.page === "number" && search.page > 0 ? search.page : undefined;
+  return { q, status, kel, page };
+}
+
+const SEARCH_DEFAULT = { q: "", status: "all", kel: "all", page: 1 };
+
 export const Route = createFileRoute("/sasaran/")({
   beforeLoad: requireAuth,
-  loader: async () => await getSasaranList(),
+  validateSearch: (search: Record<string, unknown>) => opsiSearch(search),
+  loaderDeps: ({ search }) => ({ ...SEARCH_DEFAULT, ...search }),
+  loader: async ({ deps }) => {
+    return await getSasaranList({ data: { q: deps.q, status: deps.status, kel: deps.kel, page: deps.page } });
+  },
   pendingComponent: () => <p className="p-4 text-sm text-muted">Memuat data sasaran…</p>,
   component: Sasaran,
 })
 
 function Sasaran() {
-  const rows = Route.useLoaderData();
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState("all");
-  const [kel, setKel] = useState("all");
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 10;
+  const data = Route.useLoaderData();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
 
-  const filtered = useMemo(() => {
-    return rows.filter(
-      (r) =>
-        (status === "all" || r.status === status) &&
-        (kel === "all" || r.kelurahan === kel) &&
-        (!q ||
-          r.nama.toLowerCase().includes(q.toLowerCase()) ||
-          r.nik.includes(q)),
-    );
-  }, [rows, status, kel, q]);
+  // Filter di server: ganti URL → loader jalankan ulang. `q` (dan page) dibawa
+  // sebagai search param supaya halaman hasil filter bisa dibagikan/di-refresh.
+  // Ganti filter apa pun otomatis kembali ke halaman 1.
+  const q = search.q ?? "";
+  const status = search.status ?? "all";
+  const kel = search.kel ?? "all";
+  const pageIn = search.page ?? 1;
 
-  const doneCount = filtered.filter((r) => r.status === "Sudah").length;
-  const belumCount = filtered.filter((r) => r.status === "Belum").length;
+  // Debounce pencarian: ketik cepat tidak mengirim request per karakter.
+  // Nilai input ditunda 500ms di local state, baru disinkronkan ke URL.
+  const [queryDraft, setQueryDraft] = useState(q);
+  useEffect(() => setQueryDraft(q), [q]);
+  useEffect(() => {
+    if (queryDraft === q) return;
+    const timer = setTimeout(() => setFilter({ q: queryDraft }), DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [queryDraft, q, search.status, search.kel, pageIn]);
 
-  const maxPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageClamped = Math.min(page, maxPage);
-  const pageRows = filtered.slice((pageClamped - 1) * PAGE_SIZE, pageClamped * PAGE_SIZE);
-
-  const reset = () => {
-    setQ("");
-    setStatus("all");
-    setKel("all");
-    setPage(1);
+  const setFilter = (patch: Partial<{ q: string; status: string; kel: string; page: number }>) => {
+    const ubahFilter = patch.q !== undefined || patch.status !== undefined || patch.kel !== undefined;
+    navigate({
+      search: { ...{ q, status, kel }, ...patch, page: ubahFilter ? 1 : (patch.page ?? pageIn) },
+    });
   };
 
-  const exportCsv = () => {
+  const reset = () => {
+    setQueryDraft("");
+    setFilter({ q: "", status: "all", kel: "all", page: 1 });
+  };
+
+  const rows = data.rows;
+  const total = data.total;
+
+  const doneCount = rows.filter((r) => r.status === "Sudah").length;
+  const maxPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(pageIn, maxPage);
+
+  const exportAllCsv = async () => {
+    const all = await getSasaranList({
+      data: { q, status, kel, all: true },
+    });
     const head = ["No", "Tanggal Terakhir", "Nama", "NIK", "Kelurahan", "Kunjungan Rumah", "Status"];
-    const csvRows = filtered.map((r, i) => [i + 1, r.tgl ?? "—", r.nama, r.nik, r.kelurahan, r.kunjunganRumah, r.status]);
+    const csvRows = all.rows.map((r, i) => [i + 1, r.tgl ?? "—", r.nama, r.nik, r.kelurahan, r.kunjunganRumah, r.status]);
     downloadCsv("data-sasaran.csv", head, csvRows);
   };
 
@@ -64,21 +98,15 @@ function Sasaran() {
       <FilterCard title="Saring Data" sub="Temukan sasaran tertentu dengan cepat.">
         <Toolbar>
           <Input
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setPage(1);
-            }}
+            value={queryDraft}
+            onChange={(e) => setQueryDraft(e.target.value)}
             placeholder="Cari nama atau NIK…"
             aria-label="Cari sasaran"
             className="max-w-60 max-md:max-w-none"
           />
           <Select
             value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
-              setPage(1);
-            }}
+            onChange={(e) => setFilter({ status: e.target.value })}
             aria-label="Filter status"
             className="max-w-45 max-md:max-w-none"
           >
@@ -88,10 +116,7 @@ function Sasaran() {
           </Select>
           <Select
             value={kel}
-            onChange={(e) => {
-              setKel(e.target.value);
-              setPage(1);
-            }}
+            onChange={(e) => setFilter({ kel: e.target.value })}
             aria-label="Filter kelurahan"
             className="max-w-45 max-md:max-w-none"
           >
@@ -108,18 +133,18 @@ function Sasaran() {
         actions={
           <Toolbar className="ml-auto">
             <span className="text-xs text-muted">
-              {filtered.length} sasaran · {doneCount} Sudah · {belumCount} Belum
+              {total} sasaran · {doneCount} Sudah pada halaman ini
             </span>
             <Button size="sm" onClick={reset}>
               Reset
             </Button>
-            <Button size="sm" variant="export" onClick={exportCsv}>
-              Export CSV
+            <Button size="sm" variant="export" onClick={exportAllCsv}>
+              Export Semua
             </Button>
           </Toolbar>
         }
       >
-        {filtered.length === 0 ? (
+        {rows.length === 0 ? (
           <p className="px-1 py-6 text-center text-sm text-muted">
             Tidak ada sasaran di database untuk filter ini.
           </p>
@@ -133,9 +158,9 @@ function Sasaran() {
             { key: "tgl", label: "Terakhir", sortable: true },
             { key: "aksi", label: "Aksi" },
           ]}
-          rows={pageRows}
+          rows={rows}
           renderRow={(row) => (
-            <tr key={row.nik} className="border-b border-surface-2 last:border-none hover:bg-surface-2">
+            <tr key={row.rawId} className="border-b border-surface-2 last:border-none hover:bg-surface-2">
               <td className="px-3 py-2.5">
                 <Link
                   to="/sasaran/$id"
@@ -144,6 +169,11 @@ function Sasaran() {
                 >
                   {row.nama}
                 </Link>
+                {row.needsUpdate ? (
+                  <span className="ml-1.5 inline-block rounded bg-warn/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warn">
+                    butuh update
+                  </span>
+                ) : null}
                 <div className="text-[11px] text-muted">NIK {row.nik}</div>
               </td>
               <td className="px-3 py-2.5">
@@ -166,7 +196,7 @@ function Sasaran() {
             </tr>
           )}
           renderMobileRow={(row) => (
-            <div key={row.nik} className="border-b border-surface-2 last:border-none px-3.5 py-3">
+            <div key={row.rawId} className="border-b border-surface-2 last:border-none px-3.5 py-3">
               <div className="flex items-start justify-between gap-2">
                 <Link
                   to="/sasaran/$id"
@@ -178,6 +208,11 @@ function Sasaran() {
                 <StatusBadge value={row.status} />
               </div>
               <div className="text-[11px] text-muted">NIK {row.nik}</div>
+              {row.needsUpdate ? (
+                <div className="mt-1 inline-block rounded bg-warn/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warn">
+                  butuh update
+                </div>
+              ) : null}
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <span className="text-[11px] text-muted">Kel. {row.kelurahan} · {row.kunjunganRumah}× kunjungan rumah</span>
               </div>
@@ -193,12 +228,12 @@ function Sasaran() {
               </div>
             </div>
           )}
-          info={`Hal ${pageClamped} · ${(pageClamped - 1) * PAGE_SIZE + 1}–${Math.min(pageClamped * PAGE_SIZE, filtered.length)} dari ${filtered.length}`}
-          page={pageClamped}
-          canPrev={pageClamped > 1}
-          canNext={pageClamped < maxPage}
-          onPrev={() => setPage((p) => Math.max(1, p - 1))}
-          onNext={() => setPage((p) => Math.min(maxPage, p + 1))}
+          info={`Hal ${page} · ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} dari ${total}`}
+          page={page}
+          canPrev={page > 1}
+          canNext={page < maxPage}
+          onPrev={() => setFilter({ page: page - 1 })}
+          onNext={() => setFilter({ page: page + 1 })}
         />
         )}
       </SectionCard>

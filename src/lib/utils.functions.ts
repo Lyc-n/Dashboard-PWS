@@ -7,15 +7,19 @@ import {
     isValidPin,
     listKunjunganRumahRecords,
     querySurveyors,
+    querySasaranByNik,
+    querySasaranListPaged,
     querySasaranWarga,
     querySurveysWithWarga,
     querySurveyStatsByNik,
     queryWargaList,
+    queryRiwayatKsUntukNik,
     removeKunjunganRumahRecord,
     saveKunjunganRumahRecord,
     touchSession,
     updateKunjunganRumahRecord,
 } from "./utils.server";
+import type { BarisWargaGabungan, RiwayatSasaran } from "./utils.server";
 import {
     hapusKegiatan,
     listKegiatan as listKegiatanV2,
@@ -97,12 +101,20 @@ export const listSurveyors = createServerFn({ method: "GET" })
 
 // ---- read model DB untuk UI (pengganti data dummy) ----
 export interface SasaranListRow {
+    rawId: string;
     nik: string;
+    nikValid: boolean;
+    needsUpdate: boolean;
     nama: string;
     kelurahan: string;
     status: "Sudah" | "Belum";
     tgl: string | null;
     kunjunganRumah: number;
+}
+
+export interface SasaranListResult {
+    rows: SasaranListRow[];
+    total: number;
 }
 
 export interface SurveyRow {
@@ -128,16 +140,37 @@ export interface DashboardData {
     recent: SurveyRow[];
 }
 
+// Halaman /sasaran memakai sumber gabungan (`data_warga` + `data_warga_import`)
+// supaya daftar tidak cuma berisi 1 baris. Filter dan paginasi diproses server
+// (lihat `querySasaranListPaged`) — klien cukup kirim q/status/kel/page.
 export const getSasaranList = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
+    .validator((data: { q?: string; status?: string; kel?: string; page?: number; all?: boolean }) => data)
     .handler(
-        async (): Promise<SasaranListRow[]> => {
-            const [warga, stats] = await Promise.all([queryWargaList(), querySurveyStatsByNik()])
+        async ({ data }): Promise<SasaranListResult> => {
+            const q = data.q ?? ""
+            const status = (data.status ?? "all") as "all" | "Sudah" | "Belum"
+            const result = await querySasaranListPaged({
+                q,
+                status,
+                kel: data.kel ?? "all",
+                page: data.page ?? 1,
+                pageSize: 10,
+                all: data.all ?? false,
+            })
+            const stats = await querySurveyStatsByNik()
             const byNik = new Map(stats.map((s) => [s.nik, s]))
-            return warga.map((w) => {
+            const rows: SasaranListRow[] = result.rows.map((w) => {
+                // NIK tampil bisa berupa NIK sementara (derive raw_id) yang bukan
+                // NIK asli di `surveys`; `wargaNik` hanya terisi NIK asli. Jadi
+                // statistik dicocokkan lewat `nik` hasil derive — baris sementara
+                // tidak akan pernah ketemu, dan itu memang benar (belum dikunjungi).
                 const st = byNik.get(w.nik)
                 return {
+                    rawId: w.rawId,
                     nik: w.nik,
+                    nikValid: w.nikValid,
+                    needsUpdate: w.needsUpdate,
                     nama: w.nama_art,
                     kelurahan: w.kelurahan,
                     status: st ? "Sudah" : "Belum",
@@ -145,18 +178,30 @@ export const getSasaranList = createServerFn({ method: "GET" })
                     kunjunganRumah: st?.total ?? 0,
                 }
             })
+            return { rows, total: result.total }
         }
     )
+
+/** Baris warga di halaman detail: bentuk gabungan + kolom riwayat KS yang
+ *  ditambahkan opsional. Yang tidak ada di `riwayat_ks_import` tetap `null`. */
+export type SasaranDetailRow = BarisWargaGabungan & RiwayatSasaran
 
 export const getSasaranDetail = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
     .validator((data: { nik: string }) => data)
     .handler(
-        async ({ data }) => {
-            const [warga, surveys] = await Promise.all([queryWargaList(), querySurveysWithWarga(500)])
-            const found = warga.find((w) => w.nik === data.nik) ?? null
+        async ({ data }): Promise<{ warga: SasaranDetailRow | null; surveys: SurveyRow[] }> => {
+            const [warga, surveys] = await Promise.all([querySasaranByNik(data.nik), querySurveysWithWarga(500)])
+            // NIK yang hanya ada di `data_warga_import` juga ketemu di sini, jadi
+            // detail menampilkan data awal import dan tidak lagi "tidak ditemukan"
+            // — pencariannya per NIK (bukan scan daftar penuh seperti sebelumnya).
+            const found = warga
             if (!found) return { warga: null, surveys: [] as SurveyRow[] }
-            return { warga: found, surveys: surveys.filter((s) => s.nik === data.nik) }
+            const riwayat = await queryRiwayatKsUntukNik(found.rawId ?? data.nik)
+            return {
+                warga: { ...found, ...riwayat },
+                surveys: surveys.filter((s) => s.nik === found.nik || s.nik === data.nik),
+            }
         }
     )
 

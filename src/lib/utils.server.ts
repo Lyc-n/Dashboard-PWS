@@ -5,6 +5,7 @@ import { jwtVerify, SignJWT } from 'jose'
 import { createHash, randomBytes } from 'node:crypto';
 import { setCookie } from '@tanstack/react-start/server';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import type { SQL } from 'drizzle-orm'
 import { SESSION_IDLE_MS, SESSION_PROFILE, SESSION_TTL_MS } from './constants'
 import type { AuthUser } from './auth'
 import { FORM_KUNJUNGAN_RUMAH, PEMBATAS_NAMA_FIELD } from '@/features/kunjungan-rumah/lib/template-from-rows'
@@ -691,6 +692,262 @@ export async function queryWargaList() {
         },
         orderBy: (t, { asc }) => [asc(t.nama_art)],
     })
+}
+
+// ---- sumber data awal UI sasaran (gabungan import) ----
+/**
+ * Baris sasaran gabungan (`data_warga` + `data_warga_import`) yang ditampilkan
+ * di halaman /sasaran.
+ *
+ * - `rawId`    — identitas asal baris: NIK untuk `data_warga`, `raw_id`
+ *   (`WRG-000001`) untuk import. Dipakai sebagai pengunci detail, bukan NIK.
+ * - `nik`      — NIK asli 16 digit kalau valid; kalau tidak ada/tersimpan salah
+ *   (bukan 16 digit), diganti "NIK sementara" hasil derive nomor `raw_id`
+ *   (`WRG-000123` → `0000000000000123`) sebagai penanda data perlu diperbarui.
+ * - `nikValid` / `needsUpdate` — turunan dari status NIK; UI memakai `needsUpdate`
+ *   untuk badge peringatan dan menolak menyimpan NIK sementara sebagai NIK asli.
+ *
+ * NIK yang sama di kedua tabel diutamakan baris `data_warga` — isinya sudah
+ * diverifikasi petugas, jadi import tidak menimpanya. Kolom tanpa padanan
+ * (`provinsi`, `iks_besar`) tidak diproyeksikan, dan tidak ada yang ditebak.
+ */
+export type BarisWargaGabungan = {
+    rawId: string
+    nik: string
+    nikValid: boolean
+    needsUpdate: boolean
+    nama_art: string
+    nama_kk: string
+    kelurahan: string
+    kecamatan: string
+    kota: string
+    rt: string
+    rw: string
+    alamat: string
+    tgl_lahir: string
+    jenis_kelamin: string
+}
+
+/** Proyeksi `data_warga` untuk sumber gabungan. Semua kolomnya `NOT NULL` dan
+ *  `rt`/`rw` sudah varchar; NIK selalu valid, `rawId` = NIK. */
+const SELECT_GABUNGAN_WARGA = sql`
+    1                                 AS "prioritas",
+    nik                              AS "raw_id",
+    nik                              AS "nik_tampil",
+    true                             AS "nik_valid",
+    false                            AS "needs_update",
+    nik                              AS "nik",
+    nama_art                         AS "nama_art",
+    nama_kk                          AS "nama_kk",
+    kelurahan                        AS "kelurahan",
+    kecamatan                        AS "kecamatan",
+    kota                             AS "kota",
+    rt                               AS "rt",
+    rw                               AS "rw",
+    alamat                           AS "alamat",
+    to_char(tgl_lahir, 'YYYY-MM-DD') AS "tgl_lahir",
+    jenis_kelamin::text              AS "jenis_kelamin"
+`
+
+/** Proyeksi `data_warga_import` ke nama field yang sama. `raw_id` dipakai sebagai
+ *  `rawId`; NIK yang bukan 16 digit tidak bisa dipakai sebagai pengunci, jadi
+ *  diganti "NIK sementara" hasil derive dari nomor `raw_id` (`WRG-000123` →
+ *  `0000000000000123`). NIK sementara sama uniknya dengan `raw_id`, jadi aman
+ *  untuk key React dan pencarian, dan `needs_update` menandai data perlu
+ *  diperbarui. Kolom tanpa padanan dikosongkan, bukan ditebak. */
+const SELECT_GABUNGAN_IMPORT = sql`
+    2                                 AS "prioritas",
+    raw_id                           AS "raw_id",
+    CASE WHEN length(btrim(nik)) = 16 THEN btrim(nik)
+         ELSE lpad(regexp_replace(raw_id, '[^0-9]', '', 'g'), 16, '0')
+    END                              AS "nik_tampil",
+    (COALESCE(length(btrim(nik)), 0) = 16)  AS "nik_valid",
+    (COALESCE(length(btrim(nik)), 0) <> 16) AS "needs_update",
+    COALESCE(btrim(nik), '')                     AS "nik",
+    COALESCE(btrim(nama_art), '')                AS "nama_art",
+    COALESCE(btrim(nama_kk), '')                 AS "nama_kk",
+    COALESCE(btrim(kelurahan), '')               AS "kelurahan",
+    COALESCE(btrim(kecamatan), '')               AS "kecamatan",
+    COALESCE(btrim(kab_kota), '')                AS "kota",
+    COALESCE(rt::text, '')                       AS "rt",
+    COALESCE(rw::text, '')                       AS "rw",
+    COALESCE(btrim(alamat), '')                  AS "alamat",
+    COALESCE(to_char(tgl_lahir, 'YYYY-MM-DD'), '') AS "tgl_lahir",
+    COALESCE(jenis_kelamin::text, '')             AS "jenis_kelamin"
+`
+
+/** Kolom `riwayat_ks_import` (nama camelCase) yang ditambahkan opsional ke baris
+ *  warga di halaman detail sasaran. Tidak ada padanannya di `data_warga`, jadi
+ *  nilainya dibiarkan apa adanya dari DB — `null` kalau baris riwayatnya tidak
+ *  ada. Daftar kolomnya sudah ada di `SELECT_RIWAYAT_KS`. */
+export type RiwayatSasaran = Record<string, boolean | number | string | null>
+
+/** Parameter pencarian daftar sasaran. Semua opsional; `all` mengabaikan
+ *  `page`/`pageSize` (dipakai ekspor seluruh data). */
+export interface QuerySasaranParams {
+    q: string
+    status: "all" | "Sudah" | "Belum"
+    kel: string
+    page: number
+    pageSize: number
+    all: boolean
+}
+
+/** Daftar warga sasaran satu halaman, lengkap dengan total (semua filter) dan
+ *  jumlah per status. Sumber = `data_warga` digabung `data_warga_import`,
+ *  di-dedupe per NIK (atau NIK sementara untuk import), `data_warga` menang.
+ *
+ * Filter dan halaman diproses di server supaya transfer antar jaringan kecil —
+ *  hanya baris satu halaman (maks 10) yang dikirim, bukan 20 ribu baris import.
+ *  `COUNT(*) OVER ()` sekaligus menghitung total setelah filter tanpa query kedua.
+ */
+export async function querySasaranListPaged(p: QuerySasaranParams): Promise<{ rows: BarisWargaGabungan[]; total: number }> {
+    const q = p.q.trim()
+    const where: SQL[] = []
+
+    if (q) {
+        const pola = `%${q}%`
+        where.push(sql`(g."nama_art" ILIKE ${pola} OR g."nama_kk" ILIKE ${pola} OR g."nik_tampil" ILIKE ${pola})`)
+    }
+    if (p.kel && p.kel !== "all") {
+        where.push(sql`g."kelurahan" = ${p.kel}`)
+    }
+    if (p.status === "Sudah" || p.status === "Belum") {
+        const ada = sql`EXISTS (SELECT 1 FROM surveys s WHERE s."wargaNik" = g."nik_tampil")`
+        where.push(p.status === "Sudah" ? ada : sql`NOT ${ada}`)
+    }
+
+    const whereSql = where.length ? sql`WHERE ${sql.join(where, sql` AND `)}` : sql``
+    const limit = p.all ? null : p.pageSize
+    const offset = p.all ? null : (p.page - 1) * p.pageSize
+
+    const rows = await db.execute(sql`
+        WITH gabungan AS (
+            SELECT DISTINCT ON (u."nik_tampil")
+                u."raw_id", u."nik_tampil", u."nik_valid", u."needs_update",
+                u."nama_art", u."nama_kk", u."kelurahan", u."kecamatan", u."kota",
+                u."rt", u."rw", u."alamat", u."tgl_lahir", u."jenis_kelamin"
+            FROM (
+                SELECT ${SELECT_GABUNGAN_WARGA}
+                FROM data_warga
+                UNION ALL
+                SELECT ${SELECT_GABUNGAN_IMPORT}
+                FROM data_warga_import
+            ) u
+            ORDER BY u."nik_tampil", u."prioritas"
+        )
+        SELECT g.*, COUNT(*) OVER () AS "total"
+        FROM gabungan g
+        ${whereSql}
+        ORDER BY g."nama_art" ASC, g."nik_tampil"
+        ${limit !== null ? sql.raw(`LIMIT ${limit} OFFSET ${offset}`) : sql``}
+    `)
+    const rowsOut = (rows as unknown as Array<Record<string, unknown>>).map((r) => ({
+        rawId: String(r.raw_id ?? ""),
+        nik: String(r.nik_tampil ?? ""),
+        nikValid: Boolean(r.nik_valid),
+        needsUpdate: Boolean(r.needs_update),
+        nama_art: String(r.nama_art ?? ""),
+        nama_kk: String(r.nama_kk ?? ""),
+        kelurahan: String(r.kelurahan ?? ""),
+        kecamatan: String(r.kecamatan ?? ""),
+        kota: String(r.kota ?? ""),
+        rt: String(r.rt ?? ""),
+        rw: String(r.rw ?? ""),
+        alamat: String(r.alamat ?? ""),
+        tgl_lahir: String(r.tgl_lahir ?? ""),
+        jenis_kelamin: String(r.jenis_kelamin ?? ""),
+    }))
+    const total = rowsOut.length ? Number((rows[0] as { total?: unknown })?.total ?? rowsOut.length) : rowsOut.length
+    return { rows: rowsOut, total }
+}
+
+/** Ambil satu baris sasaran gabungan berdasarkan NIK tampil (NIK asli 16 digit
+ *  atau NIK sementara hasil derive). Baris `data_warga` diutamakan kalau NIK-nya
+ *  juga ada di import — sama seperti daftar. Dipakai halaman detail (ejaan
+ *  `querySasaranDetail`), bukan scan daftar penuh. */
+export async function querySasaranByNik(nik: string): Promise<BarisWargaGabungan | null> {
+    const cari = nik.trim()
+    if (!cari) return null
+    const rows = await db.execute(sql`
+        SELECT ${SELECT_GABUNGAN_WARGA}
+        FROM data_warga
+        WHERE nik = ${cari}
+        UNION ALL
+        SELECT ${SELECT_GABUNGAN_IMPORT}
+        FROM data_warga_import
+        WHERE btrim(nik) = ${cari} OR lpad(regexp_replace(raw_id, '[^0-9]', '', 'g'), 16, '0') = ${cari}
+        ORDER BY "prioritas"
+        LIMIT 1
+    `)
+    const [row] = rows as unknown as Array<Record<string, unknown>>
+    if (!row) return null
+    return {
+        rawId: String(row.raw_id ?? ""),
+        nik: String(row.nik_tampil ?? ""),
+        nikValid: Boolean(row.nik_valid),
+        needsUpdate: Boolean(row.needs_update),
+        nama_art: String(row.nama_art ?? ""),
+        nama_kk: String(row.nama_kk ?? ""),
+        kelurahan: String(row.kelurahan ?? ""),
+        kecamatan: String(row.kecamatan ?? ""),
+        kota: String(row.kota ?? ""),
+        rt: String(row.rt ?? ""),
+        rw: String(row.rw ?? ""),
+        alamat: String(row.alamat ?? ""),
+        tgl_lahir: String(row.tgl_lahir ?? ""),
+        jenis_kelamin: String(row.jenis_kelamin ?? ""),
+    }
+}
+
+const SELECT_RIWAYAT_KS = sql`
+    kepesertaan_jkn                     AS "kepesertaanJkn",
+   merokok                                AS "merokok",
+    tersedia_sarana_air_bersih          AS "tersediaSaranaAirBersih",
+    jenis_sumber_air_terlindung         AS "jenisSumberAirTerlindung",
+    tersedia_jamban_keluarga            AS "tersediaJambanKeluarga",
+    jenis_jamban_saniter                AS "jenisJambanSaniter",
+    diagnosis_odgj                      AS "diagnosisOdgj",
+    minum_obat_odgj_teratur             AS "minumObatOdgjTeratur",
+    ada_art_dipasung                    AS "adaArtDipasung",
+    perilaku_bab_dijamban               AS "perilakuBabDijamban",
+    perilaku_penggunaan_air_bersih      AS "perilakuPenggunaanAirBersih",
+    diagnosis_tb_paru                   AS "diagnosisTbParu",
+    minum_obat_tb_teratur               AS "minumObatTbTeratur",
+    batuk_berdahak_lebih_dari_2_minggu AS "batukBerdahakLebihDari2Minggu",
+    diagnosis_hipertensi                AS "diagnosisHipertensi",
+    pengkuran_tekanan_darah             AS "pengkuranTekananDarah",
+    minum_obat_hipertensi_teratur       AS "minumObatHipertensiTeratur",
+    sistolik                            AS "sistolik",
+    diastolik                           AS "diastolik",
+    pakai_kb                            AS "pakaiKb",
+    ket_kb                              AS "ketKb",
+    persalinan_di_faskes                AS "persalinanDiFaskes",
+    asi_eksklusif                       AS "asiEksklusif",
+    imunisasi_lengkap                   AS "imunisasiLengkap"
+`
+
+/**
+ * Riwayat kesehatan keluarga dari `riwayat_ks_import` untuk satu NIK, diambil
+ * lewat `raw_id` baris import yang NIK-nya sama.
+ *
+ * Kalau baris import tidak ada, hasilnya objek kosong; kalau baris import ada
+ * tapi tidak punya baris riwayat, kolomnya `null` karena `LEFT JOIN`. Tidak
+ * ditebak dari kolom lain.
+ */
+export async function queryRiwayatKsUntukNik(nik: string): Promise<RiwayatSasaran> {
+    const rows = await db.execute(sql`
+        SELECT ${SELECT_RIWAYAT_KS}
+        FROM data_warga_import
+        LEFT JOIN riwayat_ks_import ON riwayat_ks_import.raw_id = data_warga_import.raw_id
+        WHERE data_warga_import.nik = ${nik}
+           OR data_warga_import.raw_id = ${nik}
+           OR lpad(regexp_replace(data_warga_import.raw_id, '[^0-9]', '', 'g'), 16, '0') = ${nik}
+        ORDER BY data_warga_import.raw_id
+        LIMIT 1
+    `)
+    const [row] = rows as unknown as RiwayatSasaran[]
+    return row ?? {}
 }
 
 export async function querySurveyStatsByNik(): Promise<Array<{ nik: string; total: number; terakhir: string | null }>> {
