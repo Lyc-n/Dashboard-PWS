@@ -32,10 +32,9 @@ interface FormDlg {
 /**
  * Tab "Staff & kader" di /kelola.
  *
- * Menulis ke tabel `users`, bukan `admin_staff` yang sudah dihapus. Akun di sini
- * punya dua hal memisahkan: `role` menentukan hak akses, `jabatan` cuma label yang
- * tampil. Staff/kader dipakai sebagai petugas pencatat di Form Kunjungan Rumah
- * dan Form Kegiatan, dan sebagai daftar kader di Rekap.
+ * Menulis ke tabel `users`. `role` menentukan hak akses: `admin` mengelola
+ * aplikasi, `kader` mencatat kunjungan. Kader dipakai sebagai petugas pencatat
+ * di Form Kunjungan Rumah dan Form Kegiatan, dan sebagai daftar kader di Rekap.
  *
  * Field username tidak ada lagi. Login memakai satu PIN global dari environment,
  * jadi username per-akun tidak pernah dipakai untuk masuk; menambahkannya hanya
@@ -71,7 +70,7 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
       lama: edit?.nama ?? null,
       form: {
         nama: edit?.nama ?? "",
-        peran: edit?.jabatan ?? "Kader",
+        peran: edit?.role === "admin" ? "Admin" : "Kader",
         fasKesId: edit ? String(edit.fasKesId) : defaultFas,
         phone: edit?.phone ?? "",
         on: edit?.aktif ?? true,
@@ -129,7 +128,7 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
   return (
     <>
       <SectionCard
-        title="Staff & kader"
+        title="Kader"
         sub="Akun di sini yang bisa dipilih sebagai petugas pencatat. Menonaktifkan tidak menghapus riwayat pencatatan."
       >
         <Toolbar>
@@ -160,7 +159,7 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
 
         <DataTable
           columns={[
-            { key: "nama", label: "Nama & jabatan" },
+            { key: "nama", label: "Nama" },
             { key: "role", label: "Hak akses" },
             { key: "wilayah", label: "Wilayah tugas" },
             { key: "kontak", label: "Kontak" },
@@ -173,7 +172,6 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
             <tr key={p.id} className="border-b border-surface-2 last:border-none hover:bg-surface-2">
               <td className="px-3 py-2.5">
                 <div className="font-semibold text-ink">{p.nama}</div>
-                <div className="text-[11px] text-muted">{p.jabatan ?? "Jabatan belum diisi"}</div>
               </td>
               <td className="px-3 py-2.5">
                 <StatusBadge variant={p.role === "admin" ? "on" : "off"} value={p.role} />
@@ -201,7 +199,7 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
                 <div className="min-w-0">
                   <div className="font-semibold text-ink">{p.nama}</div>
                   <div className="text-[11px] text-muted">
-                    {p.jabatan ?? "Jabatan belum diisi"} · Kel. {p.kel} · {p.fasKes}
+                    Kel. {p.kel} · {p.fasKes}
                   </div>
                 </div>
                 <StatusBadge variant={p.aktif ? "on" : "off"} value={p.aktif ? "Aktif" : "Nonaktif"} />
@@ -235,7 +233,7 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
             />
           </FormField>
 
-          <FormField label="Jabatan" hint="Dipakai sebagai label di rekap. Hak akses ditentukan otomatis dari jabatan ini.">
+          <FormField label="Peran" hint="Admin mengelola aplikasi; kader mencatat kunjungan.">
             <Select value={dlg.form.peran} onChange={(e) => setForm("peran", e.target.value)}>
               {OPSI_PERAN.map((p) => (
                 <option key={p}>{p}</option>

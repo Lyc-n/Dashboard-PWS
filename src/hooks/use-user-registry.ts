@@ -10,7 +10,7 @@ import type { BarisPengguna, OpsiFasilitas } from "@/lib/user-registry";
 /** Bentuk baris yang dikirim ke server saat menyimpan. */
 export interface DraftPengguna {
   nama: string;
-  /** Jabatan tampilan: Admin / Bidan / Perawat / Kader. Dipetakan ke role+jabatan di server. */
+  /** Peran: Admin / Kader. Dipetakan ke `users.role` di server. */
   peran: string;
   /** `fasilitas_kesehatan.id`; wajib karena `users.fasKesId` NOT NULL. */
   fasKesId: number | null;

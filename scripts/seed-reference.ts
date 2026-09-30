@@ -68,25 +68,25 @@ const FASILITAS_AWAL: ReadonlyArray<{ nama: string; kelurahan: string }> = [
  *
  * `username` lama DIBUANG: tidak ada kolomnya di `users`, dan login memakai PIN
  * global, jadi username tidak pernah dipakai untuk masuk. `peran` lama dipetakan
- * ke dua kolom terpisah: `role` (hak akses) dan `jabatan` (label tampilan).
+ * ke `role`: Bidan/Perawat yang dulu role-nya 'staff' sekarang jadi 'kader',
+ * karena 'staff' tidak lagi jadi nilai enum yang sah.
  *
  * `aktif` mengikuti kolom "on" lama. Agus Wijaya sengaja `aktif: false` karena
  * sudah nonaktif sebelum reset, jadi rekap lama juga tidak menghitungnya.
  */
 const PENGGUNA_AWAL: ReadonlyArray<{
   nama: string;
-  role: "admin" | "staff" | "kader";
-  jabatan: string;
+  role: "admin" | "kader";
   phone: string | null;
   aktif: boolean;
   fasilitas: string;
 }> = [
-  { nama: "dr. Ayu Rahmawati", role: "admin", jabatan: "Admin", phone: "0811-0000-01", aktif: true, fasilitas: "Melati 1" },
-  { nama: "Siti Aminah", role: "kader", jabatan: "Kader", phone: "0812-0000-02", aktif: true, fasilitas: "Melati 1" },
-  { nama: "Siti Nurhaliza", role: "staff", jabatan: "Bidan", phone: "0812-0000-03", aktif: true, fasilitas: "Kenanga" },
-  { nama: "Budi Santoso", role: "kader", jabatan: "Kader", phone: "0812-0000-04", aktif: true, fasilitas: "Mawar 2" },
-  { nama: "Dewi Lestari", role: "staff", jabatan: "Perawat", phone: "0812-0000-05", aktif: true, fasilitas: "Flamboyan" },
-  { nama: "Agus Wijaya", role: "kader", jabatan: "Kader", phone: "0812-0000-06", aktif: false, fasilitas: "Flamboyan" },
+  { nama: "dr. Ayu Rahmawati", role: "admin", phone: "0811-0000-01", aktif: true, fasilitas: "Melati 1" },
+  { nama: "Siti Aminah", role: "kader", phone: "0812-0000-02", aktif: true, fasilitas: "Melati 1" },
+  { nama: "Siti Nurhaliza", role: "kader", phone: "0812-0000-03", aktif: true, fasilitas: "Kenanga" },
+  { nama: "Budi Santoso", role: "kader", phone: "0812-0000-04", aktif: true, fasilitas: "Mawar 2" },
+  { nama: "Dewi Lestari", role: "kader", phone: "0812-0000-05", aktif: true, fasilitas: "Flamboyan" },
+  { nama: "Agus Wijaya", role: "kader", phone: "0812-0000-06", aktif: false, fasilitas: "Flamboyan" },
 ];
 
 export interface LaporanReference {
@@ -192,7 +192,6 @@ async function seedPengguna(
     await db.insert(users).values({
       nama: p.nama,
       role: p.role,
-      jabatan: p.jabatan,
       phone: p.phone,
       aktif: p.aktif,
       fasKesId,

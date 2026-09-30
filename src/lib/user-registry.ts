@@ -7,28 +7,20 @@
  * Kalau ada nilai baru yang dibutuhkan client, pindahkan ke sini; logika yang
  * menyentuh database tetap di `src/lib/user-registry.server.ts`.
  */
-export type PeranPengguna = "admin" | "staff" | "kader";
+export type PeranPengguna = "admin" | "kader";
 
-/** Jabatan yang jadi pilihan di form Staff, dipetakan ke `role` + `jabatan`. */
+/** Peran yang jadi pilihan di form staff, dipetakan langsung ke `users.role`. */
 const PETA_PERAN = {
-  Admin: { role: "admin", jabatan: "Admin" },
-  Bidan: { role: "staff", jabatan: "Bidan" },
-  Perawat: { role: "staff", jabatan: "Perawat" },
-  Kader: { role: "kader", jabatan: "Kader" },
-} satisfies Record<string, { role: PeranPengguna; jabatan: string }>;
+  Admin: { role: "admin" },
+  Kader: { role: "kader" },
+} satisfies Record<string, { role: PeranPengguna }>;
 
-/**
- * Peran yang tersedia untuk dipilih di form Staff.
- *
- * `PERAN` di `src/lib/constants.ts` adalah daftar jabatan (Bidan/Perawat/Kader),
- * sedangkan `users.role` menyimpan hak akses. Keduanya dipetakan lewat PETA_PERAN.
- */
+/** Peran yang tersedia untuk dipilih di form staff. */
 export const OPSI_PERAN = Object.keys(PETA_PERAN);
 
-export function petakanPeran(peran: string): { role: PeranPengguna; jabatan: string } {
+export function petakanPeran(peran: string): { role: PeranPengguna } {
   return (
-    (PETA_PERAN as Record<string, { role: PeranPengguna; jabatan: string }>)[peran] ??
-    PETA_PERAN.Kader
+    (PETA_PERAN as Record<string, { role: PeranPengguna }>)[peran] ?? PETA_PERAN.Kader
   );
 }
 
@@ -37,7 +29,6 @@ export interface BarisPengguna {
   id: string;
   nama: string;
   role: PeranPengguna;
-  jabatan: string | null;
   phone: string | null;
   aktif: boolean;
   fasKesId: number;

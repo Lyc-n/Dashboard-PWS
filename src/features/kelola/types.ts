@@ -25,7 +25,7 @@ export interface FieldDlgState {
 // `admin_items` beserta UI-nya tidak pernah jadi sumber kebenaran.
 export const TABS = [
   { key: "form-kunjungan-rumah", label: "Form Kunjungan Rumah" },
-  { key: "staff", label: "Staff & kader" },
+  { key: "staff", label: "Kader" },
 ] as const;
 
 export type KelolaTab = (typeof TABS)[number]["key"];

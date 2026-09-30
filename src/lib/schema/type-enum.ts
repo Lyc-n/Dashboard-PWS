@@ -62,17 +62,11 @@ export const fasKes = pgEnum('jenis_fas_kes', [
   'Posyandu',
   'Pustu'
 ])
-// `role` = hak akses, bukan jabatan. Jabatan (Bidan/Perawat/Kader) adalah
-// keterangan yang ditampilkan, bukan wewenang, jadi tidak masuk ke enum ini —
-// lihat `users.jabatan`. Yang masuk ke sini hanya nilai yang dipakai kode untuk
-// memutuskan boleh/tidak: `requireAdmin` untuk 'admin', filter Rekap untuk
-// 'kader', Stokes semua petugas non-admin.
+// `role` = hak akses, bukan jabatan. Hanya ada dua peran: 'admin' mengelola
+// aplikasi, 'kader' mencatat kunjungan. Rekap Kunjungan Rumah memfilter
+// pencatat lewat 'kader', dan `requireAdmin` memeriksa 'admin'.
 export const role = pgEnum('role', [
   'admin',
-  'staff',
-  // Role khusus untuk daftar kader. Dibedakan dari 'staff' karena Rekap
-  // Kunjungan Rumah memfilter kader dari `users`, dan sebelumnya nama kader
-  // diambil dari `admin_staff.peran = 'Kader'`.
   'kader',
 ])
 export const formFieldType = pgEnum("form_field_type", [

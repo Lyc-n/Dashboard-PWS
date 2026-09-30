@@ -325,19 +325,23 @@ function headerDariPayload(rec: JsonRecord): { wargaNik: string; petugasId: stri
     }
 }
 
-// ---- pencarian warga sasaran di data import ----
+// ---- pencarian warga sasaran di data_warga + data import ----
 //
-// `data_warga` masih kosong; data warga yang ada berada di `data_warga_import`.
-// Form kunjungan memakai tabel itu sebagai sumber suggestion: user mengetik NIK
-// atau nama KK, server mencari yang mirip, dan baris terpilih dipakai untuk
-// mengisi form — bukan langsung di-insert. Insert ke `data_warga` tetap terjadi
-// saat user menekan Simpan.
+// `data_warga_import` adalah sumber awal data sasaran: user mengetik NIK atau
+// nama KK dan server mencarinya di situ. Begitu warga disimpan lewat Simpan
+// (atau sudah ada dari sumber lain), barisnya ada di `data_warga`.
+//
+// Hasil pencarian menggabungkan keduanya dengan satu aturan: warga yang sudah
+// tersimpan di `data_warga` TAMPIL, dan baris `data_warga_import` yang NIK-nya
+// sama dengannya TIDAK ikut tampil — supaya nama yang sama tidak muncul dua
+// kali. Baris import tanpa NIK 16 digit tidak bisa dicocokkan ke `data_warga`
+// (NIK di sana selalu valid), jadi tetap tampil.
 //
 // Pencocokan selalu `LIKE`, bukan persis: 8.277 dari 20.454 baris import punya
 // NIK kosong atau bukan 16 digit, jadi user yang hanya tahu nama KK tetap bisa
 // menemukan warga sasarannya.
 
-/** Kolom yang dibaca, dengan nama kolom aslinya di database. */
+/** Kolom yang dibaca dari `data_warga_import`, dengan nama kolom aslinya. */
 const SELECT_SASARAN = sql`
     raw_id                       AS "rawId",
     nik                          AS "nik",
@@ -357,6 +361,31 @@ const SELECT_SASARAN = sql`
     kelurahan                    AS "kelurahan",
     kab_kota                     AS "kabKota",
     provinsi                     AS "provinsi"
+`
+
+/** Kolom yang dibaca dari `data_warga` (sudah tersimpan), proyeksi sama dengan
+ *  `SELECT_SASARAN` supaya pemanggil tidak perlu tahu asal barisnya. `data_warga`
+ *  tidak punya `raw_id`/`provinsi`, jadi NIK dipakai sebagai `rawId` (unik — dia
+ *  primary key) dan `provinsi` diisi NULL. */
+const SELECT_SASARAN_WARGA = sql`
+    nik                          AS "rawId",
+    nik                          AS "nik",
+    nama_art                     AS "namaArt",
+    nama_kk                      AS "namaKk",
+    hubungan_keluarga            AS "hubunganKeluarga",
+    to_char(tgl_lahir, 'YYYY-MM-DD') AS "tglLahir",
+    jenis_kelamin                AS "jenisKelamin",
+    status_kawin                 AS "statusKawin",
+    agama                        AS "agama",
+    pendidikan                   AS "pendidikan",
+    pekerjaan                    AS "pekerjaan",
+    alamat                       AS "alamat",
+    rt                           AS "rt",
+    rw                           AS "rw",
+    kecamatan                    AS "kecamatan",
+    kelurahan                    AS "kelurahan",
+    kota                         AS "kabKota",
+    NULL                         AS "provinsi"
 `
 
 type BarisImportSasaran = {
@@ -400,24 +429,32 @@ function normalkanSasaran(row: BarisImportSasaran): SasaranSuggestion {
 // di `data_warga`) ikut dikonversi ke teks di sana.
 
 /**
- * Cari warga sasaran di `data_warga_import` yang mirip dengan `q`.
+ * Cari warga sasaran di `data_warga` dan `data_warga_import` yang mirip `q`.
  *
- * `q` dicocokkan ke NIK, nama.artikel, dan nama KK. Baris tanpa NIK 16 digit
- * tetap dikembalikan — user tetap butuh nama/alamat untuk mengisi form, walau
- * NIK-nya nanti diisi manual. Urutan: NIK yang persis dulu, lalu nama.
+ * Warga yang sudah tersimpan di `data_warga` selalu tampil; baris import dengan
+ * NIK yang sama dibuang supaya tidak duplikat. `q` dicocokkan ke NIK,
+ * nama.artikel, dan nama KK. Urutan: NIK yang persis dulu, lalu sisanya.
  */
 export async function querySasaranWarga(q: string): Promise<SasaranSuggestion[]> {
     const cari = q.trim()
     if (cari.length < 3) return []
     const pola = `%${cari}%`
-    const rows = await db.execute(sql`
-        SELECT ${SELECT_SASARAN}
-        FROM data_warga_import
-        WHERE nik ILIKE ${pola} OR nama_art ILIKE ${pola} OR nama_kk ILIKE ${pola}
-        ORDER BY raw_id
-        LIMIT 30
-    `)
-    const hasil = (rows as unknown as BarisImportSasaran[]).map(normalkanSasaran)
+    const where = sql`WHERE nik ILIKE ${pola} OR nama_art ILIKE ${pola} OR nama_kk ILIKE ${pola}`
+    const [barisWarga, barisImport] = await Promise.all([
+        db.execute(sql`SELECT ${SELECT_SASARAN_WARGA} FROM data_warga ${where} ORDER BY nik LIMIT 30`),
+        db.execute(sql`SELECT ${SELECT_SASARAN} FROM data_warga_import ${where} ORDER BY raw_id LIMIT 30`),
+    ])
+    const warga = (barisWarga as unknown as BarisImportSasaran[]).map(normalkanSasaran)
+
+    // Buang baris import yang NIK-nya sudah tersimpan di `data_warga`. Baris
+    // import tanpa NIK tetap dipertahankan: tidak bisa dicocokkan, dan user
+    // tetap bisa mengambil nama/alamatnya.
+    const nikWarga = new Set(warga.map((r) => r.nik).filter((n) => n.length === 16))
+    const importSisa = (barisImport as unknown as BarisImportSasaran[])
+        .map(normalkanSasaran)
+        .filter((r) => !r.nik || r.nik.length !== 16 || !nikWarga.has(r.nik))
+
+    const hasil = [...warga, ...importSisa].slice(0, 30)
     // NIK persis naik ke atas supaya suggestion yang paling mungkin benar lebih dulu.
     return hasil.sort((a, b) => {
         const aTepat = a.nik === cari ? 0 : 1

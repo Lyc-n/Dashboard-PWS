@@ -155,9 +155,11 @@ export const opsiKawin = (v: string | null | undefined) => (v ? (KE_KAWIN[v] ?? 
 export const opsiPendidikan = (v: string | null | undefined) => (v ? (KE_PENDIDIKAN[v] ?? "") : "");
 export const opsiPekerjaan = (v: string | null | undefined) => (v ? (KE_PEKERJAAN[v] ?? "") : "");
 
-/** Satu warga dari `data_warga_import`, sudah dinormalkan ke label enum DB.
- *  Kolom yang tidak ada padanan enum atau kosong bernilai `null` — pemanggil
- *  membiarkan kosong agar staff mengisinya sendiri, bukan ditebak. */
+/** Satu calon warga sasaran dari `data_warga` atau `data_warga_import`, sudah
+ *  dinormalkan ke label enum DB. Kolom yang tidak ada padanan enum atau kosong
+ *  bernilai `null` — pemanggil membiarkan kosong agar staff mengisinya sendiri,
+ *  bukan ditebak. `rawId` berbeda sumber: NIK untuk warga tersimpan, `raw_id`
+ *  untuk baris import. */
 export interface SasaranSuggestion {
   rawId: string;
   nik: string;

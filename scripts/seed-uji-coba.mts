@@ -35,25 +35,21 @@ const PENGGUNA_UJI = [
   {
     nama: "Admin Uji",
     role: "admin",
-    jabatan: "Admin",
     fasilitas: "Melati 1",
   },
   {
     nama: "Bidan Uji",
-    role: "staff",
-    jabatan: "Bidan",
+    role: "kader",
     fasilitas: "Kenanga",
   },
   {
     nama: "Kader Uji Melati",
     role: "kader",
-    jabatan: "Kader",
     fasilitas: "Melati 1",
   },
   {
     nama: "Kader Uji Flamboyan",
     role: "kader",
-    jabatan: "Kader",
     fasilitas: "Flamboyan",
   },
 ] as const;
@@ -110,7 +106,6 @@ async function utama(): Promise<void> {
       PENGGUNA_UJI.map((p) => ({
         nama: p.nama,
         role: p.role,
-        jabatan: p.jabatan,
         phone: null,
         aktif: true,
         fasKesId: fasilitasId.get(p.fasilitas)!,
@@ -119,9 +114,9 @@ async function utama(): Promise<void> {
     )
     .returning({ id: users.id, nama: users.nama });
   const idPengguna = new Map(penggunaBaru.map((p) => [p.nama, p.id]));
-  const idStaf = idPengguna.get("Bidan Uji");
+  const idPetugas = idPengguna.get("Bidan Uji");
   const idKader = idPengguna.get("Kader Uji Melati");
-  if (!idStaf || !idKader) throw new Error("Akun uji gagal dibuat.");
+  if (!idPetugas || !idKader) throw new Error("Akun uji gagal dibuat.");
 
   await db.insert(dataWargaTable).values([
     {
@@ -137,7 +132,7 @@ async function utama(): Promise<void> {
       kelurahan: "Trajeng",
       kota: "Kota Pasuruan",
       status_kawin: "kawin",
-      staff: idStaf,
+      staff: idPetugas,
       jenis_kelamin: "perempuan",
       wanita_usia_hamil: false,
       agama: "Islam",

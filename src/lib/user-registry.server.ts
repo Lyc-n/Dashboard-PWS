@@ -46,7 +46,6 @@ const SELECT_PENGGUNA = {
   id: users.id,
   nama: users.nama,
   role: users.role,
-  jabatan: users.jabatan,
   phone: users.phone,
   aktif: users.aktif,
   fasKesId: users.fasKesId,
@@ -73,8 +72,8 @@ export async function listPengguna(): Promise<BarisPengguna[]> {
 /**
  * Daftar kader aktif, diproyeksikan ke bentuk `Staff` supaya
  * `computeRekap()` dan `kaderNameOf()` di `src/lib/rekap-kunjungan-rumah.ts`
- * tidak perlu diubah. `peran` diisi dari jabatan, dan kalau jabatan kosong
- * memakai `role` supaya kader yang role-nya 'kader' tetap dikenali.
+ * tidak perlu diubah. `peran` diisi dari `role`; hanya 'kader' yang muncul di
+ * sini.
  *
  * @param fasKesId Batasi ke satu fasilitas. null = semua fasilitas.
  */
@@ -96,7 +95,7 @@ export async function listKaderAktif(fasKesId?: number | null): Promise<Staff[]>
 export function keStaff(u: BarisPengguna): Staff {
   return {
     nama: u.nama,
-    peran: u.jabatan ?? u.role,
+    peran: u.role,
     kel: u.kel,
     posy: u.fasKes,
     hp: u.phone ?? "",
@@ -117,7 +116,7 @@ export function keStaff(u: BarisPengguna): Staff {
 export async function listPetugasOpsi(fasKesId?: number | null): Promise<OpsiPetugas[]> {
   const baris = await listPengguna();
   return baris
-    .filter((u) => u.aktif && (u.role === "staff" || u.role === "kader"))
+    .filter((u) => u.aktif && u.role === "kader")
     .filter((u) => fasKesId === null || fasKesId === undefined || u.fasKesId === fasKesId)
     .map((u) => ({ id: u.id, nama: u.nama, fasKes: u.fasKes }));
 }
@@ -197,7 +196,7 @@ export async function simpanPengguna(namaLama: string | null, data: unknown): Pr
   const nama = teks(rec.nama);
   if (!nama) throw new Error('Field "nama" wajib diisi.');
 
-  const { role, jabatan } = petakanPeran(teks(rec.peran, "Kader"));
+  const { role } = petakanPeran(teks(rec.peran, "Kader"));
 
   const fasKesId = Number(rec.fasKesId);
   if (!Number.isInteger(fasKesId) || fasKesId <= 0) {
@@ -213,7 +212,6 @@ export async function simpanPengguna(namaLama: string | null, data: unknown): Pr
   const values = {
     nama,
     role,
-    jabatan,
     phone: teks(rec.phone) || null,
     aktif: rec.on !== false,
     fasKesId,

@@ -1,7 +1,6 @@
 export const KELS = ["Trajeng", "Ngemplakrejo", "Tambaan", "Mayangan"] as const;
 export const PRIOS = ["ODGJ", "Bumil Risti", "Balita Risti", "TB", "Stunting"] as const;
 export const POSY = ["Melati 1", "Mawar 2", "Kenanga", "Flamboyan"] as const;
-export const PERAN = ["Admin", "Bidan", "Perawat", "Kader"] as const;
 export const JENIS_KEGIATAN = [
   "Penyuluhan",
   "Posyandu",

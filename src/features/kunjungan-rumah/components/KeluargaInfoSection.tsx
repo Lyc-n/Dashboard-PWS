@@ -26,7 +26,9 @@ interface Props {
   dispatch: React.Dispatch<KunjunganRumahAction>;
 }
 
-/** Dropdown suggestion warga sasaran dari `data_warga_import`. */
+/** Dropdown suggestion warga sasaran: dari `data_warga` (sudah tersimpan) dan
+ *  `data_warga_import` (belum tersimpan; baris yang NIK-nya sudah ada di
+ *  `data_warga` dibuang server supaya tidak duplikat). */
 function SaranDropdown({
   rows,
   busy,

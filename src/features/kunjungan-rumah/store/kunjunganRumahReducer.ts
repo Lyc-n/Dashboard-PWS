@@ -72,6 +72,34 @@ function emptyPenilaian(anggotaId: string, sasaran: SasaranKey, templates?: Kunj
   return { id: createRecordId(), anggotaId, sasaran, values: {}, checks: {}, prioritas: [...prioritas] };
 }
 
+function umurDariTglLahir(tgl: string, now?: Date): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) return null;
+  const lahir = new Date(`${tgl}T00:00:00`);
+  if (Number.isNaN(lahir.getTime())) return null;
+  const ref = now ?? new Date();
+  let umur = ref.getFullYear() - lahir.getFullYear();
+  const belumUlangTahun =
+    ref.getMonth() < lahir.getMonth() || (ref.getMonth() === lahir.getMonth() && ref.getDate() < lahir.getDate());
+  if (belumUlangTahun) umur -= 1;
+  return umur >= 0 ? String(umur) : null;
+}
+
+export function penilaianPrefill(anggota: AnggotaKeluarga, sasaran: SasaranKey, templates?: KunjunganRumahTemplates): Record<string, string> {
+  const ids = new Set<string>(templates ? templates.sasaran[sasaran].fields.filter((f) => f.section === "sasaran:identitas").map((f) => f.id) : sasaranDef(sasaran).identitas.map((f) => f.key));
+  const sumber: Record<string, string | null> = {
+    nama: anggota.nama,
+    tglLahir: anggota.tglLahir,
+    jk: anggota.jk,
+    umur: umurDariTglLahir(anggota.tglLahir),
+  };
+  const values: Record<string, string> = {};
+  for (const id of ids) {
+    const v = sumber[id];
+    if (v && v.trim()) values[id] = v.trim();
+  }
+  return values;
+}
+
 export function initialKunjunganRumahState(): KunjunganRumahState {
   return {
     info: { ...EMPTY_INFO },
@@ -126,8 +154,13 @@ export function kunjunganRumahReducer(state: KunjunganRumahState, action: Kunjun
       return { ...state, anggota: state.anggota.map((m) => (m.id === action.id ? { ...m, [action.key]: action.value } : m)) };
     case "REMOVE_ANGGOTA":
       return { ...state, anggota: state.anggota.filter((m) => m.id !== action.id), penilaian: state.penilaian.filter((p) => p.anggotaId !== action.id) };
-    case "ADD_PENILAIAN":
-      return { ...state, penilaian: [...state.penilaian, emptyPenilaian(action.anggotaId, action.sasaran, action.templates)] };
+    case "ADD_PENILAIAN": {
+      const base = emptyPenilaian(action.anggotaId, action.sasaran, action.templates);
+      const anggota = state.anggota.find((a) => a.id === action.anggotaId);
+      const prefill = anggota ? penilaianPrefill(anggota, action.sasaran, action.templates) : {};
+      const next: PenilaianForm = Object.keys(prefill).length ? { ...base, values: { ...prefill, ...base.values } } : base;
+      return { ...state, penilaian: [...state.penilaian, next] };
+    }
     case "REMOVE_PENILAIAN":
       return { ...state, penilaian: state.penilaian.filter((p) => p.id !== action.id) };
     case "SET_VALUE":

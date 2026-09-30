@@ -61,14 +61,9 @@ export const users = pgTable("users", {
   // petugas. Akun petugas adalah audit trail (lihat audit_logs.userId), jadi harus
   // bertahan walau fasilitasnya dihapus.
   fasKesId: smallint().notNull().references(() => fasilitasKesehatan.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
-  role: role().notNull().default('staff'),
+  role: role().notNull().default('kader'),
   nama: varchar({ length: 255 }).notNull(),
   pinHash: varchar({ length: 255 }).notNull(),
-  // Jabatan yang ditampilkan saja (Bidan/Perawat/Kader), bukan hak akses.
-  // Seseorang boleh punya keduanya: role='kader' sekaligus jabatan='Bidan'.
-  // Null berarti belum diisi, jadi UI harus menampilkan "Belum diisi" dan
-  // tidak memaksa memilih dari daftar.
-  jabatan: varchar({ length: 50 }),
   phone: varchar({ length: 20 }),
   aktif: boolean().notNull().default(true),
   createdAt: timestamp().defaultNow().notNull(),
