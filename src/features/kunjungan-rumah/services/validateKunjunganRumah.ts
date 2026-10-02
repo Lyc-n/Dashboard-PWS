@@ -1,5 +1,6 @@
 import { sasaranDef } from '@/lib/kunjungan-rumah-form'
 import { hasilKind } from '@/lib/hasil'
+import { isValidNik } from '@/lib/utils'
 import type { KunjunganRumahTemplates } from '@/lib/kunjungan-rumah-templates'
 import type {
   AnggotaKeluarga,
@@ -44,7 +45,7 @@ export function validateKunjunganRumah(input: ValidateInput): {
     }
   }
   const nikSasaran = info.nik.trim()
-  if (!/^\d{16}$/.test(nikSasaran)) {
+  if (!isValidNik(nikSasaran)) {
     nextInvalid.nik = true
     ok = false
   }
@@ -81,7 +82,7 @@ export function validateKunjunganRumah(input: ValidateInput): {
         ok = false
       }
       if (f.id === 'nik') {
-        if (!/^\d{16}$/.test(m.nik || '')) {
+        if (!isValidNik(m.nik || '')) {
           nextInvalid[`nik:${m.id}`] = true
           ok = false
         } else if (seen.has(m.nik)) {
@@ -94,7 +95,7 @@ export function validateKunjunganRumah(input: ValidateInput): {
       (f) => f.id === 'nik' && f.required && f.active,
     )
     if (!hasNikRequired) {
-      if (!/^\d{16}$/.test(m.nik || '')) {
+      if (!isValidNik(m.nik || '')) {
         nextInvalid[`nik:${m.id}`] = true
         ok = false
       } else if (seen.has(m.nik)) {

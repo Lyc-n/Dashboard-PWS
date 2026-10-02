@@ -4,6 +4,9 @@ dist
 dist-ssr
 *.local
 .env
+.env.*
+env.txt
+*.env.txt
 .nitro
 .tanstack
 .wrangler

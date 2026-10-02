@@ -26,7 +26,7 @@
  *     supaya field yang tampil di form dan isi `survey_entries` tidak bisa beda.
  * Ketidakcocokan antara keduanya dicek `pastikanPetugasValid()`.
  */
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db.server";
 import {
   formFields,
@@ -98,6 +98,14 @@ interface VersiKegiatan {
  *
  * `nama` boleh diubah admin, sedangkan `kode` tidak. Kalau pencarian lewat nama,
  * semua kegiatan akan gagal dibaca begitu admin mengganti nama formnya.
+ *
+ * Yang diambil adalah versi terbaru yang berstatus `published`, bukan versi
+ * dengan nomor terkecil. Begitu admin bisa menerbitkan versi baru, nomor versi
+ * tidak lagi menentukan versi yang tayang: draft dan archived sengaja tidak
+ * boleh jadi sumber bacaan, karena field-nya bisa berbeda dari yang dipakai
+ * petugas di lapangan. Database juga menjaga paling banyak satu versi
+ * `published` per form, jadi hasil query ini selalu versi yang benar-benar
+ * hidup.
  */
 async function cariVersiKegiatan(): Promise<VersiKegiatan> {
   const [form] = await db
@@ -114,11 +122,15 @@ async function cariVersiKegiatan(): Promise<VersiKegiatan> {
   const [versi] = await db
     .select({ id: formVersions.id, version: formVersions.version })
     .from(formVersions)
-    .where(eq(formVersions.formId, form.id))
-    .orderBy(formVersions.version)
+    .where(
+      and(eq(formVersions.formId, form.id), eq(formVersions.status, "published")),
+    )
+    .orderBy(desc(formVersions.version))
     .limit(1);
   if (!versi) {
-    throw new Error(`Form kegiatan belum punya versi. Jalankan \`pnpm db:seed\`.`);
+    throw new Error(
+      `Form kegiatan belum punya versi yang tayang. Jalankan \`pnpm db:seed\`.`,
+    );
   }
 
   const baris = await db
@@ -377,14 +389,4 @@ export async function listKegiatan(): Promise<KegiatanBaca[]> {
   }
 
   return [...perSurvey.values()];
-}
-
-/** Hapus kegiatan. `survey_entries` cascade dari `surveys`. */
-export async function hapusKegiatan(id: string): Promise<void> {
-  const v = await cariVersiKegiatan();
-  // Scoping ke form kegiatan mencegah id form lain ikut terhapus kalau id salah
-  // kirim dari UI.
-  await db
-    .delete(surveys)
-    .where(and(eq(surveys.id, id), eq(surveys.formVersionId, v.formVersionId)));
 }

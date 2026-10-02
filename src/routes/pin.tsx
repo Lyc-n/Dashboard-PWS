@@ -78,7 +78,7 @@ function RouteComponent() {
           <form onSubmit={onSubmit} className="grid gap-4" noValidate>
             <div>
               <h2 className="text-base font-bold text-ink">Masuk dengan PIN</h2>
-              <p className="mt-0.5 text-xs text-muted">Satu-satunya gerbang dashboard. Sesi berlaku 12 jam.</p>
+              <p className="mt-0.5 text-xs text-muted">Satu-satunya gerbang dashboard. Sesi berlaku 1 jam.</p>
             </div>
 
             <FormField label="PIN" required error={error ?? undefined} invalid={!!error}>

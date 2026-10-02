@@ -1,8 +1,7 @@
 import type { KunjunganRumahFoto } from "@/features/kunjungan-rumah/models";
 import { createRecordId } from "@/features/kunjungan-rumah/types";
+import { BLOCKED_MIME, MAX_FILE_BYTES, MAX_FOTO } from "@/lib/constants";
 
-export const MAX_FOTO = 6;
-export const MAX_FILE_BYTES = 2 * 1024 * 1024;
 /** Total budget pengaman ukuran payload (DB jsonb longgar, tapi tetap batasi upload). */
 export const MAX_TOTAL_BYTES = Math.floor(3.5 * 1024 * 1024);
 const MAX_DIM = 1280;
@@ -11,8 +10,6 @@ export interface PrepareResult {
   added: KunjunganRumahFoto[];
   skipped: number;
 }
-
-const BLOCKED_MIME = new Set(["image/svg+xml", "image/svg"]);
 
 function isBlockedImage(file: File): boolean {
   const mime = file.type.toLowerCase();

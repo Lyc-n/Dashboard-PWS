@@ -12,6 +12,8 @@
  * murah dicek dan berguna menahan race condition saat dua request publish paralel.
  */
 
+import { isValidNik } from "@/lib/utils";
+
 export type KodeValidasi =
   | 'PARENT_BEDA_VERSI'
   | 'PARENT_SAMA_DIRI'
@@ -30,6 +32,12 @@ export type KodeValidasi =
   | 'GROUP_BARIS_SISIP'
   | 'GROUP_BARIS_TERLALU_BANYAK'
   | 'GROUP_NILAI_SISIP'
+  | 'NAMA_FIELD_BENTARAK'
+  | 'NAMA_FIELD_TIDAK_VALID'
+  | 'KOLOM_GROUP_KOSONG'
+  | 'OPSI_FIELD_KOSONG'
+  | 'NAMA_FORM_BENTARAK'
+  | 'FORM_BAWAAN'
 
 export type HasilValidasi =
   | { ok: true }
@@ -54,11 +62,30 @@ export type TipeField =
   | 'file'
   | 'group'
 
+/**
+ * Tipe field yang boleh dipilih di editor, urut sesuai tampilannya di UI.
+ *
+ * Disalin dari enum `form_field_type` di database, bukan dibaca dari sana:
+ * enum itu datang dari drizzle pg-core, dan mengimpornya ke komponen editor
+ * menarik drizzle ke bundle klien. Konsekuensinya menambah tipe di database
+ * berarti daftar ini harus ikut ditambah — sama seperti enum `audit_action`.
+ */
+export const SEMUA_TIPE_FIELD: readonly TipeField[] = [
+  'text',
+  'textarea',
+  'number',
+  'select',
+  'radio',
+  'checkbox',
+  'date',
+  'time',
+  'image',
+  'file',
+  'group',
+]
+
 /** Tipe yang jawabannya dipilih dari daftar, jadi butuh opsi. */
 export const TIPE_BUTUH_OPSI: readonly TipeField[] = ['select', 'radio', 'checkbox']
-
-/** Tipe yang boleh menyimpan lebih dari satu nilai. */
-export const TIPE_BISA_NAIK: readonly TipeField[] = ['checkbox', 'group']
 
 /**
  * Batas atas jumlah baris untuk satu field `group`.
@@ -174,6 +201,117 @@ export function validasiOpsiField(params: {
   if (new Set(nilai).size !== nilai.length) {
     return gagal('OPSI_KOSONG', 'Ada opsi jawaban dengan nilai yang sama.')
   }
+  return lolos
+}
+
+/**
+ * Bentuk field yang diperiksa `validasiFieldPenuh`. Hanya bagian yang perlu
+ * validity; bagian lain (urutan, wajib, section) tidak punya aturan bentuk.
+ */
+export interface FieldDefinisi {
+  nama: string
+  label?: string | null
+  tipe: TipeField
+  optionSourceType?: string | null
+  jumlahKolom?: number | null
+  opsi?: readonly Pick<OpsiField, 'value' | 'aktif'>[]
+  /** true = field dihapus, jadi tidak diperiksa. */
+  hapus?: boolean
+}
+
+/** `form_fields.nama` varchar(100), dipanggil kode saat menyimpan jawaban. */
+const POLA_NAMA_FIELD = /^[a-z0-9_]{1,100}$/
+
+/** Panjang `form_fields.label` (varchar 255). */
+const PANJANG_LABEL_FIELD = 255
+
+/**
+ * Nama field = identifier teknis yang dipanggil kode, jadi bentuknya dikunci:
+ * huruf kecil, angka, garis bawah. Tanpa ini nama seperti "Nama Lengkap" atau
+ * "nama field" akan tersimpan lalu gagal saat kode menyimpan jawaban.
+ */
+export function validasiNamaField(params: {
+  nama: string
+  label?: string | null
+}): HasilValidasi {
+  const namaBersih = params.nama.trim()
+  if (!POLA_NAMA_FIELD.test(namaBersih)) {
+    return gagal(
+      'NAMA_FIELD_TIDAK_VALID',
+      'Nama field hanya boleh huruf kecil, angka, dan garis bawah, maksimal 100 karakter.',
+    )
+  }
+
+  const labelBersih = (params.label ?? '').trim()
+  if (labelBersih === '') {
+    return gagal('NAMA_FIELD_TIDAK_VALID', 'Teks pertanyaan field wajib diisi.')
+  }
+  if (labelBersih.length > PANJANG_LABEL_FIELD) {
+    return gagal(
+      'NAMA_FIELD_TIDAK_VALID',
+      `Teks pertanyaan field maksimal ${PANJANG_LABEL_FIELD} karakter.`,
+    )
+  }
+  return lolos
+}
+
+/**
+ * Periksa seluruh daftar field satu section sekaligus, sebelum ada query.
+ *
+ * Dua hal yang tidak bisa dijamin database dan dipegang di sini: nama unik di
+ * dalam satu payload (petugas bisa saja mengirim dua field dengan nama sama
+ * sekaligus), dan `jumlahKolom` yang hanya sah untuk tipe `group` — kolomnya
+ * INTEGER nullable, jadi database menerima `jumlahKolom` di field teks tanpa
+ * protes.
+ *
+ * Field bertipe `hapus` dilewati: field itu memang tidak akan disimpan.
+ */
+export function validasiFieldPenuh(params: { fields: readonly FieldDefinisi[] }): HasilValidasi {
+  const namaPemakai = new Map<string, number>()
+
+  for (const [i, field] of params.fields.entries()) {
+    if (field.hapus === true) continue
+
+    const posisi = `Field ke-${i + 1}`
+    const nama = validasiNamaField({ nama: field.nama, label: field.label })
+    if (!nama.ok) {
+      return gagal(nama.kode, `${posisi}: ${nama.pesan}`)
+    }
+
+    const namaBersih = field.nama.trim()
+    const sudah = namaPemakai.get(namaBersih)
+    if (sudah !== undefined) {
+      return gagal(
+        'NAMA_FIELD_BENTARAK',
+        `${posisi} memakai nama "${namaBersih}" yang sudah dipakai field ke-${sudah}.`,
+      )
+    }
+    namaPemakai.set(namaBersih, i + 1)
+
+    if (field.tipe === 'group') {
+      const jumlah = field.jumlahKolom
+      if (jumlah === null || jumlah === undefined || !Number.isInteger(jumlah) || jumlah < 1) {
+        return gagal('KOLOM_GROUP_KOSONG', `${posisi} bertipe group wajib punya jumlah kolom minimal satu.`)
+      }
+    } else if (field.jumlahKolom !== null && field.jumlahKolom !== undefined) {
+      return gagal(
+        'KOLOM_GROUP_KOSONG',
+        `${posisi} bukan group, jadi jumlah kolom harus dikosongkan.`,
+      )
+    }
+
+    if (TIPE_BUTUH_OPSI.includes(field.tipe)) {
+      const opsi = validasiOpsiField({
+        tipe: field.tipe,
+        opsi: [...(field.opsi ?? [])],
+        sumberOpsiDinamis: field.optionSourceType,
+      })
+      if (!opsi.ok) {
+        return gagal('OPSI_FIELD_KOSONG', `${posisi}: ${opsi.pesan}`)
+      }
+    }
+  }
+
   return lolos
 }
 
@@ -444,7 +582,7 @@ export function validasiNilaiField(params: {
  * varchar(16) — cek ini cuma menangkap salah ketik di form_isian.
  */
 export function validasiNik(nik: string): HasilValidasi {
-  if (!/^\d{16}$/.test(nik)) {
+  if (!isValidNik(nik)) {
     return gagal('NIK_TIDAK_VALID', 'NIK harus 16 digit angka.')
   }
   return lolos

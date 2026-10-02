@@ -4,22 +4,9 @@ import { STORAGE_KEYS } from "@/lib/constants";
 import { useKunjunganRumahTemplates } from "@/hooks/use-kunjungan-rumah-templates";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 
-export type RekapField =
-  | "keluarga"
-  | "sasaranIbuHamil"
-  | "sasaranBersalinNifas"
-  | "sasaranBayiApras"
-  | "sasaranSekolahRemaja"
-  | "sasaranProduktif"
-  | "sasaranLansia"
-  | "masalahIbuTidakAkses"
-  | "masalahIbuTandaBahaya"
-  | "masalahDewasaTidakAdaPelayanan"
-  | "masalahDewasaBergejalaTbc"
-  | "masalahDewasaTidakMinumObat"
-  | "tindakEdukasi"
-  | "tindakLaporNakes"
-  | "paraf";
+import type { RekapField } from "@/lib/rekap-kunjungan-rumah";
+
+export type { RekapField };
 
 export interface RekapOverride {
   id: string;

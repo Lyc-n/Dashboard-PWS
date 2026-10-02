@@ -1,4 +1,4 @@
-import { date, pgPolicy, pgTable, text, varchar, boolean, smallint, numeric } from "drizzle-orm/pg-core";
+import { date, index, pgPolicy, pgTable, text, varchar, boolean, smallint, numeric } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { hubunganKeluargaEnum, jenisKelaminEnum, statusKawinEnum, agama, pendidikanEnum } from "./type-enum";
 
@@ -23,7 +23,15 @@ export const dataWargaImport = pgTable("data_warga_import", {
   rw: smallint(),
   rt: smallint(),
   iksBesar: numeric(),
-}, () => [
+}, (t) => [
+  // 20.454 baris, dan sampai sekarang satu-satunya index adalah primary key
+  // `raw_id`. Tanpa ini `WHERE nik = $1` (dipakai saat menyimpan warga dari form
+  // Kunjungan Rumah) scan seluruh tabel.
+  index("data_warga_import_nik_idx").on(t.nik),
+  // Pencarian partial `nama_art`/`nama_kk`/`nik` ILIKE '%q%' butuh operator class
+  // trigram, yang tidak bisa ditulis di sini — `IndexBuilder` hanya menerima
+  // PgIndexMethod dan kolom, bukan opclass bebas. Index GIN-nya dibuat lewat
+  // drizzle/manual/20261001_data_warga_import-index.sql.
   pgPolicy("Allow read-only access", {
     as: "restrictive",
     for: "select",

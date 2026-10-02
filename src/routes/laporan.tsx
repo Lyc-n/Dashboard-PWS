@@ -1,19 +1,24 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Download, Printer } from "lucide-react";
 import { getLaporanKunjunganRumah, listKegiatan } from "@/lib/utils.functions";
 import type { KegiatanRecord } from "@/hooks/use-kegiatan";
-import { APP_BRAND, JENIS_KEGIATAN, KELS, POSY } from "@/lib/constants";
+import { JENIS_KEGIATAN, KELS, PAGE_SIZE, POSY } from "@/lib/constants";
 import { downloadCsv, fmtDate } from "@/lib/utils";
 import { useToast } from "@/providers/toast";
 import { AppShell, DataTable } from "@/components/organisms";
-import { PageHeader, SectionCard, StatCard, Toolbar } from "@/components/molecules";
-import { Button, Input, LogoEmblem, ProgressBar, Select, StatusBadge, Tab } from "@/components/atoms";
+import { PageHeader, SectionCard, StatCard } from "@/components/molecules";
+import { Input, Select, StatusBadge, Tab } from "@/components/atoms";
 // [perbaikan] guard konsisten dengan route lain: requireAuth baca cookie httpOnly via server —
 //   expect: tanpa sesi valid → redirect /pin (dulu /login); import yang hilang dipulihkan.
 import { requireAuth, isAdminUser } from "@/lib/auth";
 import { useAuth } from "@/providers/auth";
 import { RekapKunjunganRumahSection } from "@/features/laporan/RekapKunjunganRumahSection";
+import { FilterToolbar } from "@/features/laporan/components/FilterToolbar";
+import { KelStatsGrid } from "@/features/laporan/components/KelStatsGrid";
+import { KopSection } from "@/features/laporan/components/KopSection";
+import { KopSurat } from "@/features/laporan/components/KopSurat";
+import { KopTable } from "@/features/laporan/components/KopTable";
+import { paginate } from "@/features/laporan/components/report-shared";
 
 export const Route = createFileRoute("/laporan")({
   beforeLoad: requireAuth,
@@ -24,13 +29,6 @@ export const Route = createFileRoute("/laporan")({
   pendingComponent: () => <p className="p-4 text-sm text-muted">Memuat laporan…</p>,
   component: Laporan,
 })
-
-const TODAY = new Date().toLocaleDateString("id-ID", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
-const PAGE_SIZE = 10;
 
 function Laporan() {
   const { kunjunganRumah: rows, kegiatan: kegiatanRaw } = Route.useLoaderData();
@@ -80,12 +78,10 @@ function Laporan() {
 
   const kelStats = KELS.map((k) => {
     const sub = filtered.filter((r) => r.kelurahan === k);
-    return { kel: k, n: sub.length, done: sub.length, pct: 100 };
+    return { kel: k, n: sub.length, pct: filtered.length ? Math.round((sub.length / filtered.length) * 100) : 0 };
   });
 
-  const maxPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageClamped = Math.min(page, maxPage);
-  const pageRows = filtered.slice((pageClamped - 1) * PAGE_SIZE, pageClamped * PAGE_SIZE);
+  const { maxPage, pageClamped, pageRows, info } = paginate(filtered, page, PAGE_SIZE);
   const kopRows = filtered.slice(0, 60);
 
   const filteredKegiatan = useMemo(() => {
@@ -112,9 +108,7 @@ function Laporan() {
     const sub = filteredKegiatan.filter((r) => r.jenis === j);
     return { jenis: j, n: sub.length, pct: totalKegiatan ? Math.round((sub.length / totalKegiatan) * 100) : 0 };
   });
-  const gMaxPage = Math.max(1, Math.ceil(filteredKegiatan.length / PAGE_SIZE));
-  const gPageClamped = Math.min(gPage, gMaxPage);
-  const gPageRows = filteredKegiatan.slice((gPageClamped - 1) * PAGE_SIZE, gPageClamped * PAGE_SIZE);
+  const { maxPage: gMaxPage, pageClamped: gPageClamped, pageRows: gPageRows, info: gInfo } = paginate(filteredKegiatan, gPage, PAGE_SIZE);
   const gKopRows = filteredKegiatan.slice(0, 60);
 
   const downloadCsvKunjunganRumah = () => {
@@ -190,19 +184,17 @@ function Laporan() {
         />
       ) : tab === "kunjungan-rumah" ? (
         <>
-          <SectionCard className="no-print" title="Saring Laporan" sub="Filter ikut memperbarui ringkasan, kop, dan pratinjau di bawah.">
-            <Toolbar>
-              <Input type="date" value={dari} onChange={(e) => setDari(e.target.value)} aria-label="Tanggal awal" className="max-w-42.5 max-md:max-w-none" />
-              <Input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} aria-label="Tanggal akhir" className="max-w-42.5 max-md:max-w-none" />
-              <Select value={effKel} onChange={(e) => setKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-42.5 max-md:max-w-none" disabled={!admin}>
-                <option value="all">Semua kelurahan</option>
-                {KELS.map((k) => (
-                  <option key={k}>{k}</option>
-                ))}
-              </Select>
-              <Input value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Cari nama / NIK…" aria-label="Cari nama" className="max-w-50 max-md:max-w-none" />
-            </Toolbar>
-          </SectionCard>
+          <FilterToolbar title="Saring Laporan" sub="Filter ikut memperbarui ringkasan, kop, dan pratinjau di bawah.">
+            <Input type="date" value={dari} onChange={(e) => setDari(e.target.value)} aria-label="Tanggal awal" className="max-w-42.5 max-md:max-w-none" />
+            <Input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} aria-label="Tanggal akhir" className="max-w-42.5 max-md:max-w-none" />
+            <Select value={effKel} onChange={(e) => setKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-42.5 max-md:max-w-none" disabled={!admin}>
+              <option value="all">Semua kelurahan</option>
+              {KELS.map((k) => (
+                <option key={k}>{k}</option>
+              ))}
+            </Select>
+            <Input value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Cari nama / NIK…" aria-label="Cari nama" className="max-w-50 max-md:max-w-none" />
+          </FilterToolbar>
 
           <SectionCard className="no-print" title="Ringkasan" sub="Rekap otomatis dari filter di atas.">
             <div className="grid grid-cols-3 gap-3 max-md:grid-cols-2 max-sm:grid-cols-1">
@@ -210,111 +202,54 @@ function Laporan() {
               <StatCard caption="Warga unik" value={wargaUnik} />
               <StatCard caption="Kelurahan tercakup" value={kelStats.filter((s) => s.n > 0).length} />
             </div>
-            <div className="mt-3 grid grid-cols-4 gap-3 max-md:grid-cols-2 max-sm:grid-cols-1">
-              {kelStats.map((s) => (
-                <div key={s.kel} className="rounded-[10px] border border-[var(--color-line-2)] bg-surface p-3.5 shadow-card">
-                  <div className="text-xs font-semibold text-ink">Kel. {s.kel}</div>
-                  <div className="mt-0.5 text-[11px] text-muted">
-                    {s.done} dari {s.n} selesai
-                  </div>
-                  <ProgressBar value={s.pct} className="mt-2" />
-                </div>
-              ))}
-            </div>
+            <KelStatsGrid stats={kelStats} unit="kunjungan" />
           </SectionCard>
 
-          <SectionCard className="no-print" title="Kop Laporan" sub="Atur judul & penanda tangan, lalu cetak / unduh.">
-            <div className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
-              <Input value={judul} onChange={(e) => setJudul(e.target.value)} aria-label="Judul laporan" />
-              <Input value={ttdNama} onChange={(e) => setTtdNama(e.target.value)} aria-label="Nama penanda tangan" />
-              <Input value={ttdJabatan} onChange={(e) => setTtdJabatan(e.target.value)} aria-label="Jabatan penanda tangan" />
-            </div>
-            <Toolbar className="mt-3">
-              <span className="text-xs text-muted">{filtered.length} baris · 1–{Math.min(kopRows.length, 60)} ditampilkan di kop.</span>
-              <Button variant="export" onClick={downloadCsvKunjunganRumah} className="ml-auto">
-                <Download size={14} />
-                Unduh CSV
-              </Button>
-              <Button variant="ghost" onClick={copySummary}>
-                Salin ringkasan
-              </Button>
-              <Button variant="primary" onClick={() => window.print()}>
-                <Printer size={14} />
-                Cetak / Simpan PDF
-              </Button>
-            </Toolbar>
-          </SectionCard>
+          <KopSection
+            title="Kop Laporan"
+            sub="Atur judul & penanda tangan, lalu cetak / unduh."
+            judul={judul}
+            setJudul={setJudul}
+            judulLabel="Judul laporan"
+            ttdNama={ttdNama}
+            setTtdNama={setTtdNama}
+            ttdJabatan={ttdJabatan}
+            setTtdJabatan={setTtdJabatan}
+            countText={<>{filtered.length} baris · 1–{Math.min(kopRows.length, 60)} ditampilkan di kop.</>}
+            onDownloadCsv={downloadCsvKunjunganRumah}
+            onCopySummary={copySummary}
+          />
 
-          <div className="mt-3.5 rounded-[10px] border border-dashed border-line bg-surface p-4 text-xs">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <LogoEmblem />
-                <div className="text-[11px] leading-tight">
-                  <b className="block text-ink">
-                    {APP_BRAND.name} <span className="font-semibold">{APP_BRAND.region}</span>
-                  </b>
-                  <span className="text-muted">Puskesmas Trajeng · Jl. Panglima Sudirman 12, Kota Pasuruan</span>
-                </div>
-              </div>
-              <span className="text-[10px] text-muted">Dicetak: {TODAY}</span>
-            </div>
-
-            <div className="mt-5 text-center">
-              <b className="text-sm text-ink">{judul}</b>
-              <div className="mt-1 text-muted">
-                Periode {fmtDate(dari)} – {fmtDate(sampai)} · {filtered.length} kunjungan rumah · {wargaUnik} warga
-              </div>
-            </div>
-
-            <div className="mt-4 overflow-auto rounded-lg border border-line">
-              <table className="w-full border-collapse text-[11px]">
-                <thead>
-                  <tr>
-                    {["No", "Tanggal", "Nama", "Wilayah", "Petugas", "Status"].map((h) => (
-                      <th key={h} className="border-b border-line bg-surface-2 px-2.5 py-2 text-left font-semibold uppercase tracking-wider text-muted">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {kopRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-2.5 py-4 text-center text-muted">
-                        Tidak ada data untuk filter ini.
-                      </td>
-                    </tr>
-                  ) : (
-                    kopRows.map((r, i) => (
-                      <tr key={r.id} className="border-b border-[var(--color-surface-2)] last:border-none">
-                        <td className="px-2.5 py-2">{i + 1}</td>
-                        <td className="whitespace-nowrap px-2.5 py-2">{fmtDate(r.tanggal)}</td>
-                        <td className="px-2.5 py-2">
-                          <div className="font-semibold">{r.nama}</div>
-                          <div className="text-muted">NIK {r.nik}</div>
-                        </td>
-                        <td className="whitespace-nowrap px-2.5 py-2">
-                          Kel. {r.kelurahan}
-                        </td>
-                        <td className="px-2.5 py-2 text-muted">{r.petugas}</td>
-                        <td className="px-2.5 py-2">
-                          <StatusBadge value="Selesai" />
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="mt-6 grid justify-items-end">
-              <div className="text-center text-[11px]">
-                <div className="text-muted">Kota Pasuruan, {TODAY}</div>
-                <div className="mt-9 font-semibold text-ink">{ttdNama}</div>
-                <div className="mt-0.5 text-muted">{ttdJabatan}</div>
-              </div>
-            </div>
-          </div>
+          <KopSurat
+            judul={judul}
+            subtitle={<>Periode {fmtDate(dari)} – {fmtDate(sampai)} · {filtered.length} kunjungan rumah · {wargaUnik} warga</>}
+            ttdNama={ttdNama}
+            ttdJabatan={ttdJabatan}
+          >
+            <KopTable
+              headers={["No", "Tanggal", "Nama", "Wilayah", "Petugas", "Status"]}
+              colSpan={6}
+              emptyMessage="Tidak ada data untuk filter ini."
+              rows={kopRows}
+              renderRow={(r, i) => (
+                <tr key={r.id} className="border-b border-[var(--color-surface-2)] last:border-none">
+                  <td className="px-2.5 py-2">{i + 1}</td>
+                  <td className="whitespace-nowrap px-2.5 py-2">{fmtDate(r.tanggal)}</td>
+                  <td className="px-2.5 py-2">
+                    <div className="font-semibold">{r.nama}</div>
+                    <div className="text-muted">NIK {r.nik}</div>
+                  </td>
+                  <td className="whitespace-nowrap px-2.5 py-2">
+                    Kel. {r.kelurahan}
+                  </td>
+                  <td className="px-2.5 py-2 text-muted">{r.petugas}</td>
+                  <td className="px-2.5 py-2">
+                    <StatusBadge value="Selesai" />
+                  </td>
+                </tr>
+              )}
+            />
+          </KopSurat>
 
           <SectionCard className="no-print" title="Pratinjau Data" sub="Lihat daftar lengkap dengan navigasi halaman.">
             {filtered.length === 0 ? (
@@ -369,7 +304,7 @@ function Laporan() {
                   Menampilkan {filtered.length} kunjungan rumah · {wargaUnik} warga
                 </span>
               }
-              info={`Hal ${pageClamped} · ${(pageClamped - 1) * PAGE_SIZE + 1}–${Math.min(pageClamped * PAGE_SIZE, filtered.length)} dari ${filtered.length}`}
+              info={info}
               page={pageClamped}
               canPrev={pageClamped > 1}
               canNext={pageClamped < maxPage}
@@ -381,31 +316,29 @@ function Laporan() {
         </>
       ) : (
         <>
-          <SectionCard className="no-print" title="Saring Kegiatan" sub="Filter ikut memperbarui ringkasan, kop, dan tabel rekap kegiatan.">
-            <Toolbar>
-              <Input type="date" value={gDari} onChange={(e) => setGDari(e.target.value)} aria-label="Tanggal awal" className="max-w-42.5 max-md:max-w-none" />
-              <Input type="date" value={gSampai} onChange={(e) => setGSampai(e.target.value)} aria-label="Tanggal akhir" className="max-w-42.5 max-md:max-w-none" />
-              <Select value={gKel} onChange={(e) => setGKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-42.5 max-md:max-w-none">
-                <option value="all">Semua kelurahan</option>
-                {KELS.map((k) => (
-                  <option key={k}>{k}</option>
-                ))}
-              </Select>
-              <Select value={gJenis} onChange={(e) => setGJenis(e.target.value)} aria-label="Filter jenis kegiatan" className="max-w-42.5 max-md:max-w-none">
-                <option value="all">Semua jenis</option>
-                {JENIS_KEGIATAN.map((j) => (
-                  <option key={j}>{j}</option>
-                ))}
-              </Select>
-              <Select value={gPosy} onChange={(e) => setGPosy(e.target.value)} aria-label="Filter posyandu" className="max-w-42.5 max-md:max-w-none">
-                <option value="all">Semua posyandu</option>
-                {POSY.map((p) => (
-                  <option key={p}>{p}</option>
-                ))}
-              </Select>
-              <Input value={gCari} onChange={(e) => setGCari(e.target.value)} placeholder="Cari nama/PJ/lokasi…" aria-label="Cari kegiatan" className="max-w-50 max-md:max-w-none" />
-            </Toolbar>
-          </SectionCard>
+          <FilterToolbar title="Saring Kegiatan" sub="Filter ikut memperbarui ringkasan, kop, dan tabel rekap kegiatan.">
+            <Input type="date" value={gDari} onChange={(e) => setGDari(e.target.value)} aria-label="Tanggal awal" className="max-w-42.5 max-md:max-w-none" />
+            <Input type="date" value={gSampai} onChange={(e) => setGSampai(e.target.value)} aria-label="Tanggal akhir" className="max-w-42.5 max-md:max-w-none" />
+            <Select value={gKel} onChange={(e) => setGKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-42.5 max-md:max-w-none">
+              <option value="all">Semua kelurahan</option>
+              {KELS.map((k) => (
+                <option key={k}>{k}</option>
+              ))}
+            </Select>
+            <Select value={gJenis} onChange={(e) => setGJenis(e.target.value)} aria-label="Filter jenis kegiatan" className="max-w-42.5 max-md:max-w-none">
+              <option value="all">Semua jenis</option>
+              {JENIS_KEGIATAN.map((j) => (
+                <option key={j}>{j}</option>
+              ))}
+            </Select>
+            <Select value={gPosy} onChange={(e) => setGPosy(e.target.value)} aria-label="Filter posyandu" className="max-w-42.5 max-md:max-w-none">
+              <option value="all">Semua posyandu</option>
+              {POSY.map((p) => (
+                <option key={p}>{p}</option>
+              ))}
+            </Select>
+            <Input value={gCari} onChange={(e) => setGCari(e.target.value)} placeholder="Cari nama/PJ/lokasi…" aria-label="Cari kegiatan" className="max-w-50 max-md:max-w-none" />
+          </FilterToolbar>
 
           <SectionCard className="no-print" title="Ringkasan Kegiatan" sub="Rekap otomatis dari filter kegiatan di atas.">
             <div className="grid grid-cols-4 gap-3 max-md:grid-cols-2 max-sm:grid-cols-1">
@@ -414,15 +347,7 @@ function Laporan() {
               <StatCard caption="Total hadir" value={totalHadir} />
               <StatCard caption="Kehadiran" value={`${pctHadir}%`} progress={pctHadir} />
             </div>
-            <div className="mt-3 grid grid-cols-4 gap-3 max-md:grid-cols-2 max-sm:grid-cols-1">
-              {gKelStats.map((s) => (
-                <div key={s.kel} className="rounded-[10px] border border-[var(--color-line-2)] bg-surface p-3.5 shadow-card">
-                  <div className="text-xs font-semibold text-ink">Kel. {s.kel}</div>
-                  <div className="mt-0.5 text-[11px] text-muted">{s.n} kegiatan</div>
-                  <ProgressBar value={s.pct} className="mt-2" />
-                </div>
-              ))}
-            </div>
+            <KelStatsGrid stats={gKelStats} unit="kegiatan" />
             <div className="mt-3 flex flex-wrap gap-1.5">
               {gJenisStats.filter((s) => s.n > 0).map((s) => (
                 <span key={s.jenis} className="rounded-full bg-surface-2 px-2.5 py-1 text-[11px] text-muted">
@@ -433,90 +358,49 @@ function Laporan() {
             </div>
           </SectionCard>
 
-          <SectionCard className="no-print" title="Kop Laporan Kegiatan" sub="Atur judul & penanda tangan, lalu cetak / unduh CSV terpisah.">
-            <div className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
-              <Input value={gJudul} onChange={(e) => setGJudul(e.target.value)} aria-label="Judul laporan kegiatan" />
-              <Input value={ttdNama} onChange={(e) => setTtdNama(e.target.value)} aria-label="Nama penanda tangan" />
-              <Input value={ttdJabatan} onChange={(e) => setTtdJabatan(e.target.value)} aria-label="Jabatan penanda tangan" />
-            </div>
-            <Toolbar className="mt-3">
-              <span className="text-xs text-muted">{filteredKegiatan.length} kegiatan · 1–{Math.min(gKopRows.length, 60)} ditampilkan di kop.</span>
-              <Button variant="export" onClick={downloadKegiatanCsv} className="ml-auto">
-                <Download size={14} />
-                Unduh CSV Kegiatan
-              </Button>
-              <Button variant="ghost" onClick={copyKegiatanSummary}>
-                Salin ringkasan
-              </Button>
-              <Button variant="primary" onClick={() => window.print()}>
-                <Printer size={14} />
-                Cetak / Simpan PDF
-              </Button>
-            </Toolbar>
-          </SectionCard>
+          <KopSection
+            title="Kop Laporan Kegiatan"
+            sub="Atur judul & penanda tangan, lalu cetak / unduh CSV terpisah."
+            judul={gJudul}
+            setJudul={setGJudul}
+            judulLabel="Judul laporan kegiatan"
+            ttdNama={ttdNama}
+            setTtdNama={setTtdNama}
+            ttdJabatan={ttdJabatan}
+            setTtdJabatan={setTtdJabatan}
+            countText={<>{filteredKegiatan.length} kegiatan · 1–{Math.min(gKopRows.length, 60)} ditampilkan di kop.</>}
+            csvLabel="Unduh CSV Kegiatan"
+            onDownloadCsv={downloadKegiatanCsv}
+            onCopySummary={copyKegiatanSummary}
+          />
 
-          <div className="mt-3.5 rounded-[10px] border border-dashed border-line bg-surface p-4 text-xs">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <LogoEmblem />
-                <div className="text-[11px] leading-tight">
-                  <b className="block text-ink">
-                    {APP_BRAND.name} <span className="font-semibold">{APP_BRAND.region}</span>
-                  </b>
-                  <span className="text-muted">Puskesmas Trajeng · Jl. Panglima Sudirman 12, Kota Pasuruan</span>
-                </div>
-              </div>
-              <span className="text-[10px] text-muted">Dicetak: {TODAY}</span>
-            </div>
-            <div className="mt-5 text-center">
-              <b className="text-sm text-ink">{gJudul}</b>
-              <div className="mt-1 text-muted">
-                Periode {fmtDate(gDari)} – {fmtDate(gSampai)} · {filteredKegiatan.length} kegiatan · {totalHadir}/{totalPeserta} hadir ({pctHadir}%)
-              </div>
-            </div>
-            <div className="mt-4 overflow-auto rounded-lg border border-line">
-              <table className="w-full border-collapse text-[11px]">
-                <thead>
-                  <tr>
-                    {["No", "Tanggal", "Nama Kegiatan", "Wilayah", "Petugas", "Peserta", "Deskripsi"].map((h) => (
-                      <th key={h} className="border-b border-line bg-surface-2 px-2.5 py-2 text-left font-semibold uppercase tracking-wider text-muted">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {gKopRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-2.5 py-4 text-center text-muted">Belum ada kegiatan untuk filter ini. Isi di halaman Kegiatan.</td>
-                    </tr>
-                  ) : (
-                    gKopRows.map((r, i) => (
-                      <tr key={i} className="border-b border-[var(--color-surface-2)] last:border-none">
-                        <td className="px-2.5 py-2">{i + 1}</td>
-                        <td className="whitespace-nowrap px-2.5 py-2">{fmtDate(r.tgl)} {r.jam ? `· ${r.jam}` : ""}</td>
-                        <td className="px-2.5 py-2">
-                          <div className="font-semibold">{r.nama}</div>
-                          <div className="text-muted">{r.jenis}</div>
-                        </td>
-                        <td className="whitespace-nowrap px-2.5 py-2">Kel. {r.kel} {r.posy ? `· ${r.posy}` : ""} · {r.lokasi}</td>
-                        <td className="px-2.5 py-2">{r.petugas}</td>
-                        <td className="whitespace-nowrap px-2.5 py-2">{r.hadir}/{r.total}</td>
-                        <td className="px-2.5 py-2 text-muted">{r.deskripsi || "—"}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-6 grid justify-items-end">
-              <div className="text-center text-[11px]">
-                <div className="text-muted">Kota Pasuruan, {TODAY}</div>
-                <div className="mt-9 font-semibold text-ink">{ttdNama}</div>
-                <div className="mt-0.5 text-muted">{ttdJabatan}</div>
-              </div>
-            </div>
-          </div>
+          <KopSurat
+            judul={gJudul}
+            subtitle={<>Periode {fmtDate(gDari)} – {fmtDate(gSampai)} · {filteredKegiatan.length} kegiatan · {totalHadir}/{totalPeserta} hadir ({pctHadir}%)</>}
+            ttdNama={ttdNama}
+            ttdJabatan={ttdJabatan}
+          >
+            <KopTable
+              headers={["No", "Tanggal", "Nama Kegiatan", "Wilayah", "Petugas", "Peserta", "Deskripsi"]}
+              colSpan={7}
+              emptyMessage="Belum ada kegiatan untuk filter ini. Isi di halaman Kegiatan."
+              rows={gKopRows}
+              renderRow={(r, i) => (
+                <tr key={i} className="border-b border-[var(--color-surface-2)] last:border-none">
+                  <td className="px-2.5 py-2">{i + 1}</td>
+                  <td className="whitespace-nowrap px-2.5 py-2">{fmtDate(r.tgl)} {r.jam ? `· ${r.jam}` : ""}</td>
+                  <td className="px-2.5 py-2">
+                    <div className="font-semibold">{r.nama}</div>
+                    <div className="text-muted">{r.jenis}</div>
+                  </td>
+                  <td className="whitespace-nowrap px-2.5 py-2">Kel. {r.kel} {r.posy ? `· ${r.posy}` : ""} · {r.lokasi}</td>
+                  <td className="px-2.5 py-2">{r.petugas}</td>
+                  <td className="whitespace-nowrap px-2.5 py-2">{r.hadir}/{r.total}</td>
+                  <td className="px-2.5 py-2 text-muted">{r.deskripsi || "—"}</td>
+                </tr>
+              )}
+            />
+          </KopSurat>
 
           <SectionCard className="no-print" title="Tabel Rekap Kegiatan" sub="Data dari halaman Kegiatan, tetap kosong sampai user input. Hadir/total ringkas.">
             <DataTable
@@ -570,7 +454,7 @@ function Laporan() {
                   Menampilkan {filteredKegiatan.length} kegiatan · {totalHadir}/{totalPeserta} hadir ({pctHadir}%)
                 </span>
               }
-              info={`Hal ${gPageClamped} · ${(gPageClamped - 1) * PAGE_SIZE + 1}–${Math.min(gPageClamped * PAGE_SIZE, filteredKegiatan.length)} dari ${filteredKegiatan.length}`}
+              info={gInfo}
               page={gPageClamped}
               canPrev={gPageClamped > 1}
               canNext={gPageClamped < gMaxPage}

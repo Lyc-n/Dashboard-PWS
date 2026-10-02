@@ -11,6 +11,7 @@ import { Tab } from "@/components/atoms";
 import { requireAdmin } from "@/lib/auth";
 import { TABS } from "@/features/kelola/types";
 import type { KelolaTab } from "@/features/kelola/types";
+import { FormBuilderSection } from "@/features/kelola/components/FormBuilderSection";
 import { FormKunjunganRumahSection } from "@/features/kelola/components/FormKunjunganRumahSection";
 import { UserSection } from "@/features/kelola/components/UserSection";
 
@@ -23,7 +24,7 @@ function Kelola() {
   const { pengguna, fasilitas, error: registryError, loading: registryLoading, save, setAktif } = useUserRegistry();
   const { templates, setTemplates, resetTemplates, exportJson, importJson, readOnly, source, error, loading } = useKunjunganRumahTemplates();
 
-  const [tab, setTab] = useState<KelolaTab>("form-kunjungan-rumah");
+  const [tab, setTab] = useState<KelolaTab>("form-builder");
 
   const activeFieldCount =
     templates.keluargaInfo.filter((f) => f.active).length +
@@ -37,7 +38,7 @@ function Kelola() {
     <AppShell>
       <PageHeader
         title="Kelola Master Data"
-        description="Admin mengatur template kunjungan rumah dan akun staff/kader. Perubahan langsung sinkron ke form kader."
+        description="Admin menyusun form, template kunjungan rumah, dan akun staff/kader. Perubahan langsung sinkron ke form kader."
       />
 
       {registryError ? <p className="mt-3 text-sm text-destructive">{registryError}</p> : null}
@@ -55,6 +56,8 @@ function Kelola() {
           </Tab>
         ))}
       </div>
+
+      {tab === "form-builder" ? <FormBuilderSection /> : null}
 
       {tab === "form-kunjungan-rumah" ? (
         <FormKunjunganRumahSection

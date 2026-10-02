@@ -289,31 +289,3 @@ export async function listFasKes(): Promise<OpsiFasilitas[]> {
     .innerJoin(wilayahKerja, eq(fasilitasKesehatan.wilayahKerjaId, wilayahKerja.id))
     .orderBy(wilayahKerja.kelurahan, fasilitasKesehatan.nama);
 }
-
-/** Pastikan id fasilitas ada; dipakai saat seeding dan validasi form. */
-export async function fasKesAda(fasKesId: number): Promise<boolean> {
-  const baris = await db
-    .select({ id: fasilitasKesehatan.id })
-    .from(fasilitasKesehatan)
-    .where(eq(fasilitasKesehatan.id, fasKesId))
-    .limit(1);
-  return baris.length > 0;
-}
-
-/**
- * "Hapus" akun, tapi sebenarnya menonaktifkan.
- *
- * `surveys.petugasId` dan `audit_logs.userId` menunjuk ke `users.id` tanpa
- * ON DELETE, jadi delete hard akan ditolak database begitu ada riwayat. Karena itu
- * pemanggilan dari UI menyimpan baris dan set `aktif = false`; baris tetap ada
- * supaya jejak audit lama masih bisa dibaca.
- */
-export async function hapusPengguna(nama: string): Promise<void> {
-  const baris = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.nama, nama))
-    .limit(1);
-  if (baris.length === 0) return;
-  await db.update(users).set({ aktif: false }).where(eq(users.id, baris[0]!.id));
-}

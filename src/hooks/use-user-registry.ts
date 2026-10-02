@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useAsyncData } from "@/hooks/use-async-data";
 import {
   listFasKesOpsi,
   listUserRegistry,
@@ -31,28 +32,20 @@ export interface DraftPengguna {
  * menyimpan keduanya berarti menulis ke tabel lain yang tidak ada.
  */
 export function useUserRegistry() {
-  const [pengguna, setPengguna] = useState<BarisPengguna[]>([]);
-  const [fasilitas, setFasilitas] = useState<OpsiFasilitas[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
+  const { data, loading, error, reload } = useAsyncData(
+    async () => {
       const [daftar, fas] = await Promise.all([listUserRegistry(), listFasKesOpsi()]);
-      setPengguna(daftar);
-      setFasilitas(fas);
-    } catch {
-      setError("Gagal memuat daftar pengguna dari database.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return { pengguna: daftar, fasilitas: fas };
+    },
+    [],
+    { pengguna: [] as BarisPengguna[], fasilitas: [] as OpsiFasilitas[] },
+    {
+      cancel: false,
+      mapError: () => "Gagal memuat daftar pengguna dari database.",
+    },
+  );
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+  const { pengguna, fasilitas } = data;
 
   /**
    * `namaLama` = nama sebelum diedit, untuk menemukan baris yang mau diubah.
@@ -62,18 +55,18 @@ export function useUserRegistry() {
   const save = useCallback(
     async (namaLama: string | null, draft: DraftPengguna) => {
       await saveUserRegistry({ data: { namaLama, row: draft } });
-      await refresh();
+      await reload();
     },
-    [refresh],
+    [reload],
   );
 
   const setAktif = useCallback(
     async (nama: string, aktif: boolean) => {
       await setUserRegistryAktif({ data: { nama, aktif } });
-      await refresh();
+      await reload();
     },
-    [refresh],
+    [reload],
   );
 
-  return { pengguna, fasilitas, loading, error, refresh, save, setAktif };
+  return { pengguna, fasilitas, loading, error, refresh: reload, save, setAktif };
 }

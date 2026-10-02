@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
 import { Printer, RotateCcw } from "lucide-react";
 
-import { APP_BRAND, KELS, POSY } from "@/lib/constants";
-import { computeRekap, rekapScopeId, SASARAN_GROUP_LABELS } from "@/lib/rekap-kunjungan-rumah";
-import type { RekapAuto } from "@/lib/rekap-kunjungan-rumah";
+import { KELS, POSY } from "@/lib/constants";
+import { NUMBER_FIELDS, autoValueOf, computeRekap, rekapScopeId, SASARAN_GROUP_LABELS } from "@/lib/rekap-kunjungan-rumah";
 import { useRekapKunjunganRumah } from "@/hooks/use-rekap-kunjungan-rumah";
 import type { RekapField } from "@/hooks/use-rekap-kunjungan-rumah";
 import { useKaderAktif } from "@/hooks/use-kader-aktif";
@@ -15,7 +14,8 @@ import { Toolbar } from "@/components/molecules/Toolbar";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { Button } from "@/components/atoms/Button";
-import { LogoEmblem } from "@/components/atoms/LogoEmblem";
+import { KopBrandRow } from "./components/KopBrandRow";
+import { TandaTangan } from "./components/TandaTangan";
 
 interface Props {
   judul?: string;
@@ -26,62 +26,9 @@ interface Props {
   setTtdJabatan: (v: string) => void;
 }
 
-const TODAY = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 const DEFAULT_MONTH = new Date().toISOString().slice(0, 7);
 
 const ROMAN = ["", "I", "II", "III", "IV", "V"] as const;
-
-const NUMBER_FIELDS: RekapField[] = [
-  "keluarga",
-  "sasaranIbuHamil",
-  "sasaranBersalinNifas",
-  "sasaranBayiApras",
-  "sasaranSekolahRemaja",
-  "sasaranProduktif",
-  "sasaranLansia",
-  "masalahIbuTidakAkses",
-  "masalahIbuTandaBahaya",
-  "masalahDewasaTidakAdaPelayanan",
-  "masalahDewasaBergejalaTbc",
-  "masalahDewasaTidakMinumObat",
-  "tindakEdukasi",
-  "tindakLaporNakes",
-];
-
-function autoValueOf(auto: RekapAuto, field: RekapField): number {
-  switch (field) {
-    case "keluarga":
-      return auto.keluarga;
-    case "sasaranIbuHamil":
-      return auto.sasaran.ibuHamil;
-    case "sasaranBersalinNifas":
-      return auto.sasaran.bersalinNifas;
-    case "sasaranBayiApras":
-      return auto.sasaran.bayiApras;
-    case "sasaranSekolahRemaja":
-      return auto.sasaran.sekolahRemaja;
-    case "sasaranProduktif":
-      return auto.sasaran.produktif;
-    case "sasaranLansia":
-      return auto.sasaran.lansia;
-    case "masalahIbuTidakAkses":
-      return auto.masalahIbuTidakAkses;
-    case "masalahIbuTandaBahaya":
-      return auto.masalahIbuTandaBahaya;
-    case "masalahDewasaTidakAdaPelayanan":
-      return auto.masalahDewasaTidakAdaPelayanan;
-    case "masalahDewasaBergejalaTbc":
-      return auto.masalahDewasaBergejalaTbc;
-    case "masalahDewasaTidakMinumObat":
-      return auto.masalahDewasaTidakMinumObat;
-    case "tindakEdukasi":
-      return auto.tindakEdukasi;
-    case "tindakLaporNakes":
-      return auto.tindakLaporNakes;
-    default:
-      return 0;
-  }
-}
 
 function scopeParts(scopeId: string): { kel: string | null; posy: string | null; kader: string | null } {
   const [kel, posy, kader] = scopeId.split("|");
@@ -204,18 +151,7 @@ export function RekapKunjunganRumahSection({
 
       <SectionCard title={`Rekap ${period}`} sub={`Periode Bulan ${period}`}>
         <div className="mt-3.5 rounded-lg border border-line bg-surface p-4">
-          <div className="mb-4 flex items-start justify-between gap-3 print:hidden">
-            <div className="flex items-center gap-2.5">
-              <LogoEmblem />
-              <div className="text-[11px] leading-tight">
-                <b className="block text-ink">
-                  {APP_BRAND.name} <span className="font-semibold">{APP_BRAND.region}</span>
-                </b>
-                <span className="text-muted">Puskesmas Trajeng · Jl. Panglima Sudirman 12, Kota Pasuruan</span>
-              </div>
-            </div>
-            <span className="text-[10px] text-muted">Dicetak: {TODAY}</span>
-          </div>
+          <KopBrandRow className="mb-4 flex items-start justify-between gap-3 print:hidden" />
           <div className="mb-4 text-center">
             <b className="text-sm text-ink">{judul}</b>
             <div className="mt-1 text-muted">Periode Bulan {period}</div>
@@ -289,13 +225,12 @@ export function RekapKunjunganRumahSection({
             </div>
           )}
 
-          <div className="mt-6 grid justify-items-end">
-            <div className="w-72 text-center text-[11px]">
-              <div className="text-muted">Kota Pasuruan, {TODAY}</div>
-              <div className="mt-8 font-semibold text-ink">{ttdNama}</div>
-              <div className="mt-0.5 text-muted">{ttdJabatan}</div>
-            </div>
-          </div>
+          <TandaTangan
+            nama={ttdNama}
+            jabatan={ttdJabatan}
+            boxClassName="w-72 text-center text-[11px]"
+            namaClassName="mt-8 font-semibold text-ink"
+          />
         </div>
       </SectionCard>
     </>

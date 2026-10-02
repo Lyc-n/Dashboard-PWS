@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useAsyncData } from "@/hooks/use-async-data";
 import { listPetugasAktif } from "@/lib/utils.functions";
 import type { OpsiPetugas } from "@/lib/user-registry";
 
@@ -16,25 +16,15 @@ import type { OpsiPetugas } from "@/lib/user-registry";
  * dropdown ikut tersaring tanpa perubahan lain.
  */
 export function usePetugasOpsi() {
-  const [petugasOpsi, setPetugasOpsi] = useState<OpsiPetugas[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: petugasOpsi, loading, error, reload } = useAsyncData(
+    () => listPetugasAktif({ data: { fasKesId: null } }),
+    [],
+    [] as OpsiPetugas[],
+    {
+      cancel: false,
+      mapError: () => "Gagal memuat daftar petugas.",
+    },
+  );
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setPetugasOpsi(await listPetugasAktif({ data: { fasKesId: null } }));
-    } catch {
-      setError("Gagal memuat daftar petugas.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  return { petugasOpsi, loading, error, refresh };
+  return { petugasOpsi, loading, error, refresh: reload };
 }

@@ -1,0 +1,222 @@
+import { useState, useEffect } from "react";
+import { AdminModal } from "./AdminModal";
+import { ConfirmModal } from "./ConfirmModal";
+import { FormBuilderWorkspace } from "./builder/FormBuilderWorkspace";
+import { Button, EmptyState, Input, StatusBadge, Textarea } from "@/components/atoms";
+import { Card, CardHeader } from "@/components/molecules";
+import { useFormBuilder } from "@/hooks/use-form-builder";
+import { useFormBuilderDraft } from "@/hooks/use-form-builder-draft";
+
+const LABEL_STATUS: Record<string, string> = {
+  draft: "Draft",
+  published: "Tayang",
+  archived: "Diarsipkan",
+};
+
+export function FormBuilderSection() {
+  const {
+    forms,
+    formId,
+    versi,
+    versiTerpilih,
+    formVersionId,
+    definisi,
+    loading,
+    loadingDefinisi,
+    definisiError,
+    saving,
+    error,
+    bisaUbah,
+    pilihForm,
+    pilihVersi,
+    buatForm,
+    hapusForm,
+    terbitkan,
+    buatDraft,
+  } = useFormBuilder();
+
+  const draft = useFormBuilderDraft();
+  const { loadDocument, clearDocument, document, ...draftRest } = draft;
+
+  const [modalForm, setModalForm] = useState(false);
+  const [nama, setNama] = useState("");
+  const [deskripsi, setDeskripsi] = useState("");
+  const [modalHapus, setModalHapus] = useState<{ formId: number; nama: string } | null>(null);
+
+  const formTerpilih = forms.find((f) => f.id === formId) ?? null;
+
+  const tambahForm = async () => {
+    if (!nama.trim()) return;
+    await buatForm(nama.trim(), deskripsi.trim());
+    setModalForm(false);
+    setNama("");
+    setDeskripsi("");
+  };
+
+  const konfirmasiHapus = async () => {
+    if (!modalHapus) return;
+    await hapusForm(modalHapus.formId);
+    setModalHapus(null);
+  };
+
+  useEffect(() => {
+    if (definisi) {
+      loadDocument(definisi);
+    } else {
+      clearDocument();
+    }
+  }, [definisi, loadDocument, clearDocument]);
+
+  const handleBack = () => {
+    pilihForm(formTerpilih?.id ?? forms[0]?.id ?? 0);
+  };
+
+  return (
+    <div className="mt-4">
+      {error ? <p className="mb-3 text-sm text-destructive">{error}</p> : null}
+
+      <Card>
+        <CardHeader
+          title="Form"
+          sub="Form yang dibuat di sini. Form bawaan sistem tetap diatur lewat tabnya masing-masing."
+          actions={
+            <Button variant="primary" size="sm" onClick={() => setModalForm(true)}>
+              Form Baru
+            </Button>
+          }
+        />
+
+        {loading ? <p className="mt-3 text-[13px] text-muted">Memuat daftar form…</p> : null}
+
+        {!loading && forms.length === 0 ? (
+          <EmptyState title="Belum ada form manual." className="mt-3">
+            <p>Buat form dulu, lalu susun pertanyaannya per section.</p>
+          </EmptyState>
+        ) : null}
+
+        {forms.length > 0 ? (
+          <ul className="mt-3 grid gap-1.5">
+            {forms.map((form) => (
+              <li key={form.id}>
+                <div className={`flex w-full flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
+                  form.id === formId ? "border-accent-border bg-accent-light" : "border-line"
+                }`}>
+                  <button
+                    type="button"
+                    onClick={() => void pilihForm(form.id)}
+                    className="flex-1 text-left text-[13px] font-semibold text-ink"
+                  >
+                    {form.nama}
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <StatusBadge variant={form.aktif ? "done" : "off"}>{form.aktif ? "Aktif" : "Nonaktif"}</StatusBadge>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:bg-destructive/10"
+                      onClick={() => setModalHapus({ formId: form.id, nama: form.nama })}
+                      disabled={saving}
+                    >
+                      Hapus
+                    </Button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </Card>
+
+      {formTerpilih ? (
+        <>
+          <Card className="mt-3">
+            <CardHeader
+              title={`Versi — ${formTerpilih.nama}`}
+              sub="Satu form hanya boleh punya satu versi yang tayang. Versi yang tayang dibekukan, perubahan harus lewat draft baru."
+              actions={
+                <>
+                  <Button
+                    size="sm"
+                    disabled={!bisaUbah || saving}
+                    variant="primary"
+                    onClick={() => void terbitkan()}
+                  >
+                    Terbitkan
+                  </Button>
+                  <Button size="sm" disabled={saving} onClick={() => void buatDraft()}>
+                    Draft Berikutnya
+                  </Button>
+                </>
+              }
+            />
+
+            <div className="mt-3 flex flex-wrap items-end gap-2">
+              {versi.map((v) => (
+                <Button
+                  key={v.id}
+                  size="sm"
+                  variant={v.id === formVersionId ? "primary" : "default"}
+                  onClick={() => void pilihVersi(v.id)}
+                >
+                  v{v.version} · {LABEL_STATUS[v.status] ?? v.status}
+                </Button>
+              ))}
+            </div>
+
+            {versiTerpilih && !bisaUbah ? (
+              <p className="mt-3 text-[13px] text-muted">
+                Versi ini {LABEL_STATUS[versiTerpilih.status]?.toLowerCase() ?? versiTerpilih.status} dan tidak bisa diubah. Buat draft berikutnya untuk menyuntingnya.
+              </p>
+            ) : null}
+          </Card>
+
+          {loadingDefinisi || !definisi ? (
+            definisiError ? (
+              <p className="mt-3 text-[13px] text-destructive">Gagal memuat definisi: {definisiError}</p>
+            ) : (
+              <p className="mt-3 text-[13px] text-muted">Memuat isi form…</p>
+            )
+          ) : (
+            <FormBuilderWorkspace
+              formVersionId={formVersionId!}
+              bisaUbah={bisaUbah}
+              onBack={handleBack}
+              document={document}
+              draft={draftRest}
+              loadDocument={loadDocument}
+            />
+          )}
+        </>
+      ) : null}
+
+      {modalForm ? (
+        <AdminModal
+          title="Form Baru"
+          onClose={() => setModalForm(false)}
+          onSave={() => void tambahForm()}
+        >
+          <label className="grid gap-1">
+            <span className="text-xs font-bold text-ink-2">Nama form</span>
+            <Input value={nama} onChange={(e) => setNama(e.target.value)} placeholder="Contoh: Monitoring Ibu Hamil" />
+          </label>
+          <label className="grid gap-1">
+            <span className="text-xs font-bold text-ink-2">Deskripsi (opsional)</span>
+            <Textarea value={deskripsi} onChange={(e) => setDeskripsi(e.target.value)} />
+          </label>
+        </AdminModal>
+      ) : null}
+
+      {modalHapus ? (
+        <ConfirmModal
+          title="Hapus Form"
+          message={`Yakin ingin menghapus form "${modalHapus.nama}"? Semua versi, section, dan field akan terhapus permanen.`}
+          onClose={() => setModalHapus(null)}
+          onConfirm={() => void konfirmasiHapus()}
+          confirmLabel="Hapus"
+          variant="danger"
+          disabled={saving}
+        />
+      ) : null}
+    </div>
+  );
+}

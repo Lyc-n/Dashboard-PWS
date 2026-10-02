@@ -18,48 +18,25 @@
  *  tebakan nilai enum di tempat lain.
  */
 import type { AnggotaKeluarga, KeluargaInfo } from "@/features/kunjungan-rumah/models";
+import { isValidNik } from "@/lib/utils";
+import {
+  AGAMA_VALUES as ENUM_AGAMA,
+  HUBUNGAN_KELUARGA_VALUES as ENUM_HUBUNGAN_KELUARGA,
+  JENIS_KELAMIN_VALUES as ENUM_JENIS_KELAMIN,
+  PEKERJAAN_VALUES as ENUM_PEKERJAAN,
+  PENDIDIKAN_VALUES as ENUM_PENDIDIKAN,
+  STATUS_KAWIN_VALUES as ENUM_STATUS_KAWIN,
+} from "@/lib/schema/type-enum";
 
 /** Label enum kolom `data_warga`. Sumber: `src/lib/schema/type-enum.ts`. */
-export const ENUM_AGAMA = ["Budha", "Hindu", "Islam", "Katholik", "Kristen", "Konghucu"] as const;
-export const ENUM_JENIS_KELAMIN = ["laki-laki", "perempuan"] as const;
-export const ENUM_HUBUNGAN_KELUARGA = [
-  "Kepala Keluarga",
-  "Orang Tua",
-  "Suami",
-  "Istri",
-  "Anak",
-  "Mertua",
-  "Menantu",
-  "Cucu",
-  "Pembantu",
-  "Famili lain",
-  "Lainnya",
-] as const;
-export const ENUM_STATUS_KAWIN = ["belum kawin", "kawin", "cerai mati", "cerai hidup"] as const;
-export const ENUM_PENDIDIKAN = [
-  "SLTA/Sederajat",
-  "Tidak/Belum Sekolah",
-  "Belum Tamat SD/Sederajat",
-  "SLTP/Sederajat",
-  "Strata III",
-  "Diploma IV/Strata I",
-  "Akademi/Diploma III/ Sarjana Muda",
-  "Tamat SD/Sederajat",
-  "Strata-II",
-  "Diploma I/II",
-] as const;
-export const ENUM_PEKERJAAN = [
-  "Petani",
-  "Buruh",
-  "Nelayan",
-  "PNS",
-  "Pedagang",
-  "SWASTA",
-  "IRT",
-  "Pelajar/Mahasiswa",
-  "Tidak Bekerja",
-  "Lainnya",
-] as const;
+export {
+  ENUM_AGAMA,
+  ENUM_HUBUNGAN_KELUARGA,
+  ENUM_JENIS_KELAMIN,
+  ENUM_PEKERJAAN,
+  ENUM_PENDIDIKAN,
+  ENUM_STATUS_KAWIN,
+};
 
 function label<T extends string>(daftar: readonly T[], v: string | null | undefined): T | null {
   const s = (v ?? "").trim();
@@ -278,7 +255,7 @@ export function barisDataWargaDariForm(input: {
     pekerjaan: kePekerjaan(kk?.pekerjaan ?? suggestion?.pekerjaan),
   };
 
-  if (nik && !/^\d{16}$/.test(nik)) return { nilai: null, hilang: ["nik"] };
+  if (nik && !isValidNik(nik)) return { nilai: null, hilang: ["nik"] };
 
   const hilang = [
     ...Object.entries(kandidat)

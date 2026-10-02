@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { JENIS_KEGIATAN } from "@/lib/constants";
+import { JENIS_KEGIATAN, BLOCKED_MIME, MAX_FILE_BYTES, MAX_FOTO } from "@/lib/constants";
 
 export interface Peserta {
   nama: string;
@@ -40,8 +40,6 @@ export interface KegiatanRecord extends KegiatanFieldState {
 }
 
 const REQUIRED = ["nama", "petugas", "tgl", "kel", "lokasi"] as const;
-const MAX_FOTO = 6;
-const MAX_SIZE = 2 * 1024 * 1024;
 
 export function useKegiatan() {
   const [jenis, setJenis] = useState<string>(JENIS_KEGIATAN[0]);
@@ -96,8 +94,8 @@ export function useKegiatan() {
     // baca via ref agar panggilan cepat beruntun tidak pakai length basi
     for (const file of files) {
       const mime = file.type.toLowerCase();
-      const isSvg = mime === "image/svg+xml" || mime === "image/svg" || file.name.toLowerCase().endsWith(".svg");
-      if (fotosRef.current.length + next.length >= MAX_FOTO || file.size > MAX_SIZE || file.size <= 0 || !file.type.startsWith("image/") || isSvg) {
+      const isSvg = BLOCKED_MIME.has(mime) || file.name.toLowerCase().endsWith(".svg");
+      if (fotosRef.current.length + next.length >= MAX_FOTO || file.size > MAX_FILE_BYTES || file.size <= 0 || !file.type.startsWith("image/") || isSvg) {
         skipped++;
         continue;
       }

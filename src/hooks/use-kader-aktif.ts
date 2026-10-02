@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useAsyncData } from "@/hooks/use-async-data";
 import { listKaderUntukRekap } from "@/lib/utils.functions";
 import type { Staff } from "@/lib/staff";
 
@@ -17,25 +17,15 @@ import type { Staff } from "@/lib/staff";
  * fasilitas.
  */
 export function useKaderAktif() {
-  const [kader, setKader] = useState<Staff[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: kader, loading, error, reload } = useAsyncData(
+    () => listKaderUntukRekap({ data: { fasKesId: null } }),
+    [],
+    [] as Staff[],
+    {
+      cancel: false,
+      mapError: () => "Gagal memuat daftar kader.",
+    },
+  );
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setKader(await listKaderUntukRekap({ data: { fasKesId: null } }));
-    } catch {
-      setError("Gagal memuat daftar kader.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  return { kader, staff: kader, loading, error, refresh };
+  return { kader, staff: kader, loading, error, refresh: reload };
 }

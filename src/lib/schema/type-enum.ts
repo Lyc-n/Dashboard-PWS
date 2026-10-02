@@ -1,16 +1,16 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 
-export const statusKawinEnum = pgEnum('status_kawin', [
+export const STATUS_KAWIN_VALUES = [
   'belum kawin',
   'kawin',
   'cerai mati',
   'cerai hidup',
-])
-export const jenisKelaminEnum = pgEnum('jenis_kelamin', [
+] as const;
+export const JENIS_KELAMIN_VALUES = [
   'laki-laki',
   'perempuan',
-])
-export const hubunganKeluargaEnum = pgEnum('hubungan_keluarga', [
+] as const;
+export const HUBUNGAN_KELUARGA_VALUES = [
   'Kepala Keluarga',
   'Orang Tua',
   'Suami',
@@ -22,8 +22,8 @@ export const hubunganKeluargaEnum = pgEnum('hubungan_keluarga', [
   'Pembantu',
   'Famili lain',
   'Lainnya',
-])
-export const pendidikanEnum = pgEnum('pendidikan', [
+] as const;
+export const PENDIDIKAN_VALUES = [
   'SLTA/Sederajat',
   'Tidak/Belum Sekolah',
   'Belum Tamat SD/Sederajat',
@@ -34,9 +34,9 @@ export const pendidikanEnum = pgEnum('pendidikan', [
   'Tamat SD/Sederajat',
   'Strata-II',
   'Diploma I/II',
-])
-export const agama = pgEnum('agama', ['Budha', 'Hindu', 'Islam', 'Katholik', 'Kristen', 'Konghucu']);
-export const pekerjaan = pgEnum('pekerjaan', [
+] as const;
+export const AGAMA_VALUES = ['Budha', 'Hindu', 'Islam', 'Katholik', 'Kristen', 'Konghucu'] as const;
+export const PEKERJAAN_VALUES = [
   'Petani',
   'Buruh',
   'Nelayan',
@@ -47,7 +47,14 @@ export const pekerjaan = pgEnum('pekerjaan', [
   'Pelajar/Mahasiswa',
   'Tidak Bekerja',
   'Lainnya',
-]);
+] as const;
+
+export const statusKawinEnum = pgEnum('status_kawin', STATUS_KAWIN_VALUES)
+export const jenisKelaminEnum = pgEnum('jenis_kelamin', JENIS_KELAMIN_VALUES)
+export const hubunganKeluargaEnum = pgEnum('hubungan_keluarga', HUBUNGAN_KELUARGA_VALUES)
+export const pendidikanEnum = pgEnum('pendidikan', PENDIDIKAN_VALUES)
+export const agama = pgEnum('agama', AGAMA_VALUES);
+export const pekerjaan = pgEnum('pekerjaan', PEKERJAAN_VALUES);
 // CATATAN: enum `jamban_keluarga` dan `sarana_air_bersih` yang dulu ada di file ini
 // sudah dihapus. Keduanya tidak pernah dipakai kolom mana pun (baik di database
 // maupun di kode), dan tipe-nya juga sudah tidak ada di database. Kalau dibiarkan,

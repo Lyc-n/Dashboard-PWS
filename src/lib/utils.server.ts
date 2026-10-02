@@ -7,6 +7,7 @@ import { setCookie } from '@tanstack/react-start/server';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 import { SESSION_IDLE_MS, SESSION_PROFILE, SESSION_TTL_MS } from './constants'
+import { isValidNik } from './utils'
 import type { AuthUser } from './auth'
 import { FORM_KUNJUNGAN_RUMAH, PEMBATAS_NAMA_FIELD } from '@/features/kunjungan-rumah/lib/template-from-rows'
 import type { TemplateQuestionRow } from '@/features/kunjungan-rumah/lib/template-from-rows'
@@ -44,17 +45,23 @@ function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function isSecureCookie(): boolean {
+  // Secure cookie hanya untuk HTTPS (production). Di development (HTTP localhost) harus false.
+  return process.env.NODE_ENV === 'production';
+}
+
 export async function isValidPin(pin: number) {
-    await sleep(1000)
-    if (String(pin) !== process.env.PIN) return false // expect client terima `false` biasa, jadi alur form tak terputus oleh error mentah.
-    await db.delete(validSession) // hanya satu sesi aktif tiap akun -> login ke device lain dengan akun sama, maka device sebelumnya logout
-    setCookie('session', await createSessionHelper(), { // umur cookie 12 jam
-        httpOnly: true,
-        secure: true,
-        path: '/',
-        maxAge: SESSION_TTL_MS / 1000,
-    })
-    return true
+  await sleep(1000)
+  if (String(pin) !== process.env.PIN) return false
+  await db.delete(validSession)
+  cacheSesi.clear()
+  setCookie('session', await createSessionHelper(), {
+    httpOnly: true,
+    secure: isSecureCookie(),
+    path: '/',
+    maxAge: SESSION_TTL_MS / 1000,
+  })
+  return true
 }
 
 async function createSessionHelper() {
@@ -80,6 +87,39 @@ async function createSessionHelper() {
 
 const EXTEND_BEFORE_MS = 5 * 60 * 1000 // hanya extend session sebelum 5 menit session habis
 
+// Satu page view memanggil `touchSession` tiga kali: `beforeLoad` route, middleware
+// `authSessionToken` tiap server fn, lalu `AuthProvider` setelah hydration. Ketiganya
+// query yang sama ke `valid_session`, dan RTT ke DB sekitar 150 ms — jadi yang mahal
+// jumlah hop-nya, bukan biaya query (mean eksekusi CTE-nya cuma 0,25 ms).
+//
+// Cache ini memangkas hop kedua dan ketiga. Aman karena `profile` dibaca dari payload
+// JWT dan `SESSION_PROFILE` konstan, bukan kolom per-user: hasil cache identik dengan
+// hasil query. Yang tetap ke DB: sesi yang mau segera di-extend, supaya sliding 1 jam
+// tidak tertunda.
+type CacheSesi = { expiresAtMs: number; diisiPukul: number }
+const cacheSesi = new Map<string, CacheSesi>()
+const CACHE_SESI_TTL_MS = 30_000 // sesi idle 1 jam, jadi 30 detik masih aman
+const CACHE_SESI_MAKS = 500 // token dari login lama tidak boleh menumpuk tanpa batas
+
+function cacheSesiAmbil(tokenHash: string): CacheSesi | null {
+    const e = cacheSesi.get(tokenHash)
+    if (!e) return null
+    if (Date.now() - e.diisiPukul > CACHE_SESI_TTL_MS) {
+        cacheSesi.delete(tokenHash)
+        return null
+    }
+    if (e.expiresAtMs - Date.now() < EXTEND_BEFORE_MS) return null // biarkan query extend jalan
+    return e
+}
+
+function cacheSesiSimpan(tokenHash: string, expiresAtMs: number) {
+    if (cacheSesi.size >= CACHE_SESI_MAKS) {
+        const palingLama = cacheSesi.keys().next().value
+        if (palingLama !== undefined) cacheSesi.delete(palingLama)
+    }
+    cacheSesi.set(tokenHash, { expiresAtMs, diisiPukul: Date.now() })
+}
+
 // session hanya 1 jam. token palsu/kedaluwarsa/sudah dihapus = logout
 export async function touchSession(sessionToken: string): Promise<{ profile: AuthUser; expiresAt: Date }> {
     try {
@@ -88,6 +128,9 @@ export async function touchSession(sessionToken: string): Promise<{ profile: Aut
         if (!profile) throw new Error('Unauthorized')
 
         const tokenHash = hashToken(sessionToken)
+        const cached = cacheSesiAmbil(tokenHash)
+        if (cached) return { profile, expiresAt: new Date(cached.expiresAtMs) }
+
         const rows = await db.execute(sql`
             WITH extend AS (
                 UPDATE valid_session
@@ -105,10 +148,13 @@ export async function touchSession(sessionToken: string): Promise<{ profile: Aut
         `)
         const exp = (rows as unknown as Array<{ exp: number | null }>)[0]?.exp
         if (!exp) {
+            cacheSesi.delete(tokenHash) // jangan biarkan token yang ditolak tetap di cache
             await db.delete(validSession).where(eq(validSession.token, tokenHash)) // buang baris kedaluwarsa saat token ditolak
             throw new Error('Unauthorized')
         }
-        return { profile, expiresAt: new Date(exp * 1000) }
+        const expiresAtMs = Number(exp) * 1000
+        cacheSesiSimpan(tokenHash, expiresAtMs)
+        return { profile, expiresAt: new Date(expiresAtMs) }
     } catch {
         throw new Error('Unauthorized')
     }
@@ -117,9 +163,11 @@ export async function touchSession(sessionToken: string): Promise<{ profile: Aut
 // logout server-side: hapus row, kosongkan cookie
 export async function destroySession(sessionToken?: string) {
     if (sessionToken) {
-        await db.delete(validSession).where(eq(validSession.token, hashToken(sessionToken)))
+        const tokenHash = hashToken(sessionToken)
+        cacheSesi.delete(tokenHash)
+        await db.delete(validSession).where(eq(validSession.token, tokenHash))
     }
-    setCookie('session', '', { httpOnly: true, secure: true, path: '/', maxAge: 0 })
+    setCookie('session', '', { httpOnly: true, secure: isSecureCookie(), path: '/', maxAge: 0 })
 }
 
 // [perbaikan] daftar petugas dari tabel users — expect: dropdown Petugas di form kunjungan rumah
@@ -588,7 +636,7 @@ export async function saveKunjunganRumahRecord(payload: unknown) {
     // tidak terbaca petugas.
     const petugas = await pastikanPetugasValid(head.petugasId)
     if (!head.tanggal) throw new Error("Tanggal kunjungan wajib diisi")
-    if (!/^\d{16}$/.test(head.wargaNik)) {
+    if (!isValidNik(head.wargaNik)) {
         throw new Error("NIK sasaran utama wajib 16 digit.")
     }
 
@@ -635,7 +683,7 @@ export async function updateKunjunganRumahRecord(id: string, payload: unknown) {
         // Sama seperti saat menyimpan: warga sasaran ditulis dulu kalau belum
         // terdaftar, supaya `surveys.wargaNik` tidak menggagalkan update.
         const petugas = await pastikanPetugasValid(head.petugasId)
-        if (!/^\d{16}$/.test(head.wargaNik)) {
+        if (!isValidNik(head.wargaNik)) {
             throw new Error("NIK sasaran utama wajib 16 digit.")
         }
         const barisWarga = await barisWargaDariPayload(clean)
@@ -858,7 +906,7 @@ export async function querySasaranListPaged(p: QuerySasaranParams): Promise<{ ro
         tgl_lahir: String(r.tgl_lahir ?? ""),
         jenis_kelamin: String(r.jenis_kelamin ?? ""),
     }))
-    const total = rowsOut.length ? Number((rows[0] as { total?: unknown })?.total ?? rowsOut.length) : rowsOut.length
+    const total = rowsOut.length ? Number((rows[0] as { total?: unknown }).total ?? rowsOut.length) : rowsOut.length
     return { rows: rowsOut, total }
 }
 
@@ -963,30 +1011,49 @@ export async function querySurveyStatsByNik(): Promise<Array<{ nik: string; tota
     return rows as unknown as Array<{ nik: string; total: number; terakhir: string | null }>
 }
 
+/**
+ * Kunjungan rumah beserta nama warga dan nama petugasnya, untuk dashboard dan laporan.
+ *
+ * JOIN, bukan tiga query lalu dicocokkan di JS. Versi lama membaca SELURUH
+ * `data_warga` dan SELURUH `users` tanpa `.limit()`, lalu memfilter/memetakan
+ * di memori — jadi saat `data_warga` terisi banyak warga (form Kunjungan Rumah
+ * menyimpan warga ke sana), satu halaman laporan menarik seluruh tabel cuma untuk
+ * menampilkan 50–500 baris. Index yang dipakai: `surveys_tanggal_idx` untuk
+ * `ORDER BY ... DESC LIMIT`, `data_warga_pkey` untuk lookup NIK per baris.
+ *
+ * `tanggal` dikirim lewat `to_char` supaya tipenya string `YYYY-MM-DD`. Kolomnya
+ * bertipe `date`, dan driver postgres mengembalikan objek Date untuk tipe itu,
+ * sedangkan pemanggil (`SurveyRow`) dan pembanding rentang tanggal di UI
+ * (`laporan.tsx`: `r.tanggal >= dari`) memperlakukan string — tanpa `to_char`,
+ * perbandingan string itu diam-diam jadi tidak berlaku.
+ */
 export async function querySurveysWithWarga(limit = 500) {
-    const [surveyList, wargaList, staff] = await Promise.all([
-        db.query.surveys.findMany({ orderBy: (t, cols) => [cols.desc(t.tanggal)], limit }),
-        db.query.dataWargaTable.findMany({ columns: { nik: true, nama_art: true, kelurahan: true } }),
-        // Petugas ada di `users`, bukan tabel `surveyor` yang sudah dihapus.
-        db.query.users.findMany({ columns: { id: true, nama: true } }),
-    ])
-    const wargaByNik = new Map(wargaList.map((w) => [w.nik, w]))
-    const staffById = new Map(staff.map((s) => [s.id, s.nama]))
-    // Submission kegiatan punya `wargaNik` NULL (form kegiatan tidak
-    // mewajibkan warga), dan baris seperti itu tidak punya apa pun untuk
-    // ditampilkan di laporan warga. Difilter di sini, bukan dipetakan jadi
-    // baris kosong, supaya `SurveyRow.nik` tetap non-null seperti di UI.
-    return surveyList.flatMap((s) => {
-        if (s.wargaNik === null) return []
-        const warga = wargaByNik.get(s.wargaNik)
-        return [{
-            id: s.id,
-            tanggal: s.tanggal,
-            nik: s.wargaNik,
-            nama: warga?.nama_art ?? s.wargaNik,
-            kelurahan: warga?.kelurahan ?? "—",
-            petugas: staffById.get(s.petugasId) ?? "—",
-        }]
-    })
+    // Submission kegiatan punya `wargaNik` NULL (form kegiatan tidak mewajibkan
+    // warga), dan baris seperti itu tidak punya apa pun untuk ditampilkan di
+    // laporan warga. Difilter di SQL, bukan dipetakan jadi baris kosong, supaya
+    // `SurveyRow.nik` tetap non-null seperti di UI.
+    const rows = await db.execute(sql`
+        SELECT
+            s.id                                   AS "id",
+            to_char(s."tanggal", 'YYYY-MM-DD')     AS "tanggal",
+            s."wargaNik"                           AS "nik",
+            COALESCE(w."nama_art", s."wargaNik")   AS "nama",
+            COALESCE(w."kelurahan", '—')           AS "kelurahan",
+            COALESCE(u."nama", '—')                AS "petugas"
+        FROM surveys s
+        LEFT JOIN data_warga w ON w.nik = s."wargaNik"
+        LEFT JOIN users u ON u.id = s."petugasId"
+        WHERE s."wargaNik" IS NOT NULL
+        ORDER BY s."tanggal" DESC
+        LIMIT ${limit}
+    `)
+    return rows as unknown as Array<{
+        id: string
+        tanggal: string
+        nik: string
+        nama: string
+        kelurahan: string
+        petugas: string
+    }>
 }
 

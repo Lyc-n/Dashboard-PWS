@@ -30,8 +30,8 @@ describe("uploadDataUrl (mocked fetch)", () => {
     expect(url).toContain("/storage/v1/object/public/foto/kunjungan-rumah/");
     expect(url).not.toContain(FAKE_KEY);
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(init?.method).toBe("POST");
-    expect((init?.headers as Record<string, string>)["Content-Type"]).toBe("image/jpeg");
+    expect(init.method).toBe("POST");
+    expect((init.headers as Record<string, string>)["Content-Type"]).toBe("image/jpeg");
   });
 
   it("HTTP error JSON → detail Supabase masuk pesan error", async () => {

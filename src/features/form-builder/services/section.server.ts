@@ -1,213 +1,43 @@
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db.server'
-import { formSections, formVersions } from '@/lib/schema/schema'
-import { validasiParentSection  } from './validasi'
-import type {HasilValidasi} from './validasi';
-import { KesalahanValidasi, assertVersiBisaDiubah } from './form-version.server'
-import { catatAudit } from './audit.server'
+import { formFieldRules, formFields, formSections, formVersions } from '@/lib/schema/schema'
+import { KesalahanValidasi } from './form-version.server'
 
-/**
- * Integritas section terhadap form versi.
- *
- * `form_sections.parentId` hanya FK ke `form_sections.id`, jadi database
- * menerima section yang parent-nya berasal dari versi form lain. Aturan ini
- * divalidasi di backend sesuai keputusan proyek; composite FK untuk parent tidak
- * dipakai karena butuh trigger untuk pesan error yang bisa dibaca petugas.
- */
-
-function pastikan(hasil: HasilValidasi): void {
-  if (!hasil.ok) throw new KesalahanValidasi(hasil)
-}
-
-type Db = typeof db
-
-/** Cukup untuk select; dipakai agar bisa menerima `db` maupun objek transaksi. */
-type Pemilih = { select: Db['select'] }
-
-interface BarisSeksi {
+/** Baris `form_field_rules` bertipe 'option' yang sudah dipisah dari aturan. */
+export interface OpsiDefinisiField {
   id: string
-  formVersionId: string
-  parentId: string | null
-  nama: string
-}
-
-/**
- * Rantai ancestor dari `parentId` ke root, untuk menolak parent yang membuat
- * hierarki berputar. Tanpa ini, perubahan parent bisa membuat A -> B -> A dan
- * seluruh field anak tidak pernah tampil.
- *
- * `parentId` sudah `on delete cascade`, jadi baris ancestor tidak mungkin hilang
- * di tengah operasi ini. Panjang rantai dibatasi supaya data rusak tidak
- * membuat query ini berjalan tanpa henti.
- */
-const MAX_DEPTH = 20
-
-async function ambilAncestor(
-  executor: Pemilih,
-  parentId: string,
-): Promise<string[]> {
-  const rantai: string[] = []
-  let kursor: string | null = parentId
-
-  for (let i = 0; i < MAX_DEPTH && kursor !== null; i += 1) {
-    const baris = await executor
-      .select({ parentId: formSections.parentId })
-      .from(formSections)
-      .where(eq(formSections.id, kursor))
-      .limit(1)
-
-    if (!baris[0]) break
-    rantai.push(kursor)
-    kursor = baris[0].parentId
-  }
-
-  return rantai
-}
-
-async function ambilSection(
-  executor: Pemilih,
-  sectionId: string,
-): Promise<BarisSeksi | null> {
-  const baris = await executor
-    .select({
-      id: formSections.id,
-      formVersionId: formSections.formVersionId,
-      parentId: formSections.parentId,
-      nama: formSections.nama,
-    })
-    .from(formSections)
-    .where(eq(formSections.id, sectionId))
-    .limit(1)
-  return baris[0] ?? null
-}
-
-export interface SimpanSectionInput {
-  formVersionId: string
-  nama: string
-  deskripsi?: string | null
+  fieldId: string
+  value: string | null
+  label: string | null
   urutan: number
-  aktif?: boolean
-  /** null atau tidak diisi = section root. */
-  parentId?: string | null
-  /** Diisi saat update, null saat create. */
-  sectionId?: string | null
-  actorId?: string | null
-}
-
-export async function simpanSection(input: SimpanSectionInput): Promise<string> {
-  const { formVersionId, nama, deskripsi, urutan, aktif, parentId, sectionId, actorId } = input
-
-  // Urutan validasi: versi harus bisa diubah dulu, baru soal parent. Kalau versi
-  // sudah published, petugas tidak perlu tahu juga detail masalah parent-nya.
-  await assertVersiBisaDiubah(formVersionId)
-
-  const parentIdBersih = parentId ?? null
-  let validasiParent: HasilValidasi = { ok: true }
-
-  if (parentIdBersih !== null) {
-    const parent = await ambilSection(db, parentIdBersih)
-    validasiParent = validasiParentSection({
-      formVersionId,
-      parentId: parentIdBersih,
-      sectionId: sectionId ?? null,
-      parentFormVersionId: parent ? parent.formVersionId : null,
-      ancestorIds: await ambilAncestor(db, parentIdBersih),
-    })
-    pastikan(validasiParent)
-  }
-
-  const now = new Date()
-
-  const tersimpan = await db.transaction(async (tx) => {
-    if (sectionId) {
-      const [baris] = await tx
-        .update(formSections)
-        .set({
-          nama,
-          deskripsi: deskripsi ?? null,
-          urutan,
-          aktif: aktif ?? true,
-          parentId: parentIdBersih,
-          updatedAt: now,
-        })
-        .where(eq(formSections.id, sectionId))
-        .returning({ id: formSections.id })
-
-      if (!baris) {
-        throw new KesalahanValidasi({
-          ok: false,
-          kode: 'VERSI_TIDAK_ADA',
-          pesan: 'Section tidak ditemukan.',
-        })
-      }
-      return baris.id
-    }
-
-    const baris = await tx
-      .insert(formSections)
-      .values({
-        formVersionId,
-        nama,
-        deskripsi: deskripsi ?? null,
-        urutan,
-        aktif: aktif ?? true,
-        parentId: parentIdBersih,
-      })
-      .returning({ id: formSections.id })
-
-    const baru = baris[0]
-    if (!baru) {
-      throw new KesalahanValidasi({
-        ok: false,
-        kode: 'VERSI_TIDAK_ADA',
-        pesan: 'Gagal menyimpan section.',
-      })
-    }
-    return baru.id
-  })
-
-  await catatAudit({
-    userId: actorId ?? null,
-    aksi: sectionId ? 'update' : 'create',
-    entitas: 'form_sections',
-    entitasId: tersimpan,
-    sesudah: { formVersionId, nama, urutan, parentId: parentIdBersih },
-  })
-
-  return tersimpan
+  aktif: boolean
 }
 
 /**
- * Hapus section. Section anak, field, aturan, dan jawaban ikut terhapus lewat
- * `on delete cascade` yang sudah ada di schema — jadi tidak perlu rekursi manual
- * di sini yang rawan salah dan sulit diuji.
+ * Baris `form_field_rules` bertipe 'visibility'. `sourceFieldId` boleh null
+ * kalau field sumbernya sudah dihapus, jadi editor harus menandai aturan ini
+ * sendiri, bukan menganggapnya error.
  */
-export async function hapusSection(
-  sectionId: string,
-  actorId?: string | null,
-): Promise<void> {
-  const section = await ambilSection(db, sectionId)
-  if (!section) {
-    throw new KesalahanValidasi({
-      ok: false,
-      kode: 'VERSI_TIDAK_ADA',
-      pesan: 'Section tidak ditemukan.',
-    })
-  }
-  await assertVersiBisaDiubah(section.formVersionId)
-
-  await db.delete(formSections).where(eq(formSections.id, sectionId))
-
-  await catatAudit({
-    userId: actorId ?? null,
-    aksi: 'delete',
-    entitas: 'form_sections',
-    entitasId: sectionId,
-    sebelum: { nama: section.nama, formVersionId: section.formVersionId },
-  })
+export interface AturanDefinisiField {
+  id: string
+  fieldId: string
+  sourceFieldId: string | null
+  operator: 'equals' | 'not_equals' | null
+  value: string | null
+  label: string | null
+  urutan: number
+  aktif: boolean
 }
 
-/** Versi form beserta section-nya, untuk render editor. */
+/**
+ * Versi form beserta section, field, opsi, dan aturan visibility-nya, untuk
+ * render editor.
+ *
+ * Field dan aturan diambil satu query per tabel memakai `inArray`, lalu
+ * dikelompokkan di memori. Opsi dan aturan sama-sama tabelnya
+ * (`form_field_rules`), jadi dipisah berdasarkan kolom `tipe` supaya totalnya
+ * tetap empat query dan tidak N+1 per section.
+ */
 export async function ambilDefinisiVersi(formVersionId: string) {
   const versi = await db
     .select({
@@ -242,5 +72,107 @@ export async function ambilDefinisiVersi(formVersionId: string) {
     .from(formSections)
     .where(eq(formSections.formVersionId, formVersionId))
 
-  return { ...versi[0], sections }
+  // Versi tanpa section tidak punya field, jadi query field dan aturan dilewati
+  // saja. `inArray` dengan daftar kosong justru tetap memindai tabel.
+  if (sections.length === 0) {
+    return { ...versi[0], sections: [] }
+  }
+
+  const fieldRows = await db
+    .select({
+      id: formFields.id,
+      sectionId: formFields.sectionId,
+      nama: formFields.nama,
+      label: formFields.label,
+      tipe: formFields.tipe,
+      optionSourceType: formFields.optionSourceType,
+      optionSourceKey: formFields.optionSourceKey,
+      deskripsi: formFields.deskripsi,
+      placeholder: formFields.placeholder,
+      wajib: formFields.wajib,
+      urutan: formFields.urutan,
+      jumlahKolom: formFields.jumlahKolom,
+      aktif: formFields.aktif,
+    })
+    .from(formFields)
+    .where(inArray(formFields.sectionId, sections.map((s) => s.id)))
+    .orderBy(formFields.urutan)
+
+  const fieldsBySection = new Map<string, typeof fieldRows>()
+  for (const baris of fieldRows) {
+    const list = fieldsBySection.get(baris.sectionId)
+    if (list) list.push(baris)
+    else fieldsBySection.set(baris.sectionId, [baris])
+  }
+
+  if (fieldRows.length === 0) {
+    return {
+      ...versi[0],
+      sections: sections.map((section) => ({ ...section, fields: [] })),
+    }
+  }
+
+  const ruleRows = await db
+    .select({
+      id: formFieldRules.id,
+      fieldId: formFieldRules.fieldId,
+      tipe: formFieldRules.tipe,
+      value: formFieldRules.value,
+      label: formFieldRules.label,
+      sourceFieldId: formFieldRules.sourceFieldId,
+      operator: formFieldRules.operator,
+      urutan: formFieldRules.urutan,
+      aktif: formFieldRules.aktif,
+    })
+    .from(formFieldRules)
+    .where(inArray(formFieldRules.fieldId, fieldRows.map((f) => f.id)))
+    .orderBy(formFieldRules.urutan)
+
+  const opsiByField = new Map<string, OpsiDefinisiField[]>()
+  const aturanByField = new Map<string, AturanDefinisiField[]>()
+
+  for (const rule of ruleRows) {
+    if (rule.tipe === 'option') {
+      const list = opsiByField.get(rule.fieldId)
+      const opsi: OpsiDefinisiField = {
+        id: rule.id,
+        fieldId: rule.fieldId,
+        value: rule.value,
+        label: rule.label,
+        urutan: rule.urutan,
+        aktif: rule.aktif,
+      }
+      if (list) list.push(opsi)
+      else opsiByField.set(rule.fieldId, [opsi])
+      continue
+    }
+
+    // `formFieldRuleType` hanya punya dua nilai, jadi selain 'option' pasti
+    // 'visibility'; tidak perlu guard tipe ketiga.
+    const list = aturanByField.get(rule.fieldId)
+    const aturan: AturanDefinisiField = {
+      id: rule.id,
+      fieldId: rule.fieldId,
+      sourceFieldId: rule.sourceFieldId,
+      operator: rule.operator,
+      value: rule.value,
+      label: rule.label,
+      urutan: rule.urutan,
+      aktif: rule.aktif,
+    }
+    if (list) list.push(aturan)
+    else aturanByField.set(rule.fieldId, [aturan])
+  }
+
+  return {
+    ...versi[0],
+    sections: sections.map((section) => ({
+      ...section,
+      fields: (fieldsBySection.get(section.id) ?? []).map((field) => ({
+        ...field,
+        opsi: opsiByField.get(field.id) ?? [],
+        aturan: aturanByField.get(field.id) ?? [],
+      })),
+    })),
+  }
 }

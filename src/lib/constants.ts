@@ -45,3 +45,9 @@ export const SESSION_PROFILE = {
   name: "A. Jubaidi",
   role: "Admin",
 } as const;
+
+export const PAGE_SIZE = 10;
+
+export const MAX_FOTO = 6;
+export const MAX_FILE_BYTES = 2 * 1024 * 1024;
+export const BLOCKED_MIME = new Set(["image/svg+xml", "image/svg"]);

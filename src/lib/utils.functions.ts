@@ -21,7 +21,6 @@ import {
 } from "./utils.server";
 import type { BarisWargaGabungan, RiwayatSasaran } from "./utils.server";
 import {
-    hapusKegiatan,
     listKegiatan as listKegiatanV2,
     simpanKegiatan,
 } from "@/features/survey/services/kegiatan.server";
@@ -33,6 +32,26 @@ import {
     simpanPengguna,
     setPenggunaAktif,
 } from "./user-registry.server";
+import {
+    buatFormBaru,
+    daftarVersiForm,
+    hapusForm,
+    listFormBaru,
+} from "@/features/form-builder/services/form.server";
+import { ambilDefinisiVersi } from "@/features/form-builder/services/section.server";
+import { buildFormVersion } from "@/features/form-builder/services/build.server";
+import type { BuildFormVersionInput, BuildFormVersionResult } from "@/features/kelola/components/builder/types";
+import {
+    buatDraftBerikutnya,
+    terbitkanVersiForm,
+} from "@/features/form-builder/services/form-version.server";
+import {
+    ambilFormulirUntukIsi,
+    daftarFormulirTerisi,
+    simpanFormulir as simpanFormulirRuntime,
+} from "@/features/survey/services/form-runtime.server";
+import type { SimpanFormulirInput } from "@/features/survey/services/form-runtime.server";
+import { SEMUA_TIPE_FIELD, TIPE_BUTUH_OPSI } from "@/features/form-builder/services/validasi";
 
 
 /* ALUR LOGIN
@@ -41,17 +60,6 @@ import {
 3. kalo gk ada kredensial redirect ke pin
 4. pin valid redirect ke /laporan
 5. update expireTime sessionToken kalo akses /laporan
-*/
-
-
-/* TODO 
-1. bikin server function buat load semua data survey [X]
-2. bikin login function
-3. ngambil session token yang udah ada di cookie [X]
-4. cek session token ke db [X]
-5. if token valid, update expire time
-6. kalo pin valid, kasih akses form [X]
-7. crosscheck sesionToken waktu form submmision dengan valid session di db (authMiddleware) 
 */
 
 // ganti method GET → POST — expect: login tak bisa dipicu lewat link/GET
@@ -197,7 +205,7 @@ export const getSasaranDetail = createServerFn({ method: "GET" })
             // — pencariannya per NIK (bukan scan daftar penuh seperti sebelumnya).
             const found = warga
             if (!found) return { warga: null, surveys: [] as SurveyRow[] }
-            const riwayat = await queryRiwayatKsUntukNik(found.rawId ?? data.nik)
+            const riwayat = await queryRiwayatKsUntukNik(found.rawId ? found.rawId : data.nik)
             return {
                 warga: { ...found, ...riwayat },
                 surveys: surveys.filter((s) => s.nik === found.nik || s.nik === data.nik),
@@ -309,13 +317,6 @@ export const saveKegiatan = createServerFn({ method: "POST" })
     .validator((data: { record: Record<string, unknown> }) => data)
     .handler(async ({ data }) => await simpanKegiatan(data.record))
 
-export const removeKegiatan = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: { id: string }) => data)
-    .handler(async ({ data }) => {
-        await hapusKegiatan(data.id)
-    })
-
 // ---- registry pengguna (pengganti master admin /kelola) ----
 // Penulisan hanya bisa dari /kelola, yang route-nya sudah dilindungi requireAdmin.
 //
@@ -354,3 +355,107 @@ export const listKaderUntukRekap = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
     .validator((data: { fasKesId?: number | null }) => data)
     .handler(async ({ data }) => await listKaderAktif(data.fasKesId ?? null));
+
+// ---- form builder (tab /kelola) ----
+// Lapisan server function untuk editor form. Semua bentuk datanya milik
+// services/, validator di sini hanya meneruskan supaya tidak ada bentuk kedua
+// yang bisa berbeda dari yang dipakai validasi backend.
+//
+// `actorId` selalu null: login aplikasi memakai satu PIN global dan tidak ada
+// pemetaan session -> `users.id` (lihat catatan autentikasi di
+// src/lib/user-registry.server.ts), jadi petugas tidak bisa disimpulkan dari
+// sesi. Audit tetap terekam karena `audit_logs.userId` nullable.
+//
+// `KesalahanValidasi` sengaja dibiarkan terlempar apa adanya supaya petugas
+// melihat `pesan` yang sudah ditulis services, bukan pesan generik.
+
+export const listFormBuilder = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .handler(async () => await listFormBaru());
+
+export const ambilEditorForm = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .validator((data: { formVersionId: string }) => data)
+    .handler(async ({ data }) => await ambilDefinisiVersi(data.formVersionId));
+
+export const daftarVersiBuilder = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .validator((data: { formId: number }) => data)
+    .handler(async ({ data }) => await daftarVersiForm(data.formId));
+
+/** Daftar tipe field untuk editor. Satu-satunya sumbernya `SEMUA_TIPE_FIELD` dan
+ *  `TIPE_BUTUH_OPSI` di services/validasi.ts — backend yang menolak field tanpa
+ *  opsi, jadi UI tidak boleh menyimpan salinannya sendiri karena cepat berbeda.
+ *  Enum `form_field_type` tidak dibaca langsung: mengimpornya menarik drizzle
+ *  pg-core ke bundle klien. */
+export const daftarJenisField = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .handler(async () => ({ semua: [...SEMUA_TIPE_FIELD], butuhOpsi: [...TIPE_BUTUH_OPSI] }));
+
+export const buatFormBuilder = createServerFn({ method: "POST" })
+    .middleware([authSessionToken])
+    .validator((data: { nama: string; deskripsi?: string }) => data)
+    .handler(async ({ data }) => await buatFormBaru({ nama: data.nama, deskripsi: data.deskripsi, actorId: null }));
+
+/** Versi published dibekukan, jadi perubahan struktur harus punya draft baru.
+ *  `dariVersiId` hanya dipakai service untuk memastikan versi asal benar milik
+ *  form ini; tidak diisi berarti pemanggil memang meminta versi berikutnya. */
+export const buatDraftBuilder = createServerFn({ method: "POST" })
+    .middleware([authSessionToken])
+    .validator((data: { formId: number; dariVersiId?: string }) => data)
+    .handler(async ({ data }) => await buatDraftBerikutnya(data.formId, { dariVersiId: data.dariVersiId }));
+
+export const terbitkanVersiBuilder = createServerFn({ method: "POST" })
+    .middleware([authSessionToken])
+    .validator((data: { formVersionId: string }) => data)
+    .handler(async ({ data }) => await terbitkanVersiForm(data.formVersionId, { actorId: null }));
+
+export const hapusFormBuilder = createServerFn({ method: "POST" })
+    .middleware([authSessionToken])
+    .validator((data: { formId: number }) => data)
+    .handler(async ({ data }) => {
+        await hapusForm({ formId: data.formId, actorId: null });
+    });
+
+export const buildFormBuilder = createServerFn({ method: "POST" })
+    .middleware([authSessionToken])
+    .validator((data: BuildFormVersionInput) => data)
+    .handler(async ({ data }): Promise<BuildFormVersionResult> => {
+        return await buildFormVersion(data);
+    });
+
+// ---- runtime form generik (isi form dari definisi yang tayang) ----
+// Lawanan dari Form Builder di atas: Builder memegang definisi form (forms,
+// form_versions, form_sections, form_fields, form_field_rules) dan satu-satunya
+// yang boleh menulisnya, sedangkan runtime hanya MEMBACA definisi itu dan
+// menulis ke `surveys` + `survey_entries`. Pemisahan ini yang membuat "define +
+// publish" benar-benar terpisah dari "read published + fill": menyunting form
+// tidak mungkin mengubah apa yang sedang diisi petugas, karena yang tayang
+// adalah versi `published` yang tidak bisa diedit.
+//
+// Tidak ada nama form, `forms.kode`, atau `nama` field yang ditulis di sini.
+// Semua yang tampil dan semua yang divalidasi berasal dari database, diambil
+// lewat id atau status, supaya form baru yang dibuat admin langsung bisa diisi
+// tanpa perubahan kode.
+//
+// `actorId` selalu null, sama seperti section builder di atas: login memakai satu
+// PIN global dan tidak ada pemetaan session -> `users.id`. Pencatat yang sebenarnya
+// ada di `surveys.petugasId`, jadi isian tetap punya pelaku.
+//
+// `KesalahanValidasi` dibiarkan terlempar apa adanya supaya petugas melihat
+// `pesan` yang sudah ditulis services — termasuk daftar field wajib yang kosong
+// sekaligus, bukan satu per permintaan.
+
+export const listFormulir = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .handler(async () => await daftarFormulirTerisi());
+
+export const ambilFormulir = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .validator((data: { formVersionId: string }) => data)
+    .handler(async ({ data }) => await ambilFormulirUntukIsi(data.formVersionId));
+
+export const simpanFormulir = createServerFn({ method: "POST" })
+    .middleware([authSessionToken])
+    .validator((data: Omit<SimpanFormulirInput, "actorId">) => data)
+    .handler(async ({ data }) => await simpanFormulirRuntime({ ...data, actorId: null }));

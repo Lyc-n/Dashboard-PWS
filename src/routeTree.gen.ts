@@ -10,12 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as FormRouteImport } from './routes/form'
 import { Route as KegiatanRouteImport } from './routes/kegiatan'
 import { Route as KelolaRouteImport } from './routes/kelola'
 import { Route as KunjunganRumahRouteImport } from './routes/kunjungan-rumah'
 import { Route as LaporanRouteImport } from './routes/laporan'
 import { Route as PinRouteImport } from './routes/pin'
 import { Route as SasaranRouteImport } from './routes/sasaran'
+import { Route as IsiFormVersionIdRouteImport } from './routes/isi.$formVersionId'
 import { Route as KunjunganRumahIdRouteImport } from './routes/kunjungan-rumah.$id'
 import { Route as SasaranIndexRouteImport } from './routes/sasaran.index'
 import { Route as SasaranIdRouteImport } from './routes/sasaran.$id'
@@ -23,6 +25,11 @@ import { Route as SasaranIdRouteImport } from './routes/sasaran.$id'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FormRoute = FormRouteImport.update({
+  id: '/form',
+  path: '/form',
   getParentRoute: () => rootRouteImport,
 } as any)
 const KegiatanRoute = KegiatanRouteImport.update({
@@ -55,6 +62,11 @@ const SasaranRoute = SasaranRouteImport.update({
   path: '/sasaran',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IsiFormVersionIdRoute = IsiFormVersionIdRouteImport.update({
+  id: '/isi/$formVersionId',
+  path: '/isi/$formVersionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const KunjunganRumahIdRoute = KunjunganRumahIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -73,23 +85,27 @@ const SasaranIdRoute = SasaranIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/form': typeof FormRoute
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
   '/kunjungan-rumah': typeof KunjunganRumahRouteWithChildren
   '/laporan': typeof LaporanRoute
   '/pin': typeof PinRoute
   '/sasaran': typeof SasaranRouteWithChildren
+  '/isi/$formVersionId': typeof IsiFormVersionIdRoute
   '/kunjungan-rumah/$id': typeof KunjunganRumahIdRoute
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran/': typeof SasaranIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/form': typeof FormRoute
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
   '/kunjungan-rumah': typeof KunjunganRumahRouteWithChildren
   '/laporan': typeof LaporanRoute
   '/pin': typeof PinRoute
+  '/isi/$formVersionId': typeof IsiFormVersionIdRoute
   '/kunjungan-rumah/$id': typeof KunjunganRumahIdRoute
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran': typeof SasaranIndexRoute
@@ -97,12 +113,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/form': typeof FormRoute
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
   '/kunjungan-rumah': typeof KunjunganRumahRouteWithChildren
   '/laporan': typeof LaporanRoute
   '/pin': typeof PinRoute
   '/sasaran': typeof SasaranRouteWithChildren
+  '/isi/$formVersionId': typeof IsiFormVersionIdRoute
   '/kunjungan-rumah/$id': typeof KunjunganRumahIdRoute
   '/sasaran/$id': typeof SasaranIdRoute
   '/sasaran/': typeof SasaranIndexRoute
@@ -111,35 +129,41 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/form'
     | '/kegiatan'
     | '/kelola'
     | '/kunjungan-rumah'
     | '/laporan'
     | '/pin'
     | '/sasaran'
+    | '/isi/$formVersionId'
     | '/kunjungan-rumah/$id'
     | '/sasaran/$id'
     | '/sasaran/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/form'
     | '/kegiatan'
     | '/kelola'
     | '/kunjungan-rumah'
     | '/laporan'
     | '/pin'
+    | '/isi/$formVersionId'
     | '/kunjungan-rumah/$id'
     | '/sasaran/$id'
     | '/sasaran'
   id:
     | '__root__'
     | '/'
+    | '/form'
     | '/kegiatan'
     | '/kelola'
     | '/kunjungan-rumah'
     | '/laporan'
     | '/pin'
     | '/sasaran'
+    | '/isi/$formVersionId'
     | '/kunjungan-rumah/$id'
     | '/sasaran/$id'
     | '/sasaran/'
@@ -147,12 +171,14 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  FormRoute: typeof FormRoute
   KegiatanRoute: typeof KegiatanRoute
   KelolaRoute: typeof KelolaRoute
   KunjunganRumahRoute: typeof KunjunganRumahRouteWithChildren
   LaporanRoute: typeof LaporanRoute
   PinRoute: typeof PinRoute
   SasaranRoute: typeof SasaranRouteWithChildren
+  IsiFormVersionIdRoute: typeof IsiFormVersionIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -162,6 +188,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/form': {
+      id: '/form'
+      path: '/form'
+      fullPath: '/form'
+      preLoaderRoute: typeof FormRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/kegiatan': {
@@ -204,6 +237,13 @@ declare module '@tanstack/react-router' {
       path: '/sasaran'
       fullPath: '/sasaran'
       preLoaderRoute: typeof SasaranRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/isi/$formVersionId': {
+      id: '/isi/$formVersionId'
+      path: '/isi/$formVersionId'
+      fullPath: '/isi/$formVersionId'
+      preLoaderRoute: typeof IsiFormVersionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/kunjungan-rumah/$id': {
@@ -257,12 +297,14 @@ const SasaranRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  FormRoute: FormRoute,
   KegiatanRoute: KegiatanRoute,
   KelolaRoute: KelolaRoute,
   KunjunganRumahRoute: KunjunganRumahRouteWithChildren,
   LaporanRoute: LaporanRoute,
   PinRoute: PinRoute,
   SasaranRoute: SasaranRouteWithChildren,
+  IsiFormVersionIdRoute: IsiFormVersionIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

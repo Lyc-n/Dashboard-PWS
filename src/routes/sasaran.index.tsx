@@ -1,14 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useAsyncData } from "@/hooks/use-async-data";
 import { getSasaranList } from "@/lib/utils.functions";
+import type { SasaranListRow } from "@/lib/utils.functions";
 import { requireAuth } from "@/lib/auth";
-import { KELS } from "@/lib/constants";
+import { KELS, PAGE_SIZE } from "@/lib/constants";
 import { downloadCsv, fmtDate } from "@/lib/utils";
 import { DataTable, FilterCard } from "@/components/organisms";
 import { PageHeader, SectionCard, Toolbar } from "@/components/molecules";
 import { Button, Input, Select, StatusBadge } from "@/components/atoms";
 
-const PAGE_SIZE = 10;
 const DEBOUNCE_MS = 500;
 
 function opsiSearch(search: Record<string, unknown>): {
@@ -24,27 +25,19 @@ function opsiSearch(search: Record<string, unknown>): {
   return { q, status, kel, page };
 }
 
-const SEARCH_DEFAULT = { q: "", status: "all", kel: "all", page: 1 };
-
 export const Route = createFileRoute("/sasaran/")({
   beforeLoad: requireAuth,
   validateSearch: (search: Record<string, unknown>) => opsiSearch(search),
-  loaderDeps: ({ search }) => ({ ...SEARCH_DEFAULT, ...search }),
-  loader: async ({ deps }) => {
-    return await getSasaranList({ data: { q: deps.q, status: deps.status, kel: deps.kel, page: deps.page } });
-  },
-  pendingComponent: () => <p className="p-4 text-sm text-muted">Memuat data sasaran…</p>,
   component: Sasaran,
 })
 
 function Sasaran() {
-  const data = Route.useLoaderData();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
 
-  // Filter di server: ganti URL → loader jalankan ulang. `q` (dan page) dibawa
-  // sebagai search param supaya halaman hasil filter bisa dibagikan/di-refresh.
-  // Ganti filter apa pun otomatis kembali ke halaman 1.
+  // Filter di URL: `q` (dan page) dibawa sebagai search param supaya halaman
+  // hasil filter bisa dibagikan/di-refresh. Ganti filter apa pun otomatis
+  // kembali ke halaman 1.
   const q = search.q ?? "";
   const status = search.status ?? "all";
   const kel = search.kel ?? "all";
@@ -72,6 +65,22 @@ function Sasaran() {
     setFilter({ q: "", status: "all", kel: "all", page: 1 });
   };
 
+  // Fetch hanya di sini → ganti filter me-reload tabel, header + filter card
+  // tetap di tempat tanpa hilang. URL search param tetap kebenaran tunggal.
+  const { data, loading, error } = useAsyncData(
+    () => getSasaranList({ data: { q, status, kel, page: pageIn } }),
+    [q, status, kel, pageIn],
+    { rows: [] as SasaranListRow[], total: 0 },
+    {
+      mapError: () => "Gagal memuat data. Coba lagi.",
+      onSuccess: (res) => {
+        const pageTerakhir = Math.max(1, Math.ceil(res.total / PAGE_SIZE));
+        if (pageIn > pageTerakhir) {
+          setFilter({ page: pageTerakhir });
+        }
+      },
+    },
+  );
   const rows = data.rows;
   const total = data.total;
 
@@ -144,7 +153,15 @@ function Sasaran() {
           </Toolbar>
         }
       >
-        {rows.length === 0 ? (
+        {error ? (
+          <p className="px-1 py-6 text-center text-sm text-danger">
+            {error}
+          </p>
+        ) : loading ? (
+          <p className="px-1 py-6 text-center text-sm text-muted">
+            Memuat data sasaran…
+          </p>
+        ) : rows.length === 0 ? (
           <p className="px-1 py-6 text-center text-sm text-muted">
             Tidak ada sasaran di database untuk filter ini.
           </p>

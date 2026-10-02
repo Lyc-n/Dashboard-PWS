@@ -105,3 +105,16 @@ export function downloadCsv(filename: string, head: string[], rows: (string | nu
   const content = "\uFEFF" + [head, ...rows].map((r) => r.map(esc).join(",")).join("\n");
   triggerDownload(filename, new Blob([content], { type: "text/csv;charset=utf-8" }));
 }
+
+export function isValidNik(nik: string): boolean {
+  return /^\d{16}$/.test(nik);
+}
+
+export function pesanError(err: unknown, cadangan: string): string {
+  if (typeof err === "object" && err !== null) {
+    const pesan = (err as { pesan?: unknown }).pesan;
+    if (typeof pesan === "string" && pesan.trim() !== "") return pesan;
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return cadangan;
+}

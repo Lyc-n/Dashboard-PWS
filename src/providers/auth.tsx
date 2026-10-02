@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { getSessionToken, logoutSession } from "@/lib/utils.functions";
+import { useMatches } from "@tanstack/react-router";
+import { logoutSession } from "@/lib/utils.functions";
 import type { AuthUser } from "@/lib/auth";
 
 interface AuthContextValue {
@@ -18,28 +19,45 @@ export function useAuth(): AuthContextValue {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  // Sesi dibaca dari router context, bukan panggilan server sendiri. Setiap route
+  // yang dilindungi `requireAuth`/`requireAdmin` sudah memvalidasi cookie httpOnly
+  // dan menaruh `user` di sana. `getSessionToken()` dari `useEffect` menambah satu
+  // round trip penuh ke `valid_session` setelah hydration, padahal hasilnya sudah ada.
+  const ctxUser = useMatches({
+    select: (matches) => {
+      // Context diwarisi ke bawah, jadi match terakhir (route yang sedang dibuka)
+      // sudah membawa `user` dari `beforeLoad` leluhurnya. `/pin` tidak memanggil
+      // `requireAuth`, jadi tidak ada `user` di sana.
+      for (let i = matches.length - 1; i >= 0; i -= 1) {
+        const user = (matches[i]!.context as { user?: AuthUser }).user
+        if (user) return user
+      }
+      return null
+    },
+  });
 
-  const refresh = useCallback(async () => {
-    try {
-      const session = await getSessionToken();
-      setUser(session.profile);
-    } catch {
-      setUser(null);
-    }
-  }, []);
-
-  // sesi dibaca dari cookie httpOnly via server; tidak ada state auth di storage.
+  // Penanda logout: router context masih menyimpan `user` lama sampai navigasi
+  // berikutnya selesai, jadi tanpa ini header masih menampilkan nama yang baru logout.
+  //
+  // Penandanya harus DIRESET begitu context berubah, kalau tidak user yang login
+  // lagi di sesi berikutnya tetap tampil sebagai `null`: `AuthProvider` lived di
+  // shell router dan tidak remount saat pindah `/pin` ke halaman terlindungi.
+  // Reset-nya lewat `useEffect` (bukan `useState` langsung) karena `ctxUser` masih
+  // objek yang sama pada render pertama setelah logout.
+  const [sudahKeluar, setSudahKeluar] = useState(false);
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    setSudahKeluar(false);
+  }, [ctxUser]);
 
   const logout = useCallback(async () => {
     await logoutSession();
-    setUser(null);
+    setSudahKeluar(true);
   }, []);
 
-  const value = useMemo(() => ({ user, logout }), [user, logout]);
+  const value = useMemo(
+    () => ({ user: sudahKeluar ? null : ctxUser, logout }),
+    [ctxUser, sudahKeluar, logout],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

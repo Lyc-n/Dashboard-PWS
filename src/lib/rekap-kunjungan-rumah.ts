@@ -35,6 +35,34 @@ export interface RekapAuto {
   tindakLaporNakes: number;
 }
 
+const REKAP_AUTO_GETTERS = {
+  keluarga: (auto: RekapAuto) => auto.keluarga,
+  sasaranIbuHamil: (auto: RekapAuto) => auto.sasaran.ibuHamil,
+  sasaranBersalinNifas: (auto: RekapAuto) => auto.sasaran.bersalinNifas,
+  sasaranBayiApras: (auto: RekapAuto) => auto.sasaran.bayiApras,
+  sasaranSekolahRemaja: (auto: RekapAuto) => auto.sasaran.sekolahRemaja,
+  sasaranProduktif: (auto: RekapAuto) => auto.sasaran.produktif,
+  sasaranLansia: (auto: RekapAuto) => auto.sasaran.lansia,
+  masalahIbuTidakAkses: (auto: RekapAuto) => auto.masalahIbuTidakAkses,
+  masalahIbuTandaBahaya: (auto: RekapAuto) => auto.masalahIbuTandaBahaya,
+  masalahDewasaTidakAdaPelayanan: (auto: RekapAuto) => auto.masalahDewasaTidakAdaPelayanan,
+  masalahDewasaBergejalaTbc: (auto: RekapAuto) => auto.masalahDewasaBergejalaTbc,
+  masalahDewasaTidakMinumObat: (auto: RekapAuto) => auto.masalahDewasaTidakMinumObat,
+  tindakEdukasi: (auto: RekapAuto) => auto.tindakEdukasi,
+  tindakLaporNakes: (auto: RekapAuto) => auto.tindakLaporNakes,
+} as const;
+
+export type RekapNumericField = keyof typeof REKAP_AUTO_GETTERS;
+
+export type RekapField = RekapNumericField | "paraf";
+
+export const NUMBER_FIELDS: RekapField[] = Object.keys(REKAP_AUTO_GETTERS) as RekapField[];
+
+export function autoValueOf(auto: RekapAuto, field: RekapField): number {
+  if (field === "paraf") return 0;
+  return REKAP_AUTO_GETTERS[field](auto);
+}
+
 export interface RekapRow {
   minggu: number;
   auto: RekapAuto;

@@ -103,7 +103,7 @@ export const forms = pgTable("forms", {
 
 export const formVersions = pgTable("form_versions", {
   id: uuid().primaryKey().defaultRandom(),
-  formId: smallint().notNull().references(() => forms.id),
+  formId: smallint().notNull().references(() => forms.id, { onDelete: "cascade" }),
   version: integer().notNull(),
   status: varchar({ length: 20 }).notNull().default('draft'),
   publishedAt: timestamp(),
@@ -263,7 +263,6 @@ export const surveyEntries = pgTable('survey_entries', {
     surveyId: uuid().notNull().references(() => surveys.id, { onDelete: "cascade", }), // penanda terhubung dengan survey yang mana
     // CATATAN: FK ke form_fields hanya memastikan field-nya ADA, bukan bahwa field itu
     // milik formVersionId milik survey. Aturan itu divalidasi di backend sebelum insert
-    // (src/features/survey/services/entries.server.ts -> assertFieldMilikVersiSurvei).
     fieldId: uuid().notNull().references(() => formFields.id), // penanda terhubung dengan question apa
     value: jsonb(),
     createdAt: timestamp().defaultNow().notNull(),

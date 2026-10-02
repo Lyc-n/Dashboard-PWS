@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   validasiAturanField,
   validasiEdisiVersi,
+  validasiFieldPenuh,
+  validasiNamaField,
   validasiNik,
   validasiNilaiField,
   validasiNilaiGroup,
@@ -450,5 +452,151 @@ describe('validasiNilaiOpsiTerpilih', () => {
 
   it('field tanpa opsi (teks) tidak dicek kelistanya', () => {
     expect(validasiNilaiOpsiTerpilih({ tipe: 'text', nilai: 'apa saja', opsi: [] })).toEqual({ ok: true })
+  })
+})
+
+describe('validasiNamaField', () => {
+  it('snake_case lolos', () => {
+    expect(validasiNamaField({ nama: 'tekanan_darah', label: 'Tekanan darah' })).toEqual({ ok: true })
+  })
+
+  it('nama dengan huruf kapital ditolak', () => {
+    expect(kode(validasiNamaField({ nama: 'TekananDarah', label: 'Tekanan darah' }))).toBe(
+      'NAMA_FIELD_TIDAK_VALID',
+    )
+  })
+
+  it('nama dengan spasi, strip, dan tanda baca ditolak', () => {
+    expect(kode(validasiNamaField({ nama: 'nama field', label: 'Nama' }))).toBe(
+      'NAMA_FIELD_TIDAK_VALID',
+    )
+    expect(kode(validasiNamaField({ nama: 'nama-field', label: 'Nama' }))).toBe(
+      'NAMA_FIELD_TIDAK_VALID',
+    )
+  })
+
+  it('nama lebih dari 100 karakter ditolak', () => {
+    expect(kode(validasiNamaField({ nama: 'a'.repeat(101), label: 'Nama' }))).toBe(
+      'NAMA_FIELD_TIDAK_VALID',
+    )
+    expect(validasiNamaField({ nama: 'a'.repeat(100), label: 'Nama' })).toEqual({ ok: true })
+  })
+
+  it('label kosong ditolak', () => {
+    expect(kode(validasiNamaField({ nama: 'nama', label: '   ' }))).toBe('NAMA_FIELD_TIDAK_VALID')
+  })
+
+  it('label lebih dari 255 karakter ditolak', () => {
+    expect(kode(validasiNamaField({ nama: 'nama', label: 'a'.repeat(256) }))).toBe(
+      'NAMA_FIELD_TIDAK_VALID',
+    )
+    expect(validasiNamaField({ nama: 'nama', label: 'a'.repeat(255) })).toEqual({ ok: true })
+  })
+})
+
+describe('validasiFieldPenuh', () => {
+  const teks = { nama: 'nama_warga', label: 'Nama warga', tipe: 'text' as const }
+
+  it('daftar field valid lolos', () => {
+    const hasil = validasiFieldPenuh({
+      fields: [
+        teks,
+        { nama: 'usia', label: 'Usia', tipe: 'number' },
+        { nama: 'kelompok', label: 'Kelompok', tipe: 'group', jumlahKolom: 3 },
+        { nama: 'jk', label: 'Jenis kelamin', tipe: 'radio', opsi: [{ value: 'L' }, { value: 'P' }] },
+      ],
+    })
+    expect(hasil).toEqual({ ok: true })
+  })
+
+  it('nama dobel dalam satu payload ditolak', () => {
+    const hasil = validasiFieldPenuh({
+      fields: [teks, { ...teks, label: 'Nama lain' }],
+    })
+    expect(kode(hasil)).toBe('NAMA_FIELD_BENTARAK')
+  })
+
+  it('nama dobel yang beda spasi tetap dianggap dobel', () => {
+    const hasil = validasiFieldPenuh({
+      fields: [{ ...teks, nama: 'nama_warga' }, { ...teks, nama: ' nama_warga ' }],
+    })
+    expect(kode(hasil)).toBe('NAMA_FIELD_BENTARAK')
+  })
+
+  it('nama tidak valid di salah satu field menolak seluruh daftar', () => {
+    const hasil = validasiFieldPenuh({ fields: [teks, { nama: 'Nama KTP', label: 'No KTP', tipe: 'text' }] })
+    expect(kode(hasil)).toBe('NAMA_FIELD_TIDAK_VALID')
+  })
+
+  it('group tanpa jumlah kolom ditolak', () => {
+    const hasil = validasiFieldPenuh({
+      fields: [{ nama: 'anggota', label: 'Anggota', tipe: 'group' }],
+    })
+    expect(kode(hasil)).toBe('KOLOM_GROUP_KOSONG')
+  })
+
+  it('group dengan jumlah kolom nol atau negatif ditolak', () => {
+    expect(
+      kode(
+        validasiFieldPenuh({
+          fields: [{ nama: 'anggota', label: 'Anggota', tipe: 'group', jumlahKolom: 0 }],
+        }),
+      ),
+    ).toBe('KOLOM_GROUP_KOSONG')
+    expect(
+      kode(
+        validasiFieldPenuh({
+          fields: [{ nama: 'anggota', label: 'Anggota', tipe: 'group', jumlahKolom: -2 }],
+        }),
+      ),
+    ).toBe('KOLOM_GROUP_KOSONG')
+  })
+
+  it('tipe selain group tidak boleh punya jumlah kolom', () => {
+    const hasil = validasiFieldPenuh({ fields: [{ ...teks, jumlahKolom: 2 }] })
+    expect(kode(hasil)).toBe('KOLOM_GROUP_KOSONG')
+  })
+
+  it('field butuh opsi tanpa opsi ditolak', () => {
+    const hasil = validasiFieldPenuh({
+      fields: [{ nama: 'status', label: 'Status', tipe: 'select' }],
+    })
+    expect(kode(hasil)).toBe('OPSI_FIELD_KOSONG')
+  })
+
+  it('opsi nonaktif saja tetap dianggap tanpa opsi', () => {
+    const hasil = validasiFieldPenuh({
+      fields: [
+        {
+          nama: 'status',
+          label: 'Status',
+          tipe: 'select',
+          opsi: [{ value: 'aktif', aktif: false }],
+        },
+      ],
+    })
+    expect(kode(hasil)).toBe('OPSI_FIELD_KOSONG')
+  })
+
+  it('field dengan sumber opsi dinamis boleh tanpa opsi statis', () => {
+    const hasil = validasiFieldPenuh({
+      fields: [{ nama: 'petugas', label: 'Petugas', tipe: 'select', optionSourceType: 'users' }],
+    })
+    expect(hasil).toEqual({ ok: true })
+  })
+
+  it('field ditandai hapus tidak ikut diperiksa', () => {
+    const hasil = validasiFieldPenuh({
+      fields: [teks, { nama: 'Salah Nama', label: '', tipe: 'select', hapus: true }],
+    })
+    expect(hasil).toEqual({ ok: true })
+  })
+
+  it('pesan error menyebut posisi field yang bermasalah', () => {
+    const hasil = validasiFieldPenuh({
+      fields: [teks, { nama: 'status', label: 'Status', tipe: 'select' }],
+    })
+    expect(hasil.ok).toBe(false)
+    if (!hasil.ok) expect(hasil.pesan).toContain('Field ke-2')
   })
 })

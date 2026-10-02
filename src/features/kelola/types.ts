@@ -1,6 +1,5 @@
 import type { KunjunganRumahSection } from "@/lib/kunjungan-rumah-templates";
 import type { SasaranKey } from "@/lib/kunjungan-rumah-form";
-import type { TagVariant } from "@/lib/utils";
 
 export interface FieldDlgState {
   mode: "add" | "edit";
@@ -23,7 +22,11 @@ export interface FieldDlgState {
 // `PRIOS`/`JENIS_KEGIATAN` pada `src/lib/constants.ts` dan dibaca langsung oleh
 // FormKunjunganRumahSection + SasaranForm, jadi tabel `admin_priorities`/
 // `admin_items` beserta UI-nya tidak pernah jadi sumber kebenaran.
+// "form-builder" hanya untuk form manual (`forms.kode is null`). Form bawaan punya
+// kode stabil dan tetap disunting lewat tab "form-kunjungan-rumah", supaya dua
+// editor tidak pernah berebut menulis form yang sama.
 export const TABS = [
+  { key: "form-builder", label: "Form Builder" },
   { key: "form-kunjungan-rumah", label: "Form Kunjungan Rumah" },
   { key: "staff", label: "Kader" },
 ] as const;
@@ -47,11 +50,6 @@ export const SASARAN_SECTION_OPTS: { value: KunjunganRumahSection; label: string
   { value: "sasaran:bools", label: "Kondisi / pelayanan" },
   { value: "sasaran:baha", label: "BaHa — tanda bahaya" },
 ];
-
-export function toVariant(w: string | undefined): TagVariant {
-  const v = w?.startsWith("tag-") ? w.slice(4) : w;
-  return (["odgj", "bumil", "balita", "tb", "stunt"] as const).includes(v as TagVariant) ? (v as TagVariant) : "odgj";
-}
 
 export function kindLabel(k: string): string {
   return ({ text: "Teks", number: "Angka", date: "Tanggal", select: "Pilihan", checkbox: "Checkbox" }[k] ?? k);

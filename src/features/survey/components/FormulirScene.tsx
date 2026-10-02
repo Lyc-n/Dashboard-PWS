@@ -1,0 +1,359 @@
+/**
+ * Layar isi satu versi form generik.
+ *
+ * Yang dirender HANYA yang dikirim server: nama form, versi, judul dan deskripsi
+ * section, label, placeholder, deskripsi, flag wajib, dan daftar opsi. Tidak ada
+ * nama form, `forms.kode`, atau nama field yang ditulis di file ini, jadi form
+ * baru yang diterbitkan admin langsung bisa diisi tanpa perubahan kode.
+ *
+ * Section dirender dalam urutan `urutan` yang sudah diurutkan server, dan level
+ * nesting diambil dari `depth` — rantai `parentId` tidak pernah ditelusuri di
+ * klien supaya hierarki tidak bisa dibaca dengan cara berbeda dari server.
+ *
+ * Tiap field dirender oleh `DynamicField` sesuai `tipe`-nya. Scene ini hanya
+ * menyediakan tempatnya, penanda wajib, dan jangkar untuk menggulir ke field wajib
+ * pertama yang masih kosong.
+ */
+import { useCallback } from "react";
+import { Link } from "@tanstack/react-router";
+import { AppShell, SuccessPanel } from "@/components/organisms";
+import { FillBar, FormField, PageHeader, SectionCard, Stepper, Toolbar } from "@/components/molecules";
+import type { Step } from "@/components/molecules";
+import { Button, Input, Select } from "@/components/atoms";
+import { useToast } from "@/providers/toast";
+import { nilaiKosong, useFormRuntime } from "@/hooks/use-form-runtime";
+import { DynamicField, fieldAnchorId } from "@/features/survey/components/DynamicField";
+import type { FieldRuntime, DefinisiRuntime } from "@/features/survey/services/form-runtime.server";
+import type { SasaranSuggestion } from "@/features/kunjungan-rumah/lib/warga-row";
+import { cn } from "@/lib/utils";
+
+/** Class tautan yang dipakai repo untuk aksi di dalam `SuccessPanel`. */
+const CLASS_TAUTAN =
+  "inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-[18px] py-[11px] text-[13px] font-bold text-on-accent hover:bg-accent-hover";
+
+export interface FormulirSceneProps {
+  formVersionId: string;
+  /** Definisi dari `ambilFormulir`; pemuatan dan kegagalan ditangani halamannya. */
+  definisi: DefinisiRuntime;
+}
+
+/**
+ * Tanda level section dari `depth` yang dihitung server.
+ *
+ * Baris putus-putus di kiri dipakai supaya level terbaca tanpa menulis kata
+ * "level" di depan judul. `depth` sudah pasti bilangan bulat kecil karena server
+ * menghitungnya dengan batas rantai.
+ */
+function gayaSection(depth: number): string {
+  if (depth <= 0) return "";
+  return cn("border-l-2 border-dashed border-line pl-3", depth >= 2 && "ml-2");
+}
+
+/**
+ * Satu baris field.
+ *
+ * Callback `onChange` dibuat di sini, bukan di scene, supaya identitasnya stabil
+ * selama `field.id` tidak berubah — itu yang membuat `memo` di `DynamicField`
+ * menahan render ulang isian form yang punya ratusan field.
+ */
+function BarisField({
+  field,
+  value,
+  setAnswer,
+  invalid,
+}: {
+  field: FieldRuntime;
+  value: unknown;
+  setAnswer: (fieldId: string, value: unknown) => void;
+  invalid: boolean;
+}) {
+  const onChange = useCallback((baru: unknown) => setAnswer(field.id, baru), [setAnswer, field.id]);
+  return (
+    <div id={fieldAnchorId(field.id)}>
+      <DynamicField field={field} value={value} onChange={onChange} invalid={invalid} />
+    </div>
+  );
+}
+
+/** Daftar suggestion warga; pola yang sama dengan form Kunjungan Rumah. */
+function SaranWarga({
+  rows,
+  busy,
+  onPilih,
+}: {
+  rows: SasaranSuggestion[];
+  busy: boolean;
+  onPilih: (row: SasaranSuggestion) => void;
+}) {
+  if (!busy && rows.length === 0) return null;
+  return (
+    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-line bg-surface shadow-lg">
+      {busy ? <p className="px-3 py-2 text-[11px] text-muted">Mencari data sasaran…</p> : null}
+      {rows.map((r) => (
+        <button
+          key={r.rawId}
+          type="button"
+          onClick={() => onPilih(r)}
+          className="block w-full px-3 py-2 text-left hover:bg-[var(--color-accent-light)]"
+        >
+          <span className="block text-[12px] font-semibold text-ink">{r.namaArt || r.namaKk || "—"}</span>
+          <span className="block text-[11px] text-muted">
+            {r.nik ? `NIK ${r.nik}` : "NIK belum ada"} · KK {r.namaKk || "—"}
+            {r.kelurahan ? ` · ${r.kelurahan}` : ""}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
+  const toast = useToast();
+  const {
+    form,
+    version,
+    answers,
+    setAnswer,
+    firstMissingRequiredId,
+    kosongWajib,
+    fillPercent,
+    fieldsWajib,
+    percobaanKirim,
+    petugasId,
+    setPetugasId,
+    petugasOpsi,
+    petugasLoading,
+    petugasError,
+    subjekWargaWajib,
+    wargaNik,
+    ketikWargaNik,
+    warga,
+    pilihWarga,
+    cariWarga,
+    setCariWarga,
+    saranWarga,
+    mencariWarga,
+    saranError,
+    tanggal,
+    setTanggal,
+    visibleSections,
+    submit,
+    saving,
+    error,
+    saved,
+    reset,
+  } = useFormRuntime({ formVersionId, definisi });
+
+  /** Penanda wajib hanya menyala setelah petugas pernah menekan Simpan. */
+  const kosongkan = (field: FieldRuntime) => percobaanKirim && field.wajib && nilaiKosong(answers[field.id]);
+  const petugasKurang = percobaanKirim && petugasId.trim() === "";
+  const wargaKurang = percobaanKirim && subjekWargaWajib && wargaNik.trim() === "";
+
+  const onSimpan = () => {
+    void submit().then((hasil) => {
+      if (hasil) {
+        toast("Isian form tersimpan di database.");
+        return;
+      }
+      // Gagal kirim karena ada yang belum terisi: perlihat petugas mana duluan.
+      // Ini hanya penandaan wajib di scene, BUKAN satu-satunya pemeriksaan —
+      // penolakan tetap datang dari server.
+      if (firstMissingRequiredId !== null && typeof document !== "undefined") {
+        document.getElementById(fieldAnchorId(firstMissingRequiredId))?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+    });
+  };
+
+  const jumlahField = visibleSections.reduce((n, s) => n + s.fields.length, 0);
+
+  /** Satu section dianggap selesai kalau setiap field wajibnya sudah terisi. */
+  const sectionLengkap = (section: (typeof visibleSections)[number]): boolean =>
+    section.fields.every((f) => !f.wajib || !nilaiKosong(answers[f.id]));
+
+  /**
+   * Angka langkah untuk `Stepper`: semua yang selesai sebelum bagian pertama
+   * yang belum lengkap berstatus "done", yang pertama itu "now", sisanya "todo".
+   */
+  const langkahSekarang = visibleSections.findIndex((s) => !sectionLengkap(s));
+  const metaLengkap = petugasId.trim() !== "" && !nilaiKosong(tanggal);
+  const wargaLengkap = !subjekWargaWajib || wargaNik.trim() !== "";
+  /**
+   * Langkah "Simpan" baru hijau kalau tidak ada satu pun yang tertinggal —
+   * petugas, tanggal, warga wajib, dan seluruh pertanyaan wajib.
+   */
+  const belumAdaSisa =
+    metaLengkap && wargaLengkap && langkahSekarang === -1 && kosongWajib === 0;
+
+  const steps: Step[] = [
+    ...visibleSections.map((section, i): Step => ({
+      label: section.nama,
+      state: langkahSekarang === -1 || i < langkahSekarang ? "done" : i === langkahSekarang ? "now" : "todo",
+    })),
+    { label: "Simpan", state: belumAdaSisa ? "done" : "todo" },
+  ];
+
+  return (
+    <AppShell>
+      <PageHeader
+        title={form.nama}
+        description={`Versi ${version.version} · ${visibleSections.length} bagian · ${jumlahField} pertanyaan. ${
+          form.deskripsi ||
+          "Daftar pertanyaan, opsi jawaban, dan bagiannya ditentukan Admin di Kelola, lalu versi tayang yang diisi di sini."
+        }`}
+      />
+
+      <Stepper steps={steps} />
+      <FillBar
+        label={`${fieldsWajib.length - kosongWajib} dari ${fieldsWajib.length} pertanyaan wajib terisi`}
+        pct={fillPercent}
+      />
+
+      <SectionCard
+        title="1. Data pencatatan"
+        sub="Petugas pencatat dan tanggal isian disimpan bersama isian. Petugas wajib dipilih karena sesi login memakai satu PIN global dan tidak tahu siapa yang sedang mengisi."
+        bodyClassName="grid grid-cols-2 gap-3 max-md:grid-cols-1"
+      >
+        <FormField
+          label="Petugas pencatat"
+          required
+          hint="Nama dan fasilitas ikut ke database, jadi rekap bisa memfilter petugas ini."
+          invalid={petugasKurang}
+          error="Pilih petugas pencatat."
+        >
+          <Select
+            value={petugasId}
+            onChange={(e) => setPetugasId(e.target.value)}
+            disabled={petugasLoading}
+            invalid={petugasKurang}
+          >
+            <option value="">{petugasLoading ? "Memuat daftar petugas…" : "— Pilih petugas —"}</option>
+            {petugasOpsi.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nama} — {p.fasKes}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+
+        <FormField label="Tanggal isian" required hint="Dipakai rekap harian dan bulanan.">
+          <Input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
+        </FormField>
+
+        {subjekWargaWajib ? (
+          <FormField
+            label="Warga sasaran"
+            required
+            className="md:col-span-2"
+            hint="Ketik nama, KK, atau NIK (minimal 3 huruf) lalu pilih dari Data Sasaran. NIK juga bisa diketik langsung kalau sudah diketahui; NIK yang tidak ada di Data Sasaran ditolak saat menyimpan."
+            invalid={wargaKurang}
+            error="Pilih warga dari Data Sasaran."
+          >
+            <div className="relative">
+              <Input
+                value={cariWarga}
+                onChange={(e) => setCariWarga(e.target.value)}
+                placeholder="cari nama, KK, atau NIK…"
+                autoComplete="off"
+                invalid={wargaKurang}
+              />
+              <SaranWarga rows={saranWarga} busy={mencariWarga} onPilih={pilihWarga} />
+            </div>
+            <Input
+              value={wargaNik}
+              onChange={(e) => ketikWargaNik(e.target.value)}
+              placeholder="NIK warga (16 digit)"
+              inputMode="numeric"
+              maxLength={16}
+              invalid={wargaKurang}
+              aria-label="NIK warga"
+            />
+            <span className="text-[11px] font-normal text-muted">
+              {warga
+                ? `${warga.namaArt || warga.namaKk || "Warga"} · NIK ${warga.nik} · ${warga.kelurahan ?? "kelurahan belum ada"}`
+                : "Belum ada warga yang dipilih."}
+            </span>
+          </FormField>
+        ) : null}
+        {petugasError ? <p className="mt-2 text-[11px] font-semibold text-danger">{petugasError}</p> : null}
+        {saranError ? <p className="mt-2 text-[11px] font-semibold text-danger">{saranError}</p> : null}
+      </SectionCard>
+
+      {visibleSections.map((section, index) => (
+        <SectionCard
+          key={section.id}
+          title={
+            <span>
+              {index + 2}. <span className={gayaSection(section.depth)}>{section.nama}</span>
+            </span>
+          }
+          sub={section.deskripsi}
+          bodyClassName="grid gap-3.5 sm:grid-cols-2 max-md:grid-cols-1"
+        >
+          {section.fields.map((field) => (
+            <BarisField
+              key={field.id}
+              field={field}
+              value={answers[field.id]}
+              setAnswer={setAnswer}
+              invalid={kosongkan(field)}
+            />
+          ))}
+        </SectionCard>
+      ))}
+
+      {visibleSections.length === 0 ? (
+        <SectionCard title={`${visibleSections.length + 1}. Belum ada pertanyaan`}>
+          <p className="text-[12.5px] text-muted">
+            Versi tayang ini belum punya pertanyaan aktif. Admin belum menyusunnya di Kelola.
+          </p>
+        </SectionCard>
+      ) : null}
+
+      <SectionCard
+        title={`${visibleSections.length + 2}. Simpan`}
+        actions={
+          <Toolbar className="w-full">
+            <span className="ml-auto text-xs text-muted">Simpan ke database.</span>
+            <Button variant="default" onClick={reset} disabled={saving}>
+              Reset
+            </Button>
+            <Button variant="primary" onClick={onSimpan} disabled={saving}>
+              {saving ? "Menyimpan…" : "Simpan isian"}
+            </Button>
+          </Toolbar>
+        }
+      >
+        <div className="grid gap-1.5">
+          <span className="text-xs text-muted">
+            Tanda bintang menandai pertanyaan wajib. Pemeriksaan terakhir tetap dilakukan server saat
+            menyimpan, dan pesan yang muncul berasal dari sana.
+          </span>
+          {error ? <span className="text-xs font-semibold text-danger">{error}</span> : null}
+        </div>
+      </SectionCard>
+
+      {saved ? (
+        <SuccessPanel
+          title="Isian form tersimpan."
+          message={`${saved.jumlahJawaban} jawaban tercatat di database bersama petugas pencatat dan tanggal isian. Form dengan struktur sama bisa diisi lagi kapan saja.`}
+        >
+          <Button
+            variant="primary"
+            onClick={() => {
+              reset();
+              if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          >
+            Isi formulir ini lagi
+          </Button>
+          <Link to="/form" className={CLASS_TAUTAN}>
+            Isi formulir lain
+          </Link>
+        </SuccessPanel>
+      ) : null}
+    </AppShell>
+  );
+}

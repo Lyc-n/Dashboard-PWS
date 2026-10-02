@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { getDashboardData } from "@/lib/utils.functions";
 import { fmtDate } from "@/lib/utils";
+import { PAGE_SIZE } from "@/lib/constants";
 import { requireAuth } from "@/lib/auth";
 import { AppShell, DataTable, KelurahanSection } from "@/components/organisms";
 import type { SummaryCardData } from "@/components/organisms";
@@ -14,8 +15,6 @@ export const Route = createFileRoute("/")({
   pendingComponent: () => <p className="p-4 text-sm text-muted">Memuat dashboard…</p>,
   component: Dashboard,
 })
-
-const PAGE_SIZE = 10;
 
 function Dashboard() {
   const data = Route.useLoaderData();

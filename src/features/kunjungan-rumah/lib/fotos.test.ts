@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { MAX_FOTO, fileToDataUrl, prepareFotos } from "@/features/kunjungan-rumah/lib/fotos";
+import { MAX_FOTO } from "@/lib/constants";
+import { fileToDataUrl, prepareFotos } from "@/features/kunjungan-rumah/lib/fotos";
 import type { KunjunganRumahFoto } from "@/features/kunjungan-rumah/models";
 
 function jpg(name: string, size: number): File {
