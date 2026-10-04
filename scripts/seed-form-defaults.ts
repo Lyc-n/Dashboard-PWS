@@ -34,7 +34,7 @@ import type {
   KunjunganRumahTemplateField,
 } from "@/lib/kunjungan-rumah-templates";
 import { SASARAN_KEYS } from "@/lib/kunjungan-rumah-form";
-import { namaFieldUnik } from "@/features/kunjungan-rumah/lib/template-from-rows";
+import { namaFieldUnik, FORM_KUNJUNGAN_RUMAH } from "@/features/kunjungan-rumah/lib/template-from-rows";
 import { JENIS_KEGIATAN, KODE_FORM_BAWAAN } from "@/lib/constants";
 
 /**
@@ -44,9 +44,14 @@ import { JENIS_KEGIATAN, KODE_FORM_BAWAAN } from "@/lib/constants";
  */
 export const KODE_FORM = KODE_FORM_BAWAAN;
 
+/**
+ * Nama bawaan form kunjungan rumah diambil dari satu konstanta di `src/` supaya
+ * tidak ada dua tempat yang bisa menyimpang. Nama ini hanya nilai awal —
+ * pembacaan runtime memakai `forms.kode`, bukan `forms.nama`.
+ */
 const NAMA_FORM = {
   kegiatan: "Form Kegiatan Pemberdayaan",
-  kunjunganRumah: "Form Kunjungan Rumah",
+  kunjunganRumah: FORM_KUNJUNGAN_RUMAH,
 } as const;
 
 type JenisFieldDb =

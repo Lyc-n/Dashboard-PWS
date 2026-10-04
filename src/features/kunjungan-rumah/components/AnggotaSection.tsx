@@ -8,6 +8,7 @@ import { Select } from '@/components/atoms/Select'
 import { ChipGroup } from '@/components/molecules/ChipGroup'
 import { FormField } from '@/components/molecules/FormField'
 import type { KunjunganRumahAction, KunjunganRumahState } from "@/features/kunjungan-rumah/store/kunjunganRumahReducer"
+import { normalkanNik } from "@/lib/utils"
 
 interface Props {
   state: KunjunganRumahState
@@ -98,9 +99,7 @@ export function AnggotaSection({ state, templates, dispatch }: Props) {
                               type: 'UPDATE_ANGGOTA',
                               id: m.id,
                               key: f.id,
-                              value: e.target.value
-                                .replace(/\D/g, '')
-                                .slice(0, 16),
+                              value: normalkanNik(e.target.value),
                             })
                           }
                           inputMode="numeric"

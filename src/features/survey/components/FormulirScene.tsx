@@ -13,6 +13,15 @@
  * Tiap field dirender oleh `DynamicField` sesuai `tipe`-nya. Scene ini hanya
  * menyediakan tempatnya, penanda wajib, dan jangkar untuk menggulir ke field wajib
  * pertama yang masih kosong.
+ *
+ * PETUGAS DAN TANGGAL BUKAN BAGIAN DARI FORM
+ * -----------------------------------------
+ * `surveys.petugasId` dan `surveys.tanggal` NOT NULL, jadi keduanya selalu
+ * diisi — tapi keduanya dirender sebagai baris meta di luar daftar section, bukan
+ * sebagai section. Alasannya: section di layar ini harus sama persis dengan yang
+ * disusun admin di Form Builder, dan admin tidak bisa menyunting section sistem.
+ * Petugas tidak bisa diambil dari sesi login karena sesinya satu PIN global
+ * (lihat `SESSION_PROFILE` di src/lib/constants.ts).
  */
 import { useCallback } from "react";
 import { Link } from "@tanstack/react-router";
@@ -27,9 +36,7 @@ import type { FieldRuntime, DefinisiRuntime } from "@/features/survey/services/f
 import type { SasaranSuggestion } from "@/features/kunjungan-rumah/lib/warga-row";
 import { cn } from "@/lib/utils";
 
-/** Class tautan yang dipakai repo untuk aksi di dalam `SuccessPanel`. */
-const CLASS_TAUTAN =
-  "inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-[18px] py-[11px] text-[13px] font-bold text-on-accent hover:bg-accent-hover";
+
 
 export interface FormulirSceneProps {
   formVersionId: string;
@@ -179,13 +186,11 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
    */
   const langkahSekarang = visibleSections.findIndex((s) => !sectionLengkap(s));
   const metaLengkap = petugasId.trim() !== "" && !nilaiKosong(tanggal);
-  const wargaLengkap = !subjekWargaWajib || wargaNik.trim() !== "";
   /**
    * Langkah "Simpan" baru hijau kalau tidak ada satu pun yang tertinggal —
-   * petugas, tanggal, warga wajib, dan seluruh pertanyaan wajib.
+   * petugas, tanggal, dan seluruh pertanyaan wajib.
    */
-  const belumAdaSisa =
-    metaLengkap && wargaLengkap && langkahSekarang === -1 && kosongWajib === 0;
+  const belumAdaSisa = metaLengkap && langkahSekarang === -1 && kosongWajib === 0;
 
   const steps: Step[] = [
     ...visibleSections.map((section, i): Step => ({
@@ -201,7 +206,7 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
         title={form.nama}
         description={`Versi ${version.version} · ${visibleSections.length} bagian · ${jumlahField} pertanyaan. ${
           form.deskripsi ||
-          "Daftar pertanyaan, opsi jawaban, dan bagiannya ditentukan Admin di Kelola, lalu versi tayang yang diisi di sini."
+          "Daftar pertanyaan, opsi jawaban, dan bagiannya ditentukan Admin di Kelola, lalu diisi di sini."
         }`}
       />
 
@@ -211,15 +216,23 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
         pct={fillPercent}
       />
 
-      <SectionCard
-        title="1. Data pencatatan"
-        sub="Petugas pencatat dan tanggal isian disimpan bersama isian. Petugas wajib dipilih karena sesi login memakai satu PIN global dan tidak tahu siapa yang sedang mengisi."
-        bodyClassName="grid grid-cols-2 gap-3 max-md:grid-cols-1"
-      >
+      {/*
+        Data pencatatan BUKAN section form. Section di bawahnya persis dengan yang
+        disusun admin di Form Builder, jadi blok ini sengaja tidak memakai
+        `SectionCard` dan tidak diberi nomor: kalau ikut menjadi "1. Data
+        pencatatan", petugas mengira itu bagian dari form padahal tidak bisa
+        disunting di editor.
+
+        Petugas tetap wajib diisi: `surveys.petugasId` NOT NULL dan sesinya cuma
+        satu PIN global, jadi petugas tidak bisa diambil dari user yang sedang
+        mengisi. Tanggal sudah terisi hari ini secara bawaan.
+      */}
+      <div className="mt-3 flex flex-wrap items-end gap-3 rounded-[10px] border border-line bg-surface px-3.5 py-3">
         <FormField
           label="Petugas pencatat"
           required
-          hint="Nama dan fasilitas ikut ke database, jadi rekap bisa memfilter petugas ini."
+          className="min-w-56"
+          hint="Disimpan bersama isian dan ikut ke rekap per petugas."
           invalid={petugasKurang}
           error="Pilih petugas pencatat."
         >
@@ -238,15 +251,27 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
           </Select>
         </FormField>
 
-        <FormField label="Tanggal isian" required hint="Dipakai rekap harian dan bulanan.">
+        <FormField label="Tanggal isian" required className="min-w-44" hint="Dipakai rekap harian dan bulanan.">
           <Input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
         </FormField>
 
-        {subjekWargaWajib ? (
+        <p className="max-w-64 text-[11px] font-normal text-muted">
+          Petugas dan tanggal diisi di luar form. Kalau form ini butuh data petugas atau warga sebagai
+          pertanyaan, tambahkan sendiri sebagai field di Form Builder.
+        </p>
+        {petugasError ? <p className="text-[11px] font-semibold text-danger">{petugasError}</p> : null}
+      </div>
+
+      {/*
+        Pemilih warga hanya untuk form dengan `subjekWargaWajib` true, yaitu Form
+        Kunjungan Rumah. Form dari Form Builder tidak pernah menunjuk warga per
+        submission, jadi tidak ada apa pun soal warga di sana.
+      */}
+      {subjekWargaWajib ? (
+        <div className="mt-3 rounded-[10px] border border-line bg-surface px-3.5 py-3">
           <FormField
             label="Warga sasaran"
             required
-            className="md:col-span-2"
             hint="Ketik nama, KK, atau NIK (minimal 3 huruf) lalu pilih dari Data Sasaran. NIK juga bisa diketik langsung kalau sudah diketahui; NIK yang tidak ada di Data Sasaran ditolak saat menyimpan."
             invalid={wargaKurang}
             error="Pilih warga dari Data Sasaran."
@@ -276,17 +301,16 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
                 : "Belum ada warga yang dipilih."}
             </span>
           </FormField>
-        ) : null}
-        {petugasError ? <p className="mt-2 text-[11px] font-semibold text-danger">{petugasError}</p> : null}
-        {saranError ? <p className="mt-2 text-[11px] font-semibold text-danger">{saranError}</p> : null}
-      </SectionCard>
+          {saranError ? <p className="mt-2 text-[11px] font-semibold text-danger">{saranError}</p> : null}
+        </div>
+      ) : null}
 
       {visibleSections.map((section, index) => (
         <SectionCard
           key={section.id}
           title={
             <span>
-              {index + 2}. <span className={gayaSection(section.depth)}>{section.nama}</span>
+              {index + 1}. <span className={gayaSection(section.depth)}>{section.nama}</span>
             </span>
           }
           sub={section.deskripsi}
@@ -305,15 +329,15 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
       ))}
 
       {visibleSections.length === 0 ? (
-        <SectionCard title={`${visibleSections.length + 1}. Belum ada pertanyaan`}>
+        <SectionCard title="Belum ada pertanyaan">
           <p className="text-[12.5px] text-muted">
-            Versi tayang ini belum punya pertanyaan aktif. Admin belum menyusunnya di Kelola.
+            Form ini belum punya pertanyaan aktif. Admin belum menyusunnya di Kelola.
           </p>
         </SectionCard>
       ) : null}
 
       <SectionCard
-        title={`${visibleSections.length + 2}. Simpan`}
+        title={`${visibleSections.length + 1}. Simpan`}
         actions={
           <Toolbar className="w-full">
             <span className="ml-auto text-xs text-muted">Simpan ke database.</span>
@@ -349,7 +373,7 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
           >
             Isi formulir ini lagi
           </Button>
-          <Link to="/form" className={CLASS_TAUTAN}>
+          <Link to="/form" className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-[18px] py-[11px] text-[13px] font-bold text-on-accent hover:bg-accent-hover">
             Isi formulir lain
           </Link>
         </SuccessPanel>

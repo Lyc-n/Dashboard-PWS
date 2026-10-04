@@ -274,29 +274,7 @@ export const surveyEntries = pgTable('survey_entries', {
     index("survey_entries_field_id_idx").on(t.fieldId),
 ]);
 
-// tabel untuk menangani input image
-export const surveyFiles = pgTable("survey_files", {
-    id: uuid().primaryKey().defaultRandom(),
-    surveyId: uuid().notNull().references(() => surveys.id, { onDelete: "cascade", }), // penanda terhubung dengan survey yang mana
-    // Sama seperti survey_entries: field harus milik versi form milik survey, dicek di backend.
-    fieldId: uuid().notNull().references(() => formFields.id), // penanda terhubung dengan question apa
-    // Menyimpan beberapa file ke field yang sama pada urutan berbeda. Kegiatan
-    // Pemberdayaan mengizinkan sampai 6 foto per kegiatan (lihat MAX_FOTO di
-    // src/hooks/use-kegiatan.ts), jadi (surveyId, fieldId) saja tidak cukup
-    // unik: tanpa ordinal hanya foto pertama yang bisa tersimpan.
-    ordinal: integer().notNull().default(0), // urutan lampiran pada field yang sama, mulai dari 0
-    fileUrl: text().notNull(), // simpan url, file disimpan di supabase storage
-    fileName: varchar({ length: 255 }),
-    mimeType: varchar({ length: 100 }),
-    fileSize: integer(),
-    createdAt: timestamp().defaultNow().notNull(),
-}, (t) =>
-[
-    uniqueIndex("survey_files_survey_id_field_id_ordinal").on(t.surveyId, t.fieldId, t.ordinal),
-    // Halaman detail survei selalu menarik lampiran per survey.
-    index("survey_files_survey_id_idx").on(t.surveyId),
-    check("survey_files_ordinal_check", sql`${t.ordinal} >= 0`),
-]);
+
 
 // Jejak audit untuk data warga. Sengaja dipisah dari log aplikasi: log aplikasi bisa
 // dirotasi, tabel ini tidak, dan isinya dibutuhkan untuk investigasi kebocoran NIK.

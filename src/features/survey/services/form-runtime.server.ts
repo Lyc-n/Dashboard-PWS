@@ -208,11 +208,18 @@ export interface FieldRuntime {
   opsi: OpsiRuntime[]
   /**
    * null = field memakai opsi statis. Array (bisa kosong) = opsinya dibaca dari
-   * tabel lain saat render, jadi ikut berubah bersama data sumbernya.
+   * sumber lain saat render, jadi ikut berubah bersama datanya.
    */
   opsiDinamis: OpsiDinamisRuntime[] | null
   /** Sumber opsi dinamis tidak dikenali atau hasil resolvernya kosong. */
   sumberOpsiTidakDikenali: boolean
+  /** Label sumber untuk ditampilkan di layar isi, mis. "Agama". null = opsi manual. */
+  sumberOpsiLabel: string | null
+  /**
+   * Daftar saran auto-complete. Hanya terisi untuk sumber `suggest` pada field
+   * teks, dan TIDAK membatasi jawaban: petugas boleh mengetik nilai lain.
+   */
+  saran: string[]
   aturan: AturanRuntime[]
 }
 
@@ -485,22 +492,35 @@ async function muatDefinisiRuntime(
   // `users.id` pemohon (login satu PIN global, lihat
   // src/lib/user-registry.server.ts), jadi daftar petugas yang sah tetap
   // dijaga `pastikanPetugasValid()` saat penyimpanan.
-  const cacheOpsiDinamis = new Map<string, { opsi: OpsiDinamisRuntime[]; tidakDikenali: boolean }>()
-  const opsiDinamisField = new Map<string, { opsi: OpsiDinamisRuntime[]; tidakDikenali: boolean }>()
+  const cacheOpsiDinamis = new Map<
+    string,
+    { opsi: OpsiDinamisRuntime[]; tidakDikenali: boolean; label: string | null }
+  >()
+  const opsiDinamisField = new Map<
+    string,
+    { opsi: OpsiDinamisRuntime[]; tidakDikenali: boolean; label: string | null; saran: string[] }
+  >()
 
   for (const field of fields) {
     if (!field.optionSourceType) continue
-    const kunci = kunciSumber(field.optionSourceType, field.optionSourceKey)
+    // Saran menempel pada field-nya sendiri (baris form_field_rules-nya),
+    // jadi tidak ikut cache bersama sumber.
+    const perField = field.optionSourceType === 'suggest'
+    const kunci = perField ? field.id : kunciSumber(field.optionSourceType, field.optionSourceKey)
     let hasil = cacheOpsiDinamis.get(kunci)
     if (!hasil) {
       const resolved = await resolveOpsiDinamis({
         optionSourceType: field.optionSourceType,
         optionSourceKey: field.optionSourceKey,
+        fieldId: field.id,
       })
-      hasil = { opsi: resolved.opsi, tidakDikenali: resolved.sumberTidakDikenali }
+      hasil = { opsi: resolved.opsi, tidakDikenali: resolved.sumberTidakDikenali, label: resolved.label }
       cacheOpsiDinamis.set(kunci, hasil)
     }
-    opsiDinamisField.set(field.id, hasil)
+    opsiDinamisField.set(field.id, {
+      ...hasil,
+      saran: perField ? hasil.opsi.map((o) => o.label) : [],
+    })
   }
 
   return {
@@ -539,6 +559,8 @@ async function muatDefinisiRuntime(
           opsi: opsiPerField.get(field.id) ?? [],
           opsiDinamis: dinamis ? dinamis.opsi : null,
           sumberOpsiTidakDikenali: dinamis ? dinamis.tidakDikenali : false,
+          sumberOpsiLabel: dinamis ? dinamis.label : null,
+          saran: dinamis ? dinamis.saran : [],
           aturan: aturanPerField.get(field.id) ?? [],
         }
       }),

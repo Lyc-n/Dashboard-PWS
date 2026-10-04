@@ -1,53 +1,34 @@
-import { pgEnum } from "drizzle-orm/pg-core";
+/**
+ * Definisi enum Postgres.
+ *
+ * Nilai-nilainya TIDAK ditulis di sini: array nilainya hidup di
+ * `src/lib/enum-values.ts` supaya modul yang butuh daftar nilai di sisi klien
+ * (katalog sumber opsi Form Builder, preview) tidak meng-import `pg-core`.
+ * Array di sini di-import ulang supaya import lama dari file ini tetap jalan.
+ */
+import { pgEnum } from 'drizzle-orm/pg-core';
+import {
+  AGAMA_VALUES,
+  FAS_KES_VALUES,
+  HUBUNGAN_KELUARGA_VALUES,
+  JENIS_KELAMIN_VALUES,
+  PEKERJAAN_VALUES,
+  PENDIDIKAN_VALUES,
+  ROLE_VALUES,
+  STATUS_KAWIN_VALUES,
+} from '../enum-values';
 
-export const STATUS_KAWIN_VALUES = [
-  'belum kawin',
-  'kawin',
-  'cerai mati',
-  'cerai hidup',
-] as const;
-export const JENIS_KELAMIN_VALUES = [
-  'laki-laki',
-  'perempuan',
-] as const;
-export const HUBUNGAN_KELUARGA_VALUES = [
-  'Kepala Keluarga',
-  'Orang Tua',
-  'Suami',
-  'Istri',
-  'Anak',
-  'Mertua',
-  'Menantu',
-  'Cucu',
-  'Pembantu',
-  'Famili lain',
-  'Lainnya',
-] as const;
-export const PENDIDIKAN_VALUES = [
-  'SLTA/Sederajat',
-  'Tidak/Belum Sekolah',
-  'Belum Tamat SD/Sederajat',
-  'SLTP/Sederajat',
-  'Strata III',
-  'Diploma IV/Strata I',
-  'Akademi/Diploma III/ Sarjana Muda',
-  'Tamat SD/Sederajat',
-  'Strata-II',
-  'Diploma I/II',
-] as const;
-export const AGAMA_VALUES = ['Budha', 'Hindu', 'Islam', 'Katholik', 'Kristen', 'Konghucu'] as const;
-export const PEKERJAAN_VALUES = [
-  'Petani',
-  'Buruh',
-  'Nelayan',
-  'PNS',
-  'Pedagang',
-  'SWASTA',
-  'IRT',
-  'Pelajar/Mahasiswa',
-  'Tidak Bekerja',
-  'Lainnya',
-] as const;
+export {
+  AGAMA_VALUES,
+  FAS_KES_VALUES,
+  HUBUNGAN_KELUARGA_VALUES,
+  JENIS_KELAMIN_VALUES,
+  PEKERJAAN_VALUES,
+  PENDIDIKAN_VALUES,
+  ROLE_VALUES,
+  STATUS_KAWIN_VALUES,
+};
+
 
 export const statusKawinEnum = pgEnum('status_kawin', STATUS_KAWIN_VALUES)
 export const jenisKelaminEnum = pgEnum('jenis_kelamin', JENIS_KELAMIN_VALUES)
@@ -65,17 +46,11 @@ export const pekerjaan = pgEnum('pekerjaan', PEKERJAAN_VALUES);
 // Postgres diam-diam punya composite type dengan nama yang sama, jadi
 // `create table fasilitas_kesehatan` akan gagal dengan "type already exists"
 // kalau enum-nya juga bernama `fasilitas_kesehatan`.
-export const fasKes = pgEnum('jenis_fas_kes', [
-  'Posyandu',
-  'Pustu'
-])
+export const fasKes = pgEnum('jenis_fas_kes', FAS_KES_VALUES)
 // `role` = hak akses, bukan jabatan. Hanya ada dua peran: 'admin' mengelola
 // aplikasi, 'kader' mencatat kunjungan. Rekap Kunjungan Rumah memfilter
 // pencatat lewat 'kader', dan `requireAdmin` memeriksa 'admin'.
-export const role = pgEnum('role', [
-  'admin',
-  'kader',
-])
+export const role = pgEnum('role', ROLE_VALUES)
 export const formFieldType = pgEnum("form_field_type", [
     "text",
     "textarea",

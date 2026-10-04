@@ -39,11 +39,11 @@ function SasaranDetail() {
     status === "Belum" ? {
       cls: "border-[var(--color-status-belum-border)] bg-[var(--color-status-belum-bg)] text-[var(--color-status-belum-text)]",
       title: "Belum melakukan pemeriksaan.",
-      desc: "Sasaran ini belum dikunjungi. Jadwalkan kunjungan rumah atau input lewat form kunjungan rumah.",
+      desc: "Sasaran ini belum punya isian form. Jadwalkan kunjungan rumah atau input lewat form kunjungan rumah.",
     } : {
       cls: "border-[var(--color-status-done-border)] bg-[var(--color-status-done-bg)] text-[var(--color-status-done-text)]",
       title: "Sudah diperiksa.",
-      desc: `${surveys.length}× kunjungan rumah tercatat di database.`,
+      desc: `${surveys.length}× isian form tercatat di database.`,
     };
 
   return (
@@ -89,12 +89,12 @@ function SasaranDetail() {
           />
         </SectionCard>
 
-        <SectionCard title="Ringkasan Pemeriksaan" sub="Status kunjungan rumah dari database.">
+        <SectionCard title="Ringkasan Pemeriksaan" sub="Status isian form dari database.">
           <InfoPanel
             columns={1}
             fields={[
               { label: "Status terakhir", value: <StatusBadge value={status} /> },
-              { label: "Total kunjungan rumah", value: `${surveys.length}×` },
+              { label: "Total isian form", value: `${surveys.length}×` },
               {
                 label: "Terakhir dikunjungi",
                 value: surveys[0] ? fmtDate(surveys[0].tanggal) : "—",
@@ -106,7 +106,7 @@ function SasaranDetail() {
 
       <SectionCard
         title="Catatan Kader"
-        sub="Riwayat kunjungan rumah dari database."
+        sub="Riwayat isian form dari database."
         actions={
           <Link
             to="/kegiatan"
@@ -117,7 +117,7 @@ function SasaranDetail() {
         }
       >
         {surveys.length === 0 ? (
-          <p className="px-1 py-6 text-center text-sm text-muted">Belum ada kunjungan rumah tercatat untuk sasaran ini.</p>
+          <p className="px-1 py-6 text-center text-sm text-muted">Belum ada isian form tercatat untuk sasaran ini.</p>
         ) : (
           <Timeline
             title="Riwayat Kunjungan Rumah"

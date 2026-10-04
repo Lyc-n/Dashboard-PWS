@@ -39,6 +39,7 @@ import { FormField } from "@/components/molecules";
 import { MAX_BARIS_GROUP } from "@/features/form-builder/services/validasi";
 import type { FieldRuntime } from "@/features/survey/services/form-runtime.server";
 import { cn } from "@/lib/utils";
+import { daftarTeks, teksNilai } from "@/features/survey/lib/format-jawaban";
 
 /**
  * Id jangkar satu field, dipakai `use-form-runtime` untuk menggulir ke field
@@ -56,6 +57,12 @@ export interface DynamicFieldProps {
   onChange: (value: unknown) => void;
   /** Tandai field wajib yang kosong. UX saja — server yang menolak. */
   invalid?: boolean;
+  /**
+   * Tampilkan bentuk field tanpa bisa diisi. Dipakai pratinjau di Form Builder:
+   * field digambar persis seperti di halaman isi, tapi tidak menerima ketikan
+   * dan tidak punya aksi tambah/hapus baris.
+   */
+  readOnly?: boolean;
 }
 
 /** Satu opsi siap render. Label jatuh ke `value` kalau admin tidak memberi label. */
@@ -80,10 +87,7 @@ function opsiTampil(field: FieldRuntime): OpsiTampil[] {
     .map((o) => ({ value: o.value, label: o.label ?? o.value }));
 }
 
-/** `null`/`undefined`/array bukan-teks jadi string kosong supaya input terkontrol. */
-function teksNilai(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
+
 
 /** `number` saja yang boleh jadi isi input number; selain itu tampil kosong. */
 function angkaNilai(value: unknown): number | "" {
@@ -124,11 +128,7 @@ function barisGroup(value: unknown): BarisGroup[] {
   return keluar;
 }
 
-/** Opsi yang dipilih pada field checkbox; bukan array diabaikan. */
-function terpilihCheckbox(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((v): v is string => typeof v === "string");
-}
+
 
 /**
  * Label + helper + error untuk tipe yang punya BANYAK input di dalam satu
@@ -184,6 +184,20 @@ function PeringatanOpsi({ pesan }: { pesan: string }) {
 }
 
 /**
+ * Field yang pilihannya diambil dari sumber data, bukan diketik admin.
+ *
+ * Ditampilkan supaya petugas tahu daftarnya mengikuti data terbaru (mis. daftar
+ * petugas aktif), bukan daftar yang beku di dalam form.
+ */
+function CatatanSumber({ label }: { label: string }) {
+  return (
+    <p className="text-[11px] font-normal text-muted">
+      Pilihan diambil dari data: {label}.
+    </p>
+  );
+}
+
+/**
  * Field bertipe pilihan yang tidak punya satu pun opsi aktif.
  *
  * Kasus ini nyata di data tayang: sebagian field hasil seeding Form Kunjungan
@@ -210,7 +224,21 @@ function CatatanLampiran() {
   );
 }
 
-function DynamicFieldImpl({ field, value, onChange, invalid = false }: DynamicFieldProps) {
+/**
+ * Id `<datalist>` untuk saran field ini. Berisi `fieldId`, jadi tetap unik
+ * walau label pertanyaan berubah.
+ */
+export function saranDatalistId(fieldId: string): string {
+  return `saran-${fieldId}`;
+}
+
+function DynamicFieldImpl({
+  field,
+  value,
+  onChange,
+  invalid = false,
+  readOnly = false,
+}: DynamicFieldProps) {
   const placeholder = field.placeholder ?? undefined;
   const hint = field.deskripsi;
   const error = invalid ? "Wajib diisi." : null;
@@ -236,7 +264,7 @@ function DynamicFieldImpl({ field, value, onChange, invalid = false }: DynamicFi
   // --- checkbox -------------------------------------------------------------
   const onCheckbox = useCallback(
     (opsi: string, dicentang: boolean) => {
-      const sekarang = terpilihCheckbox(value);
+      const sekarang = daftarTeks(value);
       const berikut = dicentang
         ? [...sekarang, opsi]
         : sekarang.filter((v) => v !== opsi);
@@ -275,14 +303,16 @@ function DynamicFieldImpl({ field, value, onChange, invalid = false }: DynamicFi
           <div key={barisKe} className="rounded-lg border border-[var(--color-line-2)] bg-surface-2 p-2.5">
             <div className="mb-2 flex items-center justify-between gap-2">
               <b className="text-[12px] text-ink">Baris {barisKe + 1}</b>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => hapusBaris(barisKe)}
-                aria-label={`Hapus baris ${barisKe + 1}`}
-              >
-                Hapus baris
-              </Button>
+              {readOnly ? null : (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => hapusBaris(barisKe)}
+                  aria-label={`Hapus baris ${barisKe + 1}`}
+                >
+                  Hapus baris
+                </Button>
+              )}
             </div>
             <div className="grid gap-2.5 max-sm:grid-cols-1 sm:grid-cols-2">
               {Array.from({ length: kolom }, (_, i) => {
@@ -293,6 +323,7 @@ function DynamicFieldImpl({ field, value, onChange, invalid = false }: DynamicFi
                     <Input
                       value={satu[kunci] ?? ""}
                       onChange={(e) => ubahBaris(barisKe, kunci, e.target.value)}
+                      disabled={readOnly}
                     />
                   </label>
                 );
@@ -301,32 +332,59 @@ function DynamicFieldImpl({ field, value, onChange, invalid = false }: DynamicFi
           </div>
         ))}
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <Button
-          onClick={tambahBaris}
-          disabled={baris.length >= MAX_BARIS_GROUP}
-        >
-          Tambah baris
-        </Button>
-        <span className="text-[11px] text-muted">
-          {baris.length} baris · maksimal {MAX_BARIS_GROUP}
-        </span>
-      </div>
+      {readOnly ? (
+        <p className="mt-2 text-[11px] text-muted">
+          Pratinjau: baris group tidak bisa ditambah. Isian group dikirim sebagai array baris saat form diisi.
+        </p>
+      ) : (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Button
+            onClick={tambahBaris}
+            disabled={baris.length >= MAX_BARIS_GROUP}
+          >
+            Tambah baris
+          </Button>
+          <span className="text-[11px] text-muted">
+            {baris.length} baris · maksimal {MAX_BARIS_GROUP}
+          </span>
+        </div>
+      )}
     </>
   );
 
   switch (field.tipe) {
-    case "text":
+    case "text": {
+      // Saran hanya untuk field teks: `<datalist>` memang hanya berlaku untuk
+      // input teks di browser. Isian tetap bebas — daftar ini suggestion, bukan
+      // daftar jawaban wajib (sifat itu datang dari `validasiNilaiOpsiTerpilih`
+      // yang hanya berlaku untuk select/radio/checkbox).
+      const idDatalist = saranDatalistId(field.id);
       return (
-        <FormField label={field.label} required={field.wajib} hint={hint} error={error} invalid={invalid}>
+        <FormField
+          label={field.label}
+          required={field.wajib}
+          hint={field.saran.length > 0 ? `${hint ? `${hint} · ` : ""}Ada daftar saran; isi bebas.` : hint}
+          error={error}
+          invalid={invalid}
+        >
           <Input
             value={teksNilai(value)}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
             invalid={invalid}
+            disabled={readOnly}
+            list={field.saran.length > 0 ? idDatalist : undefined}
           />
+          {field.saran.length > 0 ? (
+            <datalist id={idDatalist}>
+              {field.saran.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
+          ) : null}
         </FormField>
       );
+    }
 
     case "textarea":
       return (
@@ -336,6 +394,7 @@ function DynamicFieldImpl({ field, value, onChange, invalid = false }: DynamicFi
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
             invalid={invalid}
+            disabled={readOnly}
           />
         </FormField>
       );
@@ -349,6 +408,7 @@ function DynamicFieldImpl({ field, value, onChange, invalid = false }: DynamicFi
             onChange={(e) => onNumber(e.target.value)}
             placeholder={placeholder}
             invalid={invalid}
+            disabled={readOnly}
           />
         </FormField>
       );
@@ -362,6 +422,7 @@ function DynamicFieldImpl({ field, value, onChange, invalid = false }: DynamicFi
             value={teksNilai(value)}
             onChange={(e) => onSelect(e.target.value)}
             invalid={invalid}
+            disabled={readOnly}
           />
         </FormField>
       );
@@ -371,12 +432,13 @@ function DynamicFieldImpl({ field, value, onChange, invalid = false }: DynamicFi
       return (
         <FormField label={field.label} required={field.wajib} hint={hint} error={error} invalid={invalid}>
           {field.sumberOpsiTidakDikenali ? <PeringatanOpsi pesan={pesanSumberTidakDikenali} /> : null}
+      {field.sumberOpsiLabel ? <CatatanSumber label={field.sumberOpsiLabel} /> : null}
           {opsi.length === 0 && !field.sumberOpsiTidakDikenali ? <CatatanOpsiKosong /> : null}
           <Select
             value={teksNilai(value)}
             onChange={(e) => onSelect(e.target.value)}
             invalid={invalid}
-            disabled={opsi.length === 0}
+            disabled={readOnly || opsi.length === 0}
           >
             <option value="">— Pilih —</option>
             {opsi.map((o) => (
@@ -394,6 +456,7 @@ function DynamicFieldImpl({ field, value, onChange, invalid = false }: DynamicFi
       return (
         <LabelBlok label={field.label} required={field.wajib} hint={hint} error={error} invalid={invalid}>
           {field.sumberOpsiTidakDikenali ? <PeringatanOpsi pesan={pesanSumberTidakDikenali} /> : null}
+      {field.sumberOpsiLabel ? <CatatanSumber label={field.sumberOpsiLabel} /> : null}
           {opsi.length === 0 && !field.sumberOpsiTidakDikenali ? <CatatanOpsiKosong /> : null}
           <div className="grid gap-1.5 max-md:grid-cols-1 sm:grid-cols-2">
             {opsi.map((o) => (
@@ -405,7 +468,9 @@ function DynamicFieldImpl({ field, value, onChange, invalid = false }: DynamicFi
                   value: o.value,
                   checked: teksNilai(value) === o.value,
                   onChange: () => onChange(o.value),
+                  disabled: readOnly,
                 }}
+                className={readOnly ? "cursor-default opacity-70" : undefined}
               />
             ))}
           </div>
@@ -415,10 +480,11 @@ function DynamicFieldImpl({ field, value, onChange, invalid = false }: DynamicFi
 
     case "checkbox": {
       const opsi = opsiTampil(field);
-      const terpilih = terpilihCheckbox(value);
+      const terpilih = daftarTeks(value);
       return (
         <LabelBlok label={field.label} required={field.wajib} hint={hint} error={error} invalid={invalid}>
           {field.sumberOpsiTidakDikenali ? <PeringatanOpsi pesan={pesanSumberTidakDikenali} /> : null}
+      {field.sumberOpsiLabel ? <CatatanSumber label={field.sumberOpsiLabel} /> : null}
           {opsi.length === 0 && !field.sumberOpsiTidakDikenali ? <CatatanOpsiKosong /> : null}
           <div className="grid gap-1.5">
             {opsi.map((o) => (
@@ -427,6 +493,7 @@ function DynamicFieldImpl({ field, value, onChange, invalid = false }: DynamicFi
                   size="sm"
                   checked={terpilih.includes(o.value)}
                   onChange={(e) => onCheckbox(o.value, e.currentTarget.checked)}
+                  disabled={readOnly}
                 />
                 <span>{o.label}</span>
               </label>

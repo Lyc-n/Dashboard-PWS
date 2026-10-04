@@ -39,7 +39,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { simpanFormulir, cariSasaranWarga } from "@/lib/utils.functions";
-import { pesanError } from "@/lib/utils";
+import { hariIni, pesanError } from "@/lib/utils";
 import type {
   AturanRuntime,
   DefinisiRuntime,
@@ -49,14 +49,6 @@ import type {
 } from "@/features/survey/services/form-runtime.server";
 import type { SasaranSuggestion } from "@/features/kunjungan-rumah/lib/warga-row";
 import { usePetugasOpsi } from "@/hooks/use-petugas-opsi";
-
-/** Tanggal `YYYY-MM-DD` hari ini di zona waktu lokal browser. */
-function hariIni(): string {
-  const d = new Date();
-  const bulan = String(d.getMonth() + 1).padStart(2, "0");
-  const tanggal = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${bulan}-${tanggal}`;
-}
 
 /** Panjang ketikan minimum sebelum server mencari warga; 3 sudah cukup unik. */
 const MIN_KETIK_WARGA = 3;

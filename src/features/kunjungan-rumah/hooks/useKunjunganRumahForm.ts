@@ -64,7 +64,7 @@ export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
   // Mode edit: isi form dari record yang dipilih.
   useEffect(() => {
     if (record) dispatch({ type: 'LOAD_RECORD', record })
-  }, [editingId])
+  }, [record])
 
   const addFotos = useCallback(
     async (files: File[]): Promise<{ added: number; skipped: number }> => {

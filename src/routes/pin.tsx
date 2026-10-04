@@ -8,6 +8,7 @@ import brandIcon from "@/assets/brandIcon.png";
 import { Button, Input } from "@/components/atoms";
 import { FormField } from "@/components/molecules";
 import ThemeToggle from "@/components/ThemeToggle";
+import { normalkanNik } from "@/lib/utils";
 
 /* ALUR LOGIN
 1. cek sessionToken pake beforeLoad di /laporan (form)
@@ -88,7 +89,7 @@ function RouteComponent() {
                 inputMode="numeric"
                 value={pin}
                 onChange={(e) => {
-                  setPin(e.target.value.replace(/\D/g, ""));
+                  setPin(normalkanNik(e.target.value));
                   setError(null);
                 }}
                 placeholder="••••••"

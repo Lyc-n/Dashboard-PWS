@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DragDropProvider } from "@dnd-kit/react";
-import { FolderPlus, RotateCcw, Save, AlertTriangle, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { FolderPlus, RotateCcw, Save, AlertTriangle, ChevronsLeft, ChevronsRight, Eye } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { BlockPalette } from "./BlockPalette";
 import { SectionNode } from "./SectionNode";
 import { SettingsPanel } from "./SettingsPanel";
 import { BuildOverlay } from "./BuildOverlay";
+import { PratinjauOverlay } from "./preview/PratinjauOverlay";
 import { getOrphanSectionIds, getOrphanFieldIds } from "./tree";
+import { kunciEditorForm } from "@/features/form-builder/lib/kode-bawaan";
 import type { DraftFormDocument, DraftField } from "./types";
 import type { DefinisiVersi } from "@/hooks/use-form-builder";
 import type { useFormBuilderDraft } from "@/hooks/use-form-builder-draft"
@@ -14,6 +16,13 @@ import type { useFormBuilderDraft } from "@/hooks/use-form-builder-draft"
 interface FormBuilderWorkspaceProps {
   formVersionId: string;
   bisaUbah: boolean;
+  /**
+   * `forms.kode` form yang sedang disunting, atau `null` untuk form manual.
+   * Menentukan bagian mana dari editor yang dikunci — mis. section dan tipe
+   * field form bawaan tidak bisa ditambah atau diubah, karena server akan
+   * menolak build-nya (lihat `kunciEditorForm`).
+   */
+  kodeForm: string | null;
   onBack?: () => void;
   document: DraftFormDocument | null;
   draft: Omit<ReturnType<typeof useFormBuilderDraft>, "document" | "loadDocument" | "clearDocument">;
@@ -23,6 +32,7 @@ interface FormBuilderWorkspaceProps {
 export function FormBuilderWorkspace({
   formVersionId,
   bisaUbah,
+  kodeForm,
   onBack,
   document,
   draft,
@@ -35,7 +45,7 @@ export function FormBuilderWorkspace({
     buildError,
     addSection,
     addField,
-    handleDragEnd,
+    handleDragEnd: dragEnd,
     buildForm,
     setSelectedItem,
     updateSection,
@@ -45,6 +55,7 @@ export function FormBuilderWorkspace({
     addOpsi,
     updateOpsi,
     deleteOpsi,
+    setSumberOpsi,
     addAturan,
     updateAturan,
     deleteAturan,
@@ -54,6 +65,18 @@ export function FormBuilderWorkspace({
   const [showBuildOverlay, setShowBuildOverlay] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(true);
+  const [previewMode, setPreviewMode] = useState(false);
+
+  // Bagian editor yang form bawaan tidak boleh ubah. Penegakan ada di server;
+  // yang di sini hanya jangan menawarkan kontrol yang pasti ditolak.
+  const kunci = kunciEditorForm(kodeForm);
+
+  // Palette form bawaan hanya menampilkan tipe yang benar-benar bisa dipakai
+  // form itu, jadi tidak ada field yang bisa dibuat lalu ditolak saat build.
+  const paletteTersedia = useMemo(
+    () => (kunci.tipe ? palette.filter((p) => kunci.tipe!.has(p.tipe)) : palette),
+    [palette, kunci.tipe],
+  );
 
   // Panel pengaturan otomatis terbuka saat ada yang dipilih.
   useEffect(() => {
@@ -85,6 +108,23 @@ export function FormBuilderWorkspace({
     document?.fields.forEach((f) => map.set(f.clientId, f));
     return map;
   }, [document]);
+
+  /**
+   * Hapus field, kecuali field yang form ini larang.
+   *
+   * Diteruskan ke `SectionNode` sebagai `undefined` kalau field-nya terkunci,
+   * karena `FieldNode` menyembunyikan tombol hapus kalau handler-nya tidak ada.
+   * Field penyimpan data kunjungan rumah masuk kelompok ini: menghapusnya
+   * membuat seluruh data kunjungan lama tidak bisa dibaca maupun diperbarui.
+   */
+  const hapusFieldJikaBoleh = useCallback(
+    (clientId: string) => {
+      const field = fieldsByClientId.get(clientId);
+      if (field && kunci.namaFieldTidakBolehDihapus(field.nama)) return;
+      deleteField(clientId);
+    },
+    [fieldsByClientId, kunci, deleteField],
+  );
   
   const handleAddField = useCallback((sectionClientId: string) => {
     const newClientId = addField(sectionClientId, "text");
@@ -106,6 +146,17 @@ export function FormBuilderWorkspace({
     setShowBuildOverlay(false);
     return result;
   }, [buildForm, formVersionId, loadDocument]);
+  const handlePreviewMode = useCallback(() => setPreviewMode((v) => !v), []);
+
+  // Pratinjau membaca draft yang sedang diedit, jadi overlay-nya juga ikut
+  // berubah setiap edit — tidak perlu Build lebih dulu.
+  const handleDragEnd = useCallback(
+    (event: Parameters<NonNullable<typeof dragEnd>>[0]) => {
+      if (previewMode) return;
+      dragEnd(event);
+    },
+    [previewMode, dragEnd],
+  );
   
   return (
     <DragDropProvider onDragEnd={handleDragEnd}>
@@ -118,7 +169,17 @@ export function FormBuilderWorkspace({
             <div className="flex items-center gap-2">
               {bisaUbah ? (
                 <>
-                  <Button size="sm" variant="ghost" onClick={handleAddRootSection}><FolderPlus className="w-4 h-4" /> Tambah Section</Button>
+                  {kunci.strukturSection ? null : (
+                    <Button size="sm" variant="ghost" onClick={handleAddRootSection}><FolderPlus className="w-4 h-4" /> Tambah Section</Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant={previewMode ? "primary" : "default"}
+                    onClick={handlePreviewMode}
+                    aria-pressed={previewMode}
+                  >
+                    <Eye className="w-4 h-4" /> Pratinjau
+                  </Button>
                   <Button size="sm" variant="primary" onClick={handleBuild} disabled={saving}>
                     <Save className="w-4 h-4" /> {saving ? "Membangun..." : "Build"}
                   </Button>
@@ -148,7 +209,7 @@ export function FormBuilderWorkspace({
           <div className="flex-1 flex min-h-0 overflow-hidden">
             {paletteOpen ? (
               <div className="relative shrink-0 flex">
-                <BlockPalette items={palette} disabled={!bisaUbah} />
+                <BlockPalette items={paletteTersedia} disabled={!bisaUbah} />
                 <button
                   type="button"
                   onClick={() => setPaletteOpen(false)}
@@ -179,7 +240,9 @@ export function FormBuilderWorkspace({
                     {rootSections.length === 0 ? (
                       <div className="text-center text-muted py-12">
                         <FolderPlus className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                        <p className="text-sm">Belum ada section. Klik "Tambah Section" atau tarik field ke area ini.</p>
+                        <p className="text-sm">{kunci.strukturSection
+                            ? "Form ini memakai section tetap, jadi section tidak bisa ditambah dari sini."
+                            : 'Belum ada section. Klik "Tambah Section" atau tarik field ke area ini.'}</p>
                       </div>
                     ) : (
                       rootSections.map((section, rootIdx) => (
@@ -199,11 +262,11 @@ export function FormBuilderWorkspace({
                           onDeselectField={() => setSelectedItem(null)}
                           selectedFieldClientId={selectedItem?.type === "field" ? selectedItem.clientId : null}
                           onAddField={handleAddField}
-                          onAddSubSection={addSection}
+                          onAddSubSection={kunci.strukturSection ? undefined : addSection}
                           onUpdateSection={updateSection}
-                          onDeleteSection={deleteSection}
+                          onDeleteSection={kunci.strukturSection ? undefined : deleteSection}
                           onUpdateField={updateField}
-                          onDeleteField={deleteField}
+                          onDeleteField={hapusFieldJikaBoleh}
                         />
                       ))
                     )}
@@ -230,6 +293,7 @@ export function FormBuilderWorkspace({
                   selectedItem={selectedItem}
                   onClose={() => setSelectedItem(null)}
                   document={document}
+                  kodeForm={kodeForm}
                   updateSection={updateSection}
                   deleteSection={deleteSection}
                   updateField={updateField}
@@ -237,6 +301,7 @@ export function FormBuilderWorkspace({
                   addOpsi={addOpsi}
                   updateOpsi={updateOpsi}
                   deleteOpsi={deleteOpsi}
+                  setSumberOpsi={setSumberOpsi}
                   addAturan={addAturan}
                   updateAturan={updateAturan}
                   deleteAturan={deleteAturan}
@@ -263,6 +328,14 @@ export function FormBuilderWorkspace({
         onClose={() => setShowBuildOverlay(false)}
         onBuild={handleBuild}
         saving={saving}
+      />
+
+      {/* Di luar DragDropProvider: pratinjau tidak butuh, dan tidak boleh ikut
+          terseret logika drag-drop. */}
+      <PratinjauOverlay
+        isOpen={previewMode}
+        document={document}
+        onClose={() => setPreviewMode(false)}
       />
     </DragDropProvider>
   );

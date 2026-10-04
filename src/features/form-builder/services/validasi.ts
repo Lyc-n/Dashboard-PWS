@@ -13,6 +13,7 @@
  */
 
 import { isValidNik } from "@/lib/utils";
+import { cariSumber, SUMBER_SUGGEST } from "@/features/form-builder/services/sumber-opsi";
 
 export type KodeValidasi =
   | 'PARENT_BEDA_VERSI'
@@ -36,8 +37,13 @@ export type KodeValidasi =
   | 'NAMA_FIELD_TIDAK_VALID'
   | 'KOLOM_GROUP_KOSONG'
   | 'OPSI_FIELD_KOSONG'
+  | 'SUMBER_OPSI_TIDAK_DIKENAL'
+  | 'SUMBER_OPSI_TIPE_SALAH'
   | 'NAMA_FORM_BENTARAK'
   | 'FORM_BAWAAN'
+  | 'STRUKTUR_BAWAAN_DIKUNCI'
+  | 'FORM_PUNYA_ISIAN'
+  | 'KONFIRMASI_NAMA_SALAH'
 
 export type HasilValidasi =
   | { ok: true }
@@ -213,10 +219,92 @@ export interface FieldDefinisi {
   label?: string | null
   tipe: TipeField
   optionSourceType?: string | null
+  optionSourceKey?: string | null
   jumlahKolom?: number | null
   opsi?: readonly Pick<OpsiField, 'value' | 'aktif'>[]
   /** true = field dihapus, jadi tidak diperiksa. */
   hapus?: boolean
+  /**
+   * true = field bawaan form sistem, jadi bentuknya mengikuti aturan form asalnya
+   * dan bukan aturan editor.
+   *
+   * Field bawaan form kunjungan rumah tidak cocok dengan beberapa aturan umum:
+   * namanya mengandung huruf besar (`tglPengumpulan`, `namaKK`), checkbox-nya
+   * tidak punya baris opsi karena pilihannya diturunkan dari id field, dan field
+   * penyimpan datanya bertipe `group` tanpa jumlah kolom. Semuanya itu sudah
+   * tersimpan dan tidak bisa diubah admin, sehingga memaksakan aturan editor
+   * hanya membuat draft form itu tidak bisa disimpan sama sekali.
+   *
+   * Yang tetap dijaga untuk field bawaan: teks pertanyaan harus ada dan nama
+   * harus unik di sectionnya. Field yang baru ditambahkan admin bukan field
+   * bawaan dan tetap diperiksa penuh.
+   */
+  fieldBawaan?: boolean
+}
+
+/**
+ * Sumber pilihan jawaban dari data yang sudah ada.
+ *
+ * Field boleh menunjuk sumber (mis. daftar agama) lewat
+ * `optionSourceType` + `optionSourceKey`, atau menyimpan pilihannya sendiri di
+ * `opsi` — bukan keduanya. `sumberOpsiDinamis` dan `opsi` yang keduanya terisi
+ * berarti konfigurasi ambigu: saat render salah satunya yang dipakai, jadi yang
+ * kelihatan benar sementara yang tersimpan berbeda.
+ */
+export function validasiSumberOpsi(params: {
+  tipe: TipeField
+  opsi: readonly Pick<OpsiField, 'value'>[]
+  optionSourceType?: string | null
+  optionSourceKey?: string | null
+}): HasilValidasi {
+  const { tipe, opsi, optionSourceType } = params
+  if (!optionSourceType) return lolos
+
+  // Prefix `bucket=` dipakai Form Kunjungan Rumah untuk menyimpan tata letak
+  // panel (lihat parseBucket di src/lib/utils.server.ts). Kolomnya sama dengan
+  // option_source_key, jadi builder tidak boleh pernah mengirim nilai itu.
+  if (optionSourceType.startsWith('bucket=') || (params.optionSourceKey ?? '').startsWith('bucket=')) {
+    return gagal(
+      'SUMBER_OPSI_TIDAK_DIKENAL',
+      'Sumber pilihan "bucket" milik Form Kunjungan Rumah, bukan pilihan jawaban form.',
+    )
+  }
+
+  const source = cariSumber(optionSourceType, params.optionSourceKey ?? null)
+  if (!source) {
+    return gagal(
+      'SUMBER_OPSI_TIDAK_DIKENAL',
+      `Sumber pilihan "${optionSourceType}" tidak dikenali. Pilih salah satu sumber yang tersedia di pengaturan field.`,
+    )
+  }
+
+  // `suggest` untuk field teks: daftar sarannya justru hidup di `opsi`, jadi
+  // opsi terisi itu wajib dan bukan konflik.
+  if (optionSourceType === SUMBER_SUGGEST) {
+    if (!source.tipeField?.includes(tipe)) {
+      return gagal(
+        'SUMBER_OPSI_TIPE_SALAH',
+        `Daftar saran hanya bisa dipakai pada field ${source.tipeField?.join(', ') ?? 'teks'}.`,
+      )
+    }
+    return lolos
+  }
+
+  if (!TIPE_BUTUH_OPSI.includes(tipe)) {
+    return gagal(
+      'SUMBER_OPSI_TIPE_SALAH',
+      `Sumber pilihan hanya bisa dipakai pada field select, radio, atau checkbox. Field ini bertipe ${tipe}.`,
+    )
+  }
+
+  if (opsi.some((o) => o.value.trim() !== '')) {
+    return gagal(
+      'SUMBER_OPSI_TIDAK_DIKENAL',
+      `Field ini memakai sumber "${source.label}", jadi pilihan jawaban manual harus dikosongkan.`,
+    )
+  }
+
+  return lolos
 }
 
 /** `form_fields.nama` varchar(100), dipanggil kode saat menyimpan jawaban. */
@@ -224,6 +312,25 @@ const POLA_NAMA_FIELD = /^[a-z0-9_]{1,100}$/
 
 /** Panjang `form_fields.label` (varchar 255). */
 const PANJANG_LABEL_FIELD = 255
+
+/**
+ * Teks pertanyaan field. Dipisah dari `validasiNamaField` supaya field yang
+ * namanya tidak perlu diperiksa ulang (lihat `bolehLanggarPola`) tetap
+ * wajib punya teks yang bisa dibaca petugas.
+ */
+function validasiLabelField(label: string | null | undefined): HasilValidasi {
+  const labelBersih = (label ?? '').trim()
+  if (labelBersih === '') {
+    return gagal('NAMA_FIELD_TIDAK_VALID', 'Teks pertanyaan field wajib diisi.')
+  }
+  if (labelBersih.length > PANJANG_LABEL_FIELD) {
+    return gagal(
+      'NAMA_FIELD_TIDAK_VALID',
+      `Teks pertanyaan field maksimal ${PANJANG_LABEL_FIELD} karakter.`,
+    )
+  }
+  return lolos
+}
 
 /**
  * Nama field = identifier teknis yang dipanggil kode, jadi bentuknya dikunci:
@@ -242,43 +349,55 @@ export function validasiNamaField(params: {
     )
   }
 
-  const labelBersih = (params.label ?? '').trim()
-  if (labelBersih === '') {
-    return gagal('NAMA_FIELD_TIDAK_VALID', 'Teks pertanyaan field wajib diisi.')
-  }
-  if (labelBersih.length > PANJANG_LABEL_FIELD) {
-    return gagal(
-      'NAMA_FIELD_TIDAK_VALID',
-      `Teks pertanyaan field maksimal ${PANJANG_LABEL_FIELD} karakter.`,
-    )
-  }
-  return lolos
+  return validasiLabelField(params.label)
 }
 
 /**
  * Periksa seluruh daftar field satu section sekaligus, sebelum ada query.
  *
  * Dua hal yang tidak bisa dijamin database dan dipegang di sini: nama unik di
- * dalam satu payload (petugas bisa saja mengirim dua field dengan nama sama
+ * dalam satu section (petugas bisa saja mengirim dua field dengan nama sama
  * sekaligus), dan `jumlahKolom` yang hanya sah untuk tipe `group` — kolomnya
  * INTEGER nullable, jadi database menerima `jumlahKolom` di field teks tanpa
  * protes.
  *
  * Field bertipe `hapus` dilewati: field itu memang tidak akan disimpan.
+ *
+ * `normalisasiNama` untuk form yang menyimpan nama field ber-namespace. Database
+ * menyimpan `<section>::<id>` untuk form kunjungan rumah, dan `::` tidak lolos
+ * pola nama di atas. Daripada melonggarkan pola itu untuk semua form, nama yang
+ * divalidasi bisa diganti bentuknya lebih dulu — bentuk yang tersimpan di
+ * database ditentukan pemanggil.
  */
-export function validasiFieldPenuh(params: { fields: readonly FieldDefinisi[] }): HasilValidasi {
+export function validasiFieldPenuh(params: {
+  fields: readonly FieldDefinisi[]
+  normalisasiNama?: (nama: string) => string
+}): HasilValidasi {
   const namaPemakai = new Map<string, number>()
 
   for (const [i, field] of params.fields.entries()) {
     if (field.hapus === true) continue
 
     const posisi = `Field ke-${i + 1}`
-    const nama = validasiNamaField({ nama: field.nama, label: field.label })
-    if (!nama.ok) {
-      return gagal(nama.kode, `${posisi}: ${nama.pesan}`)
+    // Bentuk yang divalidasi boleh berbeda dari yang akan disimpan.
+    const namaDicek = params.normalisasiNama
+      ? params.normalisasiNama(field.nama)
+      : field.nama
+    if (field.fieldBawaan) {
+      // Field bawaan: cukup teks pertanyaan dan nama unik. Bentuk lainnya
+      // mengikuti aturan form asal, bukan aturan editor.
+      const label = validasiLabelField(field.label)
+      if (!label.ok) {
+        return gagal(label.kode, `${posisi}: ${label.pesan}`)
+      }
+    } else {
+      const nama = validasiNamaField({ nama: namaDicek, label: field.label })
+      if (!nama.ok) {
+        return gagal(nama.kode, `${posisi}: ${nama.pesan}`)
+      }
     }
 
-    const namaBersih = field.nama.trim()
+    const namaBersih = namaDicek.trim()
     const sudah = namaPemakai.get(namaBersih)
     if (sudah !== undefined) {
       return gagal(
@@ -287,6 +406,8 @@ export function validasiFieldPenuh(params: { fields: readonly FieldDefinisi[] })
       )
     }
     namaPemakai.set(namaBersih, i + 1)
+
+    if (field.fieldBawaan) continue;
 
     if (field.tipe === 'group') {
       const jumlah = field.jumlahKolom
@@ -298,6 +419,16 @@ export function validasiFieldPenuh(params: { fields: readonly FieldDefinisi[] })
         'KOLOM_GROUP_KOSONG',
         `${posisi} bukan group, jadi jumlah kolom harus dikosongkan.`,
       )
+    }
+
+    const sumberOpsi = validasiSumberOpsi({
+      tipe: field.tipe,
+      opsi: [...(field.opsi ?? [])],
+      optionSourceType: field.optionSourceType ?? null,
+      optionSourceKey: field.optionSourceKey ?? null,
+    })
+    if (!sumberOpsi.ok) {
+      return gagal(sumberOpsi.kode, `${posisi}: ${sumberOpsi.pesan}`)
     }
 
     if (TIPE_BUTUH_OPSI.includes(field.tipe)) {
@@ -585,5 +716,77 @@ export function validasiNik(nik: string): HasilValidasi {
   if (!isValidNik(nik)) {
     return gagal('NIK_TIDAK_VALID', 'NIK harus 16 digit angka.')
   }
+  return lolos
+}
+
+/**
+ * Ringkasan isi satu form, dihitung sebelum dihapus.
+ *
+ * Dipakai untuk dua hal: menentukan apakah form boleh dihapus tanpa
+ * konfirmasi tambahan, dan memberi tahu admin persis berapa banyak data yang
+ * akan hilang. Tanpa ini, `forms.nama` unique masih_memberi tahu bahwa ada
+ * sesuatu yang tidak beres; angka di sini yang membuatnya bisa dibaca manusia.
+ */
+export interface RingkasanHapusForm {
+  jumlahVersi: number
+  /** Baris `surveys` milik seluruh versi form ini. */
+  jumlahSubmit: number
+  /** Baris `survey_entries` dari submit-submit itu. */
+  jumlahJawaban: number
+  /** Baris `survey_files` dari submit-submit itu. */
+  jumlahLampiran: number
+  /** NIK berbeda yang ikut tercatat pada submit-submit itu. */
+  jumlahWarga: number
+  /** Tanggal isian terakhir, `YYYY-MM-DD`; null kalau belum pernah diisi. */
+  tanggalTerakhir: string | null
+}
+
+/**
+ * Aturan menghapus satu form.
+ *
+ * Tiga lapis, dari yang halus:
+ *   1. Form bawaan sistem (`forms.kode` terisi) tidak pernah bisa dihapus.
+ *   2. Form yang sudah punya isian tidak bisa dihapus dengan cara biasa —
+ *     foreign key `surveys.formVersionId` tidak meng-cascade, jadi penghapusan
+ *     akan ditolak Postgres dengan pesan yang tidak berguna. Petugas diminta
+ *     memakai `hapusPermanent`, yang berarti isian ikut hilang.
+ *   3. Penghapusan permanen harus dikonfirmasi dengan mengetik nama form persis,
+ *      supaya tidak ada yang terhapus karena salah klik.
+ *
+ * Perbandingan nama sengaja memakai `trim()` tapi TIDAK case-insensitive: nama
+ * form apa adanya harus diketik ulang, supaya konfirmasi terasa benar-benar
+ * disengaja.
+ */
+export function validasiHapusForm(params: {
+  nama: string
+  kode: string | null | undefined
+  ringkasan: RingkasanHapusForm
+  hapusPermanent?: boolean
+  konfirmasiNama?: string | null
+}): HasilValidasi {
+  const { nama, kode, ringkasan, hapusPermanent } = params
+
+  if (kode) {
+    return gagal('FORM_BAWAAN', 'Form bawaan sistem tidak bisa dihapus.')
+  }
+
+  if (ringkasan.jumlahSubmit > 0 && !hapusPermanent) {
+    return gagal(
+      'FORM_PUNYA_ISIAN',
+      `Form ini sudah punya ${ringkasan.jumlahSubmit} isian (${ringkasan.jumlahJawaban} jawaban) dari ` +
+        `${ringkasan.jumlahVersi} versi. Hapus permanen akan menghapusnya juga dan tidak bisa dibatalkan.`,
+    )
+  }
+
+  // Konfirmasi nama hanya diminta kalau benar-benar ada isian yang hilang.
+  // Pemanggil boleh selalu mengirim `hapusPermanent: true`, jadi tanpa syarat
+  // jumlahSubmit form kosong akan ikut tertolak.
+  if (hapusPermanent && ringkasan.jumlahSubmit > 0 && (params.konfirmasiNama ?? '').trim() !== nama) {
+    return gagal(
+      'KONFIRMASI_NAMA_SALAH',
+      `Ketik nama form persis ("${nama}") untuk melanjutkan penghapusan.`,
+    )
+  }
+
   return lolos
 }

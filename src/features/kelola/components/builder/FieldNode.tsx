@@ -1,9 +1,10 @@
 import { useSortable } from "@dnd-kit/react/sortable";
-import { GripVertical, Trash2, Settings, AlertTriangle, EyeOff } from "lucide-react";
+import { GripVertical, Trash2, Settings, AlertTriangle, EyeOff, Database, Lightbulb } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import type { DraftField } from "./types";
 import { TIPE_FIELD_LABELS, TIPE_BUTUH_OPSI } from "./types";
+import { cariSumber, SUMBER_SUGGEST } from "@/features/form-builder/services/sumber-opsi";
 
 interface Props {
   fieldClientId: string;
@@ -14,7 +15,8 @@ interface Props {
   onSelect: (clientId: string) => void;
   onDeselect: () => void;
   onUpdateField: (clientId: string, patch: Partial<DraftField>) => void;
-  onDeleteField: (clientId: string) => void;
+  /** undefined = field ini tidak boleh dihapus, jadi tombolnya disembunyikan. */
+  onDeleteField?: (clientId: string) => void;
 }
 
 export function FieldNode({
@@ -43,6 +45,10 @@ export function FieldNode({
   const needsOptions = TIPE_BUTUH_OPSI.includes(field.tipe);
   const hasOptions = field.opsi.some((o) => o.value.trim() && o.aktif);
   const hasRules = field.aturan.length > 0;
+  // Field yang memakai sumber tidak punya baris opsi di form_field_rules, jadi
+  // "butuh opsi jawaban" tidak boleh menyala hanya karena `opsi` kosong.
+  const source = cariSumber(field.optionSourceType, field.optionSourceKey);
+  const sumberDipakai = field.optionSourceType === SUMBER_SUGGEST || source !== null;
 
   return (
     <div
@@ -68,7 +74,7 @@ export function FieldNode({
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-line text-muted font-mono">
             {TIPE_FIELD_LABELS[field.tipe]}
           </span>
-          {needsOptions && !hasOptions && (
+          {needsOptions && !hasOptions && !sumberDipakai && (
             <AlertTriangle className="w-3 h-3 text-warning">
               <title>Butuh opsi jawaban</title>
             </AlertTriangle> 
@@ -86,7 +92,23 @@ export function FieldNode({
           {field.tipe === "group" && field.jumlahKolom && (
             <span>📋 {field.jumlahKolom} kolom</span>
           )}
-          {hasOptions && <span>☑ {field.opsi.filter((o) => o.aktif && o.value).length} opsi</span>}
+          {field.optionSourceType === SUMBER_SUGGEST ? (
+            <span className="inline-flex items-center gap-1">
+              <Lightbulb className="w-3 h-3" />
+              {hasOptions ? `${field.opsi.filter((o) => o.aktif && o.value).length} saran` : "tanpa saran"}
+            </span>
+          ) : source ? (
+            <span
+              className="inline-flex items-center gap-1"
+              title={source.perluServer ? "Dibaca dari database saat form diisi" : "Daftar tetap dari enum data warga"}
+            >
+              <Database className="w-3 h-3" />
+              {source.label}
+            </span>
+          ) : null}
+          {hasOptions && !sumberDipakai && (
+            <span>☑ {field.opsi.filter((o) => o.aktif && o.value).length} opsi</span>
+          )}
           {hasRules && <span>🔗 {field.aturan.filter((a) => a.aktif).length} aturan</span>}
           {field.placeholder && <span className="italic">"{field.placeholder}"</span>}
         </div>
@@ -113,14 +135,16 @@ export function FieldNode({
         >
           <Settings className="w-3 h-3" />
         </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-destructive hover:bg-destructive/10"
-          onClick={(e) => { e.stopPropagation(); onDeleteField(fieldClientId); }}
-        >
-          <Trash2 className="w-3 h-3" />
-        </Button>
+        {onDeleteField ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive hover:bg-destructive/10"
+            onClick={(e) => { e.stopPropagation(); onDeleteField(fieldClientId); }}
+          >
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        ) : null}
       </div>
     </div>
   );

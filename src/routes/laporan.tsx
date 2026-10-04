@@ -1,6 +1,11 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { getLaporanKunjunganRumah, listKegiatan } from "@/lib/utils.functions";
+import {
+  getFormAdaSubmit,
+  getLaporanKunjunganRumah,
+  getRiwayatSubmit,
+  listKegiatan,
+} from "@/lib/utils.functions";
 import type { KegiatanRecord } from "@/hooks/use-kegiatan";
 import { JENIS_KEGIATAN, KELS, PAGE_SIZE, POSY } from "@/lib/constants";
 import { downloadCsv, fmtDate } from "@/lib/utils";
@@ -13,6 +18,7 @@ import { Input, Select, StatusBadge, Tab } from "@/components/atoms";
 import { requireAuth, isAdminUser } from "@/lib/auth";
 import { useAuth } from "@/providers/auth";
 import { RekapKunjunganRumahSection } from "@/features/laporan/RekapKunjunganRumahSection";
+import { RiwayatSubmitSection } from "@/features/laporan/RiwayatSubmitSection";
 import { FilterToolbar } from "@/features/laporan/components/FilterToolbar";
 import { KelStatsGrid } from "@/features/laporan/components/KelStatsGrid";
 import { KopSection } from "@/features/laporan/components/KopSection";
@@ -23,26 +29,44 @@ import { paginate } from "@/features/laporan/components/report-shared";
 export const Route = createFileRoute("/laporan")({
   beforeLoad: requireAuth,
   loader: async () => {
-    const [kunjunganRumah, kegiatan] = await Promise.all([getLaporanKunjunganRumah(), listKegiatan()]);
-    return { kunjunganRumah, kegiatan };
+    // Isian form (semua form) dimuat di sini, sama seperti laporan kunjungan.
+    // Nama form ikut diambil supaya tabel bisa melabeli baris sesuai form asalnya:
+    // `surveys` tidak punya kolom penanda form, jadi identitasnya dari join
+    // `form_versions → forms`. Tanpa itu, submit form Form Builder ikut terlihat
+    // sebagai "kunjungan rumah".
+    const [kunjunganRumah, kegiatan, riwayatSubmit, formAdaSubmit] = await Promise.all([
+      getLaporanKunjunganRumah(),
+      listKegiatan(),
+      getRiwayatSubmit({ data: {} }),
+      getFormAdaSubmit(),
+    ]);
+    return { kunjunganRumah, kegiatan, riwayatSubmit, formAdaSubmit };
   },
   pendingComponent: () => <p className="p-4 text-sm text-muted">Memuat laporan…</p>,
   component: Laporan,
 })
 
 function Laporan() {
-  const { kunjunganRumah: rows, kegiatan: kegiatanRaw } = Route.useLoaderData();
+  const {
+    kunjunganRumah: rows,
+    kegiatan: kegiatanRaw,
+    riwayatSubmit,
+    formAdaSubmit,
+  } = Route.useLoaderData();
   const kegiatanRows = kegiatanRaw as unknown as KegiatanRecord[];
   const toast = useToast();
   const { user } = useAuth();
   const admin = isAdminUser(user);
 
-  const [tab, setTab] = useState<"kunjungan-rumah" | "kegiatan" | "rekap">("kunjungan-rumah");
+  const [tab, setTab] = useState<"kunjungan-rumah" | "kegiatan" | "rekap" | "riwayat-submit">(
+    "kunjungan-rumah",
+  );
 
   const [dari, setDari] = useState("2026-01-01");
   const [sampai, setSampai] = useState("2026-12-31");
   const [kel, setKel] = useState("all");
   const [cari, setCari] = useState("");
+  const [formId, setFormId] = useState<number | "all">("all");
   const [judul, setJudul] = useState("LAPORAN KUNJUNGAN RUMAH PWS — KOTA PASURUAN");
   const [ttdNama, setTtdNama] = useState("dr. Ayu Rahmawati");
   const [ttdJabatan, setTtdJabatan] = useState("Kepala Puskesmas Trajeng");
@@ -70,11 +94,22 @@ function Laporan() {
         r.tanggal >= dari &&
         r.tanggal <= sampai &&
         (effKel === "all" || r.kelurahan === effKel) &&
-        (!cari || r.nama.toLowerCase().includes(cari.toLowerCase()) || r.nik.includes(cari)),
+        (formId === "all" || formIdOf(r) === formId) &&
+        (!cari ||
+          r.nama.toLowerCase().includes(cari.toLowerCase()) ||
+          (r.nik ?? "").includes(cari) ||
+          r.formNama.toLowerCase().includes(cari.toLowerCase())),
     );
-  }, [rows, dari, sampai, effKel, cari]);
+  }, [rows, dari, sampai, effKel, formId, cari]);
 
-  const wargaUnik = new Set(filtered.map((r) => r.nik)).size;
+  // `rows` tidak membawa `formId`, jadi form yang cocok dicari lewat nama form —
+  // nama form unik per tabel `forms`, jadi pencocokan ini tidak ambigu.
+  const formIdOf = (r: (typeof rows)[number]): number =>
+    formAdaSubmit.find((f) => f.nama === r.formNama)?.formId ?? -1;
+
+  const wargaUnik = new Set(filtered.map((r) => r.nik).filter((n): n is string => n !== null)).size;
+
+  const namaFormFilter = formId === "all" ? "semua form" : (formAdaSubmit.find((f) => f.formId === formId)?.nama ?? "form");
 
   const kelStats = KELS.map((k) => {
     const sub = filtered.filter((r) => r.kelurahan === k);
@@ -112,10 +147,18 @@ function Laporan() {
   const gKopRows = filteredKegiatan.slice(0, 60);
 
   const downloadCsvKunjunganRumah = () => {
-    const head = ["No", "Tanggal", "Nama", "NIK", "Kelurahan", "Petugas"];
-    const csvRows = filtered.map((r, i) => [i + 1, r.tanggal, r.nama, r.nik, r.kelurahan, r.petugas]);
-    downloadCsv("laporan-kunjungan-rumah.csv", head, csvRows);
-    toast("Laporan kunjungan rumah CSV diunduh.");
+    const head = ["No", "Tanggal", "Form", "Nama", "NIK", "Kelurahan", "Petugas"];
+    const csvRows = filtered.map((r, i) => [
+      i + 1,
+      r.tanggal,
+      r.formNama,
+      r.nama,
+      r.nik ?? "—",
+      r.kelurahan,
+      r.petugas,
+    ]);
+    downloadCsv("laporan-isian-form.csv", head, csvRows);
+    toast("Laporan isian form CSV diunduh.");
   };
 
   const downloadKegiatanCsv = () => {
@@ -131,7 +174,8 @@ function Laporan() {
     const text = [
       `Laporan Kunjungan Rumah PWS — Kota Pasuruan`,
       `Periode ${fmtDate(dari)} – ${fmtDate(sampai)}`,
-      `Total ${filtered.length} kunjungan rumah · ${wargaUnik} warga unik`,
+      `Sumber data: ${namaFormFilter}`,
+      `Total ${filtered.length} isian form · ${wargaUnik} warga unik`,
       `${kelStats.map((s) => `Kel. ${s.kel}: ${s.n}`).join(" · ")}`,
     ].join("\n");
     navigator.clipboard
@@ -163,7 +207,7 @@ function Laporan() {
 
       <div role="tablist" aria-label="Laporan" className="mt-4 flex flex-wrap gap-2">
         <Tab active={tab === "kunjungan-rumah"} onClick={() => setTab("kunjungan-rumah")} role="tab" aria-selected={tab === "kunjungan-rumah"}>
-          Kunjungan Rumah
+          Isian Form
         </Tab>
         <Tab active={tab === "kegiatan"} onClick={() => setTab("kegiatan")} role="tab" aria-selected={tab === "kegiatan"}>
           Kegiatan Pemberdayaan
@@ -171,9 +215,19 @@ function Laporan() {
         <Tab active={tab === "rekap"} onClick={() => setTab("rekap")} role="tab" aria-selected={tab === "rekap"}>
           Rekap Kunjungan Rumah
         </Tab>
+        <Tab active={tab === "riwayat-submit"} onClick={() => setTab("riwayat-submit")} role="tab" aria-selected={tab === "riwayat-submit"}>
+          Riwayat Submit Form
+        </Tab>
       </div>
 
-      {tab === "rekap" ? (
+      {tab === "riwayat-submit" ? (
+        <RiwayatSubmitSection
+          rows={riwayatSubmit}
+          formList={formAdaSubmit}
+          loading={false}
+          error={null}
+        />
+      ) : tab === "rekap" ? (
         <RekapKunjunganRumahSection
           judul={judulRekap}
           setJudul={setJudulRekap}
@@ -184,7 +238,10 @@ function Laporan() {
         />
       ) : tab === "kunjungan-rumah" ? (
         <>
-          <FilterToolbar title="Saring Laporan" sub="Filter ikut memperbarui ringkasan, kop, dan pratinjau di bawah.">
+          <FilterToolbar
+            title="Saring Laporan"
+            sub="Semua form ikut dihitung dan setiap baris diberi nama formnya. Filter ikut memperbarui ringkasan, kop, dan pratinjau di bawah."
+          >
             <Input type="date" value={dari} onChange={(e) => setDari(e.target.value)} aria-label="Tanggal awal" className="max-w-42.5 max-md:max-w-none" />
             <Input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} aria-label="Tanggal akhir" className="max-w-42.5 max-md:max-w-none" />
             <Select value={effKel} onChange={(e) => setKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-42.5 max-md:max-w-none" disabled={!admin}>
@@ -193,16 +250,32 @@ function Laporan() {
                 <option key={k}>{k}</option>
               ))}
             </Select>
-            <Input value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Cari nama / NIK…" aria-label="Cari nama" className="max-w-50 max-md:max-w-none" />
+            <Select
+              value={String(formId)}
+              onChange={(e) => {
+                setFormId(e.target.value === "all" ? "all" : Number(e.target.value));
+                setPage(1);
+              }}
+              aria-label="Filter form"
+              className="max-w-52.5 max-md:max-w-none"
+            >
+              <option value="all">Semua form</option>
+              {formAdaSubmit.map((f) => (
+                <option key={f.formId} value={f.formId}>
+                  {f.nama} ({f.jumlahSubmit})
+                </option>
+              ))}
+            </Select>
+            <Input value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Cari nama / NIK / form…" aria-label="Cari nama" className="max-w-50 max-md:max-w-none" />
           </FilterToolbar>
 
           <SectionCard className="no-print" title="Ringkasan" sub="Rekap otomatis dari filter di atas.">
             <div className="grid grid-cols-3 gap-3 max-md:grid-cols-2 max-sm:grid-cols-1">
-              <StatCard caption="Total kunjungan rumah" value={filtered.length} />
+              <StatCard caption="Total isian form" value={filtered.length} />
               <StatCard caption="Warga unik" value={wargaUnik} />
               <StatCard caption="Kelurahan tercakup" value={kelStats.filter((s) => s.n > 0).length} />
             </div>
-            <KelStatsGrid stats={kelStats} unit="kunjungan" />
+            <KelStatsGrid stats={kelStats} unit="isian" />
           </SectionCard>
 
           <KopSection
@@ -222,13 +295,18 @@ function Laporan() {
 
           <KopSurat
             judul={judul}
-            subtitle={<>Periode {fmtDate(dari)} – {fmtDate(sampai)} · {filtered.length} kunjungan rumah · {wargaUnik} warga</>}
+            subtitle={
+              <>
+                Periode {fmtDate(dari)} – {fmtDate(sampai)} · {namaFormFilter} · {filtered.length} isian
+                form · {wargaUnik} warga
+              </>
+            }
             ttdNama={ttdNama}
             ttdJabatan={ttdJabatan}
           >
             <KopTable
-              headers={["No", "Tanggal", "Nama", "Wilayah", "Petugas", "Status"]}
-              colSpan={6}
+              headers={["No", "Tanggal", "Form", "Nama", "Wilayah", "Petugas", "Status"]}
+              colSpan={7}
               emptyMessage="Tidak ada data untuk filter ini."
               rows={kopRows}
               renderRow={(r, i) => (
@@ -236,8 +314,12 @@ function Laporan() {
                   <td className="px-2.5 py-2">{i + 1}</td>
                   <td className="whitespace-nowrap px-2.5 py-2">{fmtDate(r.tanggal)}</td>
                   <td className="px-2.5 py-2">
+                    <div className="font-semibold">{r.formNama}</div>
+                    <div className="text-muted">Versi {r.formVersion}</div>
+                  </td>
+                  <td className="px-2.5 py-2">
                     <div className="font-semibold">{r.nama}</div>
-                    <div className="text-muted">NIK {r.nik}</div>
+                    <div className="text-muted">{r.nik ? `NIK ${r.nik}` : "Tanpa warga"}</div>
                   </td>
                   <td className="whitespace-nowrap px-2.5 py-2">
                     Kel. {r.kelurahan}
@@ -254,13 +336,14 @@ function Laporan() {
           <SectionCard className="no-print" title="Pratinjau Data" sub="Lihat daftar lengkap dengan navigasi halaman.">
             {filtered.length === 0 ? (
               <p className="px-1 py-6 text-center text-sm text-muted">
-                Belum ada kunjungan rumah di database untuk filter ini.
+                Belum ada isian form di database untuk filter ini.
               </p>
             ) : (
             <DataTable
               columns={[
                 { key: "no", label: "No" },
                 { key: "tgl", label: "Tanggal" },
+                { key: "form", label: "Form" },
                 { key: "nama", label: "Nama" },
                 { key: "wilayah", label: "Wilayah" },
                 { key: "petugas", label: "Petugas" },
@@ -288,20 +371,21 @@ function Laporan() {
                 <div key={r.id} className="border-b border-[var(--color-surface-2)] last:border-none px-3.5 py-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="font-semibold text-ink">{r.nama}</div>
-                      <div className="text-[11px] text-muted">Kel. {r.kelurahan}</div>
+                      <div className="font-semibold text-ink">{r.formNama}</div>
+                      <div className="text-[11px] text-muted">{r.nama}</div>
                     </div>
                     <StatusBadge value="Selesai" />
                   </div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     <span className="text-[11px] text-muted">{fmtDate(r.tanggal)}</span>
                     <span className="text-[11px] text-muted">· {r.petugas}</span>
+                    {r.kelurahan !== "—" ? <span className="text-[11px] text-muted">· Kel. {r.kelurahan}</span> : null}
                   </div>
                 </div>
               )}
               toolbar={
                 <span className="text-xs font-semibold text-muted">
-                  Menampilkan {filtered.length} kunjungan rumah · {wargaUnik} warga
+                  Menampilkan {filtered.length} isian form · {wargaUnik} warga unik
                 </span>
               }
               info={info}

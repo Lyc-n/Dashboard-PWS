@@ -1,15 +1,15 @@
 import { db } from './db.server'
 import { dataWargaTable, formFieldRules, formFields, formSections, formVersions, forms, surveyEntries, surveys, validSession } from './schema/schema'
-import { pastikanPetugasValid } from './user-registry.server'
+import { listPetugasOpsi, pastikanPetugasValid } from './user-registry.server'
 import { jwtVerify, SignJWT } from 'jose'
 import { createHash, randomBytes } from 'node:crypto';
 import { setCookie } from '@tanstack/react-start/server';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
-import { SESSION_IDLE_MS, SESSION_PROFILE, SESSION_TTL_MS } from './constants'
+import { KODE_FORM_BAWAAN, SESSION_IDLE_MS, SESSION_PROFILE, SESSION_TTL_MS } from './constants'
 import { isValidNik } from './utils'
 import type { AuthUser } from './auth'
-import { FORM_KUNJUNGAN_RUMAH, PEMBATAS_NAMA_FIELD } from '@/features/kunjungan-rumah/lib/template-from-rows'
+import { PEMBATAS_NAMA_FIELD } from '@/features/kunjungan-rumah/lib/template-from-rows'
 import type { TemplateQuestionRow } from '@/features/kunjungan-rumah/lib/template-from-rows'
 import {
     barisDataWargaDariForm,
@@ -22,6 +22,7 @@ import {
 } from '@/features/kunjungan-rumah/lib/warga-row'
 import type { BarisWarga, SasaranSuggestion } from '@/features/kunjungan-rumah/lib/warga-row'
 import type { AnggotaKeluarga, KeluargaInfo } from '@/features/kunjungan-rumah/models'
+
 
 
 /* ALUR SESI (hasil merge)
@@ -170,10 +171,8 @@ export async function destroySession(sessionToken?: string) {
     setCookie('session', '', { httpOnly: true, secure: isSecureCookie(), path: '/', maxAge: 0 })
 }
 
-// [perbaikan] daftar petugas dari tabel users — expect: dropdown Petugas di form kunjungan rumah
-//   selalu sinkron dengan isi DB.
 export async function querySurveyors() {
-    return await db.query.users.findMany({ columns: { id: true, nama: true } })
+    return listPetugasOpsi(null)
 }
 
 // ---- kunjungan rumah langsung ke DB — pengganti localStorage `pws-kunjungan-rumah` ----
@@ -211,16 +210,46 @@ function cleanFotos(fotos: unknown): Array<Record<string, unknown>> {
 // `form_fields`, `form_field_rules`. Record jawaban ditulis ke `surveys` +
 // `survey_entries`; lihat catatan mapping di `saveKunjunganRumahRecord`.
 
-/** Form + versi published terbaru untuk "Form Kunjungan Rumah". */
+/**
+ * Form + versi published terbaru untuk form kunjungan rumah.
+ *
+ * Dicari lewat `forms.kode`, bukan `forms.nama`: `nama` boleh diubah admin lewat
+ * Form Builder, sedangkan `kode` dikunci seeder. Kalau lewat `nama`, satu
+ * rename saja membuat seluruh form kader jatuh ke template fallback tanpa error
+ * yang jelas. Lihat `KODE_FORM_BAWAAN` di src/lib/constants.ts.
+ */
 async function getKunjunganRumahForm() {
     const [row] = await db
         .select({ id: forms.id, nama: forms.nama, formVersionId: formVersions.id, version: formVersions.version })
         .from(forms)
         .innerJoin(formVersions, eq(formVersions.formId, forms.id))
-        .where(and(eq(forms.nama, FORM_KUNJUNGAN_RUMAH), eq(formVersions.status, "published")))
+        .where(and(eq(forms.kode, KODE_FORM_BAWAAN.kunjunganRumah), eq(formVersions.status, "published")))
         .orderBy(desc(formVersions.version))
         .limit(1)
     return row ?? null
+}
+
+/**
+ * Id SEMUA versi form kunjungan rumah, apa pun statusnya.
+ *
+ * Berbeda dengan `getKunjunganRumahForm()` yang sengaja terkunci ke versi
+ * published terbaru — itu untuk membaca definisi form dan untuk menulis record
+ * baru. Untuk menghitung record yang sudah ada, versi tidak boleh jadi filter:
+ * begitu admin menerbitkan revisi definisi lewat Form Builder, versi lama jadi
+ * `archived`, dan record yang dibuat padanya ikut hilang dari rekap hanya karena
+ * definisi form berubah. Data petugas tidak boleh hilang begitu saja.
+ *
+ * Versi baru tetap membaca definisi terbaru; record lamanya tetap bisa dibuka
+ * karena `getKunjunganRumahRecord()` mencari lewat `surveys.id`.
+ */
+async function semuaVersiKunjunganRumah(): Promise<string[] | null> {
+    const rows = await db
+        .select({ id: formVersions.id })
+        .from(forms)
+        .innerJoin(formVersions, eq(formVersions.formId, forms.id))
+        .where(eq(forms.kode, KODE_FORM_BAWAAN.kunjunganRumah))
+    if (rows.length === 0) return null
+    return rows.map((r) => r.id)
 }
 
 export async function getKunjunganRumahTemplateRows() {
@@ -233,7 +262,7 @@ export async function getKunjunganRumahTemplateRows() {
         .where(eq(formSections.formVersionId, form.formVersionId))
         .orderBy(formSections.urutan)
 
-    if (sectionRows.length === 0) return { version: form.version, questions: {} }
+    if (sectionRows.length === 0) return { versiDefinisi: form.version, questions: {} }
 
     const sectionIds = sectionRows.map((row) => row.id)
     const namaById = new Map(sectionRows.map((row) => [row.id, row.nama]))
@@ -252,17 +281,20 @@ export async function getKunjunganRumahTemplateRows() {
             deskripsi: formFields.deskripsi,
             wajib: formFields.wajib,
             urutan: formFields.urutan,
+            aktif: formFields.aktif,
         })
         .from(formFields)
         .where(inArray(formFields.sectionId, sectionIds))
         .orderBy(formFields.urutan)
 
     // Opsi = form_field_rules bertipe 'option' milik field. Satu query untuk semua
-    // field lalu di-group di memory supaya tidak jadi N+1.
+    // field lalu di-group di memory supaya tidak jadi N+1. Baris nonaktif ikut
+    // diambil supaya urutan opsi tidak berubah kalau admin menonaktifkan lalu
+    // mengaktifkan lagi lewat Form Builder; penyingkirannya dilakukan di bawah.
     const optionRows = fieldRows.length === 0
         ? []
         : await db
-            .select({ fieldId: formFieldRules.fieldId, value: formFieldRules.value })
+            .select({ fieldId: formFieldRules.fieldId, value: formFieldRules.value, aktif: formFieldRules.aktif })
             .from(formFieldRules)
             .where(and(
                 inArray(formFieldRules.fieldId, fieldRows.map((row) => row.id)),
@@ -272,6 +304,7 @@ export async function getKunjunganRumahTemplateRows() {
 
     const opsiByField = new Map<string, string[]>()
     for (const row of optionRows) {
+        if (!row.aktif) continue
         if (typeof row.value !== "string") continue
         const list = opsiByField.get(row.fieldId)
         if (list) list.push(row.value)
@@ -290,6 +323,7 @@ export async function getKunjunganRumahTemplateRows() {
             hint: row.deskripsi,
             wajib: row.wajib,
             urutan: row.urutan,
+            aktif: row.aktif,
             opsi: opsiByField.get(row.id) ?? [],
         }
         const list = bySection[sectionNama]
@@ -297,7 +331,7 @@ export async function getKunjunganRumahTemplateRows() {
         else bySection[sectionNama] = [entry]
     }
 
-    return { version: form.version, questions: bySection }
+    return { versiDefinisi: form.version, questions: bySection }
 }
 
 /**
@@ -585,15 +619,17 @@ async function barisWargaDariPayload(rec: JsonRecord): Promise<BarisWarga> {
 }
 
 export async function listKunjunganRumahRecords() {
-    const form = await getKunjunganRumahForm()
-    if (!form) return []
+    // Semua versi ikut, bukan cuma published terbaru: lihat catatan
+    // `semuaVersiKunjunganRumah()`.
+    const versionIds = await semuaVersiKunjunganRumah()
+    if (!versionIds) return []
     const rows = await db
         .select({ id: surveys.id, tanggal: surveys.tanggal, createdAt: surveys.createdAt, value: surveyEntries.value })
         .from(surveys)
         .innerJoin(surveyEntries, eq(surveyEntries.surveyId, surveys.id))
         .innerJoin(formFields, eq(formFields.id, surveyEntries.fieldId))
         .where(and(
-            eq(surveys.formVersionId, form.formVersionId),
+            inArray(surveys.formVersionId, versionIds),
             eq(formFields.nama, NAMA_FIELD_RECORD_LEGACY),
         ))
         .orderBy(desc(surveys.createdAt))
@@ -631,14 +667,11 @@ export async function saveKunjunganRumahRecord(payload: unknown) {
     }
 
     const head = headerDariPayload(rec)
-    // Petugas dicek lebih dulu: `data_warga.staff` menunjuk `users.id`, jadi
-    // petugas tidak sah akan menggagalkan insert warga dengan error FK yang
-    // tidak terbaca petugas.
-    const petugas = await pastikanPetugasValid(head.petugasId)
     if (!head.tanggal) throw new Error("Tanggal kunjungan wajib diisi")
     if (!isValidNik(head.wargaNik)) {
         throw new Error("NIK sasaran utama wajib 16 digit.")
     }
+    const petugas = await pastikanPetugasValid(head.petugasId)
 
     const id = typeof rec.id === "string" && rec.id ? rec.id : crypto.randomUUID()
     const clean: JsonRecord = { ...rec, id, fotos: cleanFotos(rec.fotos) }
@@ -682,10 +715,11 @@ export async function updateKunjunganRumahRecord(id: string, payload: unknown) {
     if (head.wargaNik && head.petugasId) {
         // Sama seperti saat menyimpan: warga sasaran ditulis dulu kalau belum
         // terdaftar, supaya `surveys.wargaNik` tidak menggagalkan update.
-        const petugas = await pastikanPetugasValid(head.petugasId)
+        if (!head.tanggal) throw new Error("Tanggal kunjungan wajib diisi")
         if (!isValidNik(head.wargaNik)) {
             throw new Error("NIK sasaran utama wajib 16 digit.")
         }
+        const petugas = await pastikanPetugasValid(head.petugasId)
         const barisWarga = await barisWargaDariPayload(clean)
         await db.transaction(async (tx) => {
             await simpanWargaSasaran(tx, barisWarga)
@@ -694,12 +728,9 @@ export async function updateKunjunganRumahRecord(id: string, payload: unknown) {
                 .set({
                     wargaNik: barisWarga.nik,
                     petugasId: petugas.id,
-                    ...(head.tanggal ? { tanggal: head.tanggal } : {}),
+                    tanggal: head.tanggal,
                 })
                 .where(eq(surveys.id, id))
-            // Entry lama ditimpa: `survey_entries` punya UNIQUE (surveyId, fieldId)
-            // dan tidak punya kolom untuk patch sebagian, jadi delete-then-insert
-            // satu baris — dalam transaksi yang sama supaya tidak pernah hilang.
             await tx
                 .delete(surveyEntries)
                 .where(and(eq(surveyEntries.surveyId, id), eq(surveyEntries.fieldId, fieldId)))
@@ -1011,8 +1042,24 @@ export async function querySurveyStatsByNik(): Promise<Array<{ nik: string; tota
     return rows as unknown as Array<{ nik: string; total: number; terakhir: string | null }>
 }
 
+/** Baris isian form yang dipakai dashboard, laporan, dan detail sasaran. */
+export interface BarisIsianForm {
+    id: string
+    tanggal: string
+    /** NULL kalau form-nya tidak menunjuk warga per-submission (mis. kegiatan). */
+    nik: string | null
+    nama: string
+    kelurahan: string
+    petugas: string
+    /** Nama form dari `forms`, bukan label hardcoded — ini yang membuat record
+     *  form buatan Form Builder tidak lagi tampil sebagai "kunjungan rumah". */
+    formNama: string
+    formKode: string | null
+    formVersion: number
+}
+
 /**
- * Kunjungan rumah beserta nama warga dan nama petugasnya, untuk dashboard dan laporan.
+ * Isian form dari semua form, untuk dashboard dan laporan.
  *
  * JOIN, bukan tiga query lalu dicocokkan di JS. Versi lama membaca SELURUH
  * `data_warga` dan SELURUH `users` tanpa `.limit()`, lalu memfilter/memetakan
@@ -1026,34 +1073,220 @@ export async function querySurveyStatsByNik(): Promise<Array<{ nik: string; tota
  * sedangkan pemanggil (`SurveyRow`) dan pembanding rentang tanggal di UI
  * (`laporan.tsx`: `r.tanggal >= dari`) memperlakukan string — tanpa `to_char`,
  * perbandingan string itu diam-diam jadi tidak berlaku.
+ *
+ * FILTER FORM TIDAK ADA DI SINI, dan itu disengaja. Tabel `surveys` tidak punya
+ * kolom penanda form; identitas form hanya `formVersionId`, jadi nama form
+ * diambil lewat join `form_versions → forms`. Query lama menyaring
+ * `wargaNik IS NOT NULL` lalu UI melabeli hasilnya "Kunjungan Rumah" — itu
+ * membuat submit form buatan Form Builder ikut terhitung sebagai kunjungan.
+ * Sekarang semua baris ikut, dan setiap baris membawa `formNama` untuk
+ * dilabelikan sesuai form asalnya. `nik` karena itu jadi nullable: form yang tidak
+ * mewajibkan warga (kegiatan, form generic) tetap tampil, hanya tanpa kolom warga.
  */
-export async function querySurveysWithWarga(limit = 500) {
-    // Submission kegiatan punya `wargaNik` NULL (form kegiatan tidak mewajibkan
-    // warga), dan baris seperti itu tidak punya apa pun untuk ditampilkan di
-    // laporan warga. Difilter di SQL, bukan dipetakan jadi baris kosong, supaya
-    // `SurveyRow.nik` tetap non-null seperti di UI.
+export async function querySurveysWithWarga(limit = 500): Promise<BarisIsianForm[]> {
     const rows = await db.execute(sql`
         SELECT
             s.id                                   AS "id",
             to_char(s."tanggal", 'YYYY-MM-DD')     AS "tanggal",
             s."wargaNik"                           AS "nik",
-            COALESCE(w."nama_art", s."wargaNik")   AS "nama",
+            COALESCE(w."nama_art", '—')            AS "nama",
             COALESCE(w."kelurahan", '—')           AS "kelurahan",
-            COALESCE(u."nama", '—')                AS "petugas"
+            COALESCE(u."nama", '—')                AS "petugas",
+            f.nama                                 AS "formNama",
+            f.kode                                 AS "formKode",
+            fv.version                             AS "formVersion"
         FROM surveys s
+        INNER JOIN form_versions fv ON fv.id = s."formVersionId"
+        INNER JOIN forms f ON f.id = fv."formId"
         LEFT JOIN data_warga w ON w.nik = s."wargaNik"
         LEFT JOIN users u ON u.id = s."petugasId"
-        WHERE s."wargaNik" IS NOT NULL
         ORDER BY s."tanggal" DESC
         LIMIT ${limit}
     `)
-    return rows as unknown as Array<{
-        id: string
-        tanggal: string
-        nik: string
-        nama: string
-        kelurahan: string
-        petugas: string
-    }>
+    return rows as unknown as BarisIsianForm[]
+}
+
+/** Satu baris riwayat submit untuk tab "Riwayat Submit Form". */
+export interface BarisRiwayatSubmit {
+    id: string
+    tanggal: string
+    dibuat: string
+    formNama: string
+    formKode: string | null
+    formVersion: number
+    petugas: string
+    nik: string | null
+    nama: string
+    kelurahan: string
+    jumlahJawaban: number
+}
+
+/**
+ * Bentuk jsonb yang aman lewat boundary server-fn.
+ *
+ * `survey_entries.value` bertipe `unknown` di sisi drizzle, dan `unknown` tidak
+ * lolos cek serialisasi TanStack Start. Tipe di bawah adalah jsonb yang sebenarnya
+ * (tanpa `undefined`/fungsi/siklus), jadi nilai apa pun yang ada di database bisa
+ * di-cast ke sini tanpa menebak-nebak.
+ */
+export type JsonNilai = string | number | boolean | null | JsonNilai[] | { [key: string]: JsonNilai }
+
+/** Satu jawaban beserta label field-nya, untuk panel detail riwayat. */
+export interface BarisJawabanSubmit {
+    fieldId: string
+    nama: string
+    label: string
+    tipe: string
+    urutan: number
+    /** Bentuk jsonb apa adanya; diformat di klien lewat `formatNilaiJawapan`. */
+    value: JsonNilai
+    /** Baris `form_field_rules` bertipe `option`, untuk memetakan value ke label. */
+    opsi: Array<{ value: string; label: string | null }>
+}
+
+/**
+ * Daftar submit dari semua form, untuk tab "Riwayat Submit Form".
+ *
+ * Berbeda dengan `querySurveysWithWarga`: tidak ada syarat warga, dan diurutkan
+ * `createdAt` (bukan `tanggal`) supaya submit yang tanggal isiannya lama tapi
+ * baru dikirim tetap muncul di atas. `formId` opsional untuk menyaring satu
+ * form; `q` sengaja tidak dipaksakan ke SQL — pencarian teks diserahkan ke klien
+ * karena halamannya sudah mengambil 200 baris.
+ */
+export async function queryRiwayatSubmit(params: {
+    limit?: number
+    formId?: number | null
+}): Promise<BarisRiwayatSubmit[]> {
+    const limit = params.limit ?? 200
+    const filterForm = params.formId ? sql`AND f.id = ${params.formId}` : sql``
+
+    const rows = await db.execute(sql`
+        SELECT
+            s.id                                   AS "id",
+            to_char(s."tanggal", 'YYYY-MM-DD')     AS "tanggal",
+            to_char(s."createdAt", 'YYYY-MM-DD HH24:MI') AS "dibuat",
+            f.nama                                 AS "formNama",
+            f.kode                                 AS "formKode",
+            fv.version                             AS "formVersion",
+            COALESCE(u."nama", '—')                AS "petugas",
+            s."wargaNik"                           AS "nik",
+            COALESCE(w."nama_art", '—')            AS "nama",
+            COALESCE(w."kelurahan", '—')           AS "kelurahan",
+            (SELECT COUNT(*)::int FROM survey_entries e WHERE e."surveyId" = s.id) AS "jumlahJawaban"
+        FROM surveys s
+        INNER JOIN form_versions fv ON fv.id = s."formVersionId"
+        INNER JOIN forms f ON f.id = fv."formId"
+        LEFT JOIN data_warga w ON w.nik = s."wargaNik"
+        LEFT JOIN users u ON u.id = s."petugasId"
+        WHERE TRUE
+        ${filterForm}
+        ORDER BY s."createdAt" DESC
+        LIMIT ${limit}
+    `)
+    return rows as unknown as BarisRiwayatSubmit[]
+}
+
+/**
+ * Jawaban satu submit, lengkap dengan label field dan opsi pilihannya.
+ *
+ * Opsi diambil terpisah dari `form_field_rules` karena satu field bisa punya
+ * puluhan baris opsi; join langsung ke `survey_entries` akan mengalikan baris
+ * jawaban dan membuat jumlah jawaban tidak jujur.
+ */
+export async function queryJawabanSubmit(surveyId: string): Promise<BarisJawabanSubmit[]> {
+    const jawaban = await db
+        .select({
+            fieldId: surveyEntries.fieldId,
+            nama: formFields.nama,
+            label: formFields.label,
+            tipe: formFields.tipe,
+            urutan: formFields.urutan,
+            value: surveyEntries.value,
+        })
+        .from(surveyEntries)
+        .innerJoin(formFields, eq(formFields.id, surveyEntries.fieldId))
+        .where(eq(surveyEntries.surveyId, surveyId))
+
+    if (jawaban.length === 0) return []
+
+    const opsi = await db
+        .select({
+            fieldId: formFieldRules.fieldId,
+            value: formFieldRules.value,
+            label: formFieldRules.label,
+        })
+        .from(formFieldRules)
+        .where(
+            and(
+                eq(formFieldRules.tipe, 'option'),
+                inArray(
+                    formFieldRules.fieldId,
+                    jawaban.map((j) => j.fieldId),
+                ),
+            ),
+        )
+
+    const opsiByField = new Map<string, Array<{ value: string; label: string | null }>>()
+    for (const o of opsi) {
+        if (o.value === null) continue
+        const list = opsiByField.get(o.fieldId) ?? []
+        list.push({ value: o.value, label: o.label })
+        opsiByField.set(o.fieldId, list)
+    }
+
+    return jawaban.map((j) => ({
+        fieldId: j.fieldId,
+        nama: j.nama,
+        label: j.label,
+        tipe: j.tipe,
+        urutan: j.urutan,
+        value: j.value as JsonNilai,
+        opsi: opsiByField.get(j.fieldId) ?? [],
+    }))
+}
+
+/**
+ * Satu baris ringkas untuk satu `surveyId`, dipakai panel detail riwayat.
+ *
+ * Query terpisah, bukan mencari di hasil `querySurveysWithWarga`: daftar itu
+ * dibatasi 500 baris terbaru, jadi submit lama tidak akan ketemu di sana.
+ */
+export async function queryRingkasanSubmit(surveyId: string): Promise<BarisIsianForm | null> {
+    const rows = await db.execute(sql`
+        SELECT
+            s.id                                   AS "id",
+            to_char(s."tanggal", 'YYYY-MM-DD')     AS "tanggal",
+            s."wargaNik"                           AS "nik",
+            COALESCE(w."nama_art", '—')            AS "nama",
+            COALESCE(w."kelurahan", '—')           AS "kelurahan",
+            COALESCE(u."nama", '—')                AS "petugas",
+            f.nama                                 AS "formNama",
+            f.kode                                 AS "formKode",
+            fv.version                             AS "formVersion"
+        FROM surveys s
+        INNER JOIN form_versions fv ON fv.id = s."formVersionId"
+        INNER JOIN forms f ON f.id = fv."formId"
+        LEFT JOIN data_warga w ON w.nik = s."wargaNik"
+        LEFT JOIN users u ON u.id = s."petugasId"
+        WHERE s.id = ${surveyId}
+        LIMIT 1
+    `)
+    const baris = rows as unknown as BarisIsianForm[]
+    return baris[0] ?? null
+}
+
+/** Form yang punya submission, untuk dropdown filter tab riwayat. */
+export async function queryFormAdaSubmit(): Promise<
+    Array<{ formId: number; nama: string; jumlahSubmit: number }>
+> {
+    const rows = await db.execute(sql`
+        SELECT f.id AS "formId", f.nama AS "nama", COUNT(s.id)::int AS "jumlahSubmit"
+        FROM surveys s
+        INNER JOIN form_versions fv ON fv.id = s."formVersionId"
+        INNER JOIN forms f ON f.id = fv."formId"
+        GROUP BY f.id, f.nama
+        ORDER BY f.nama
+    `)
+    return rows as unknown as Array<{ formId: number; nama: string; jumlahSubmit: number }>
 }
 

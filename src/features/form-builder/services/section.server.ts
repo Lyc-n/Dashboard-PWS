@@ -1,7 +1,8 @@
 import { eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db.server'
-import { formFieldRules, formFields, formSections, formVersions } from '@/lib/schema/schema'
+import { formFieldRules, formFields, formSections, formVersions, forms } from '@/lib/schema/schema'
 import { KesalahanValidasi } from './form-version.server'
+import { namaTanpaPrefix } from '../lib/kode-bawaan'
 
 /** Baris `form_field_rules` bertipe 'option' yang sudah dipisah dari aturan. */
 export interface OpsiDefinisiField {
@@ -37,6 +38,16 @@ export interface AturanDefinisiField {
  * dikelompokkan di memori. Opsi dan aturan sama-sama tabelnya
  * (`form_field_rules`), jadi dipisah berdasarkan kolom `tipe` supaya totalnya
  * tetap empat query dan tidak N+1 per section.
+ *
+ * Nama field form bawaan dikembalikan dalam bentuk pendeknya. Database menyimpan
+ * `<section>::<id>` supaya nama tetap unik per versi form walau id-nya dipakai
+ * ulang antar section, dan bentuk itu tidak pantas tampil di form editor — admin akan
+ * mengira `keluargaInfo::nik` adalah nama field yang harus diketik ulang. Prefix
+ * ditambahkan kembali di `buildFormVersion` (lihat `namaTersimpan`), jadi kedua
+ * arah harus berubah bersamaan.
+ *
+ * Form manual tidak menyentuh jalur ini: isian yang tidak ber-prefix
+ * dikembalikan utuh oleh `namaTanpaPrefix`.
  */
 export async function ambilDefinisiVersi(formVersionId: string) {
   const versi = await db
@@ -58,6 +69,17 @@ export async function ambilDefinisiVersi(formVersionId: string) {
       pesan: 'Form versi tidak ditemukan.',
     })
   }
+
+  // `forms.kode` menentukan apakah nama field dikembalikan dalam bentuk
+  // pendek. Form manual disimpan apa adanya, jadi bentuk pendek dan bentuk
+  // tersimpan sama dan jalur ini tidak berpengaruh untuk form manual.
+  const [form] = await db
+    .select({ kode: forms.kode })
+    .from(forms)
+    .where(eq(forms.id, versi[0].formId))
+    .limit(1)
+  const bawaan = (form?.kode ?? null) !== null
+  const namaUntukEditor = (nama: string): string => (bawaan ? namaTanpaPrefix(nama) : nama)
 
   const sections = await db
     .select({
@@ -170,6 +192,7 @@ export async function ambilDefinisiVersi(formVersionId: string) {
       ...section,
       fields: (fieldsBySection.get(section.id) ?? []).map((field) => ({
         ...field,
+        nama: namaUntukEditor(field.nama),
         opsi: opsiByField.get(field.id) ?? [],
         aturan: aturanByField.get(field.id) ?? [],
       })),

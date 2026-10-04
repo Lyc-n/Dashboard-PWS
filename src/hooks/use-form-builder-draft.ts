@@ -18,6 +18,7 @@ import { isSortable } from "@dnd-kit/react/sortable";
 import { move } from "@dnd-kit/helpers";
 import { flattenTree, ROOT_GROUP } from "@/features/kelola/components/builder/tree";
 import { SEMUA_TIPE_FIELD, TIPE_BUTUH_OPSI } from "@/features/form-builder/services/validasi";
+import { SUMBER_SUGGEST, tipeBolehPakaiSumber } from "@/features/form-builder/services/sumber-opsi";
 import { useToast } from "@/providers/toast";
 
 function generateClientId(): string {
@@ -44,6 +45,8 @@ function createDefaultField(sectionClientId: string, tipe: TipeFieldEditor = "te
     placeholder: null,
     deskripsi: null,
     jumlahKolom: tipe === "group" ? 2 : null,
+    optionSourceType: null,
+    optionSourceKey: null,
     opsi: createEmptyOpsi(tipe),
     aturan: [],
   };
@@ -83,6 +86,8 @@ function definisiToDraft(definisi: DefinisiVersi): DraftFormDocument {
       placeholder: f.placeholder,
       deskripsi: f.deskripsi,
       jumlahKolom: f.jumlahKolom,
+      optionSourceType: f.optionSourceType ?? null,
+      optionSourceKey: f.optionSourceKey ?? null,
       opsi: f.opsi.map((o, i) => ({
         clientId: o.id || `opsi-${f.id}-${i}`,
         value: o.value || "",
@@ -124,6 +129,15 @@ interface UseFormBuilderDraftReturn {
   updateSection: (clientId: string, patch: Partial<DraftSection>) => void;
   updateField: (clientId: string, patch: Partial<DraftField>) => void;
   addOpsi: (fieldClientId: string) => void;
+  /**
+   * Pasang atau lepas sumber pilihan jawaban pada satu field.
+   *
+   * Sumber dan opsi manual bersifat eksklusif: memilih sumber (kecuali
+   * `suggest`) mengosongkan opsi manual, karena daftar yang tampil saat render
+   * hanya boleh berasal dari satu tempat. `suggest` justru memakai baris `opsi`
+   * yang sama sebagai daftar sarannya.
+   */
+  setSumberOpsi: (fieldClientId: string, type: string | null, key: string | null) => void;
   updateOpsi: (fieldClientId: string, opsiClientId: string, patch: Partial<DraftOpsi>) => void;
   deleteOpsi: (fieldClientId: string, opsiClientId: string) => void;
   addAturan: (fieldClientId: string, sourceClientId: string) => void;
@@ -267,6 +281,35 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
     }));
   }, [updateDocument]);
   
+  const setSumberOpsi = useCallback(
+    (fieldClientId: string, type: string | null, key: string | null) => {
+      updateDocument((doc) => ({
+        ...doc,
+        fields: doc.fields.map((f) => {
+          if (f.clientId !== fieldClientId) return f;
+
+          // Sumber di luar tipe field ini (mis. `suggest` pada select) ditolak
+          // di UI; di sini tetap dijaga supaya draft tidak pernah berisi
+          // kombinasi yang akan ditolak server saat Build.
+          const boleh = type
+            ? tipeBolehPakaiSumber({ tipe: f.tipe, type, key })
+            : true;
+          if (!boleh) return f;
+
+          const skept = type === SUMBER_SUGGEST;
+          return {
+            ...f,
+            optionSourceType: type,
+            optionSourceKey: skept ? null : key,
+            // Saran disimpan sebagai opsi; sumber lain menggantikan opsi manual.
+            opsi: skept ? f.opsi : [],
+          };
+        }),
+      }));
+    },
+    [updateDocument],
+  );
+
   const deleteOpsi = useCallback((fieldClientId: string, opsiClientId: string) => {
     updateDocument((doc) => ({
       ...doc,
@@ -439,6 +482,8 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
         placeholder: f.placeholder?.trim() ?? null,
         deskripsi: f.deskripsi?.trim() ?? null,
         jumlahKolom: f.jumlahKolom,
+        optionSourceType: f.optionSourceType,
+        optionSourceKey: f.optionSourceType === SUMBER_SUGGEST ? null : f.optionSourceKey,
         opsi: f.opsi.map((o, idx) => ({
           value: o.value.trim(),
           label: o.label.trim() || o.value.trim(),
@@ -493,6 +538,7 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
     addOpsi,
     updateOpsi,
     deleteOpsi,
+    setSumberOpsi,
     addAturan,
     updateAturan,
     deleteAturan,

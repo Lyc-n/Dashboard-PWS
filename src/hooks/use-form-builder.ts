@@ -8,17 +8,23 @@ import {
   hapusFormBuilder,
   listFormBuilder,
   terbitkanVersiBuilder,
+  ringkasanHapusFormBuilder,
 } from "@/lib/utils.functions";
 import type { ambilDefinisiVersi } from "@/features/form-builder/services/section.server";
-import type { daftarVersiForm, listFormBaru } from "@/features/form-builder/services/form.server";
+import type {
+    daftarVersiForm,
+    HasilHapusForm,
+    listFormBaru,
+} from "@/features/form-builder/services/form.server";
+import type { RingkasanHapusForm } from "@/features/form-builder/services/validasi";
 
 export type DefinisiVersi = Awaited<ReturnType<typeof ambilDefinisiVersi>>;
 export type BarisVersi = Awaited<ReturnType<typeof daftarVersiForm>>[number];
 export type BarisFormBaru = Awaited<ReturnType<typeof listFormBaru>>[number];
 
-function pesanError(err: unknown): string {
+function pesanError(err: unknown, cadangan = "Gagal menyimpan perubahan form."): string {
   if (err instanceof Error && err.message) return err.message;
-  return "Gagal menyimpan perubahan form.";
+  return cadangan;
 }
 
 /**
@@ -42,11 +48,19 @@ export function useFormBuilder() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [definisiError, setDefinisiError] = useState<string | null>(null);
+  const [ringkasanHapus, setRingkasanHapus] = useState<RingkasanHapusForm | null>(null);
   const [semuaTipe, setSemuaTipe] = useState<readonly string[]>([]);
   const [butuhOpsi, setButuhOpsi] = useState<readonly string[]>([]);
 
   const versiTerpilih = versi.find((v) => v.id === formVersionId) ?? null;
   const bisaUbah = versiTerpilih?.status === "draft";
+  /**
+   * Form bawaan sistem (`forms.kode` ada) ditampilkan juga di editor, tapi
+   * strukturnya terkunci dan tidak bisa dihapus. Penegakannya ada di server
+   * (`buildFormVersion` dan `ringkasanHapusForm`); nilai ini hanya supaya
+   * kontrol yang sudah pasti ditolak tidak ditawarkan sebagai pilihan.
+   */
+  const bawaan = (forms.find((f) => f.id === formId)?.kode ?? null) !== null;
 
   // Daftar tipe dibaca dari server, bukan ditulis ulang di editor: backend yang
   // menolak field tanpa opsi, jadi dua daftar di tempat berbeda cepat tidak sinkron.
@@ -166,26 +180,56 @@ export function useFormBuilder() {
     [formVersionId, formId, muatDefinisi],
   );
 
+  /**
+   * Buka dialog hapus: ambil ringkasan isi form dari server lebih dulu, supaya
+   * admin melihat jumlah versi, isian, dan jawaban yang akan hilang.
+   */
+  const bukaDialogHapus = useCallback(async (id: number) => {
+    setSaving(true)
+    setError(null)
+    try {
+      setRingkasanHapus(await ringkasanHapusFormBuilder({ data: { formId: id } }))
+    } catch (err) {
+      setError(pesanError(err, "Ringkasan form tidak bisa dimuat. Coba lagi."));
+      setRingkasanHapus(null)
+    } finally {
+      setSaving(false)
+    }
+  }, [])
+
+  const tutupDialogHapus = useCallback(() => setRingkasanHapus(null), [])
+
+  /**
+   * Hapus form. `konfirmasiNama` hanya relevan kalau form sudah punya isian;
+   * server menolak tanpa `hapusPermanent` supaya tidak ada data petugas yang
+   * hilang karena satu klik.
+   */
   const hapusForm = useCallback(
-    async (id: number) => {
-      setSaving(true);
-      setError(null);
+    async (id: number, konfirmasiNama?: string): Promise<HasilHapusForm | null> => {
+      setSaving(true)
+      setError(null)
       try {
-        await hapusFormBuilder({ data: { formId: id } });
-        await muatForms();
-        // Reset state setelah hapus
-        setFormId(null);
-        setFormVersionId(null);
-        setDefinisi(null);
-        setVersi([]);
+        const hasil = await hapusFormBuilder({
+          data: { formId: id, hapusPermanent: true, konfirmasiNama: konfirmasiNama ?? null },
+        })
+        setForms((sebelum) => sebelum.filter((f) => f.id !== id))
+        setRingkasanHapus(null)
+        if (id === formId) {
+          setFormId(null)
+          setFormVersionId(null)
+          setDefinisi(null)
+          setVersi([])
+        }
+        return hasil
       } catch (err) {
-        setError(pesanError(err));
+        setError(pesanError(err, "Form tidak bisa dihapus. Coba lagi."));
+        return null
       } finally {
-        setSaving(false);
+        setSaving(false)
       }
     },
-    [muatForms],
-  );
+    [formId],
+  )
 
   const terbitkan = useCallback(
     () => (formVersionId ? jalankan(() => terbitkanVersiBuilder({ data: { formVersionId } })) : Promise.resolve()),
@@ -213,6 +257,7 @@ export function useFormBuilder() {
     formId,
     versi,
     versiTerpilih,
+    bawaan,
     formVersionId,
     definisi,
     semuaTipe,
@@ -228,6 +273,9 @@ export function useFormBuilder() {
     pilihVersi,
     buatForm,
     hapusForm,
+    ringkasanHapus,
+    bukaDialogHapus,
+    tutupDialogHapus,
     terbitkan,
     buatDraft,
   };

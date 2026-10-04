@@ -9,11 +9,14 @@ import {
   validasiNilaiGroup,
   validasiOpsiField,
   validasiNilaiOpsiTerpilih,
+  validasiSumberOpsi,
+  validasiHapusForm,
   validasiParentSection,
   validasiTerbitkanVersi,
 } from '@/features/form-builder/services/validasi'
 import type {HasilValidasi} from '@/features/form-builder/services/validasi';
 import { maskNik } from '@/features/form-builder/services/masking'
+import { namaTanpaPrefix } from '@/features/form-builder/lib/kode-bawaan'
 
 function kode(hasil: HasilValidasi): string | null {
   return hasil.ok ? null : hasil.kode
@@ -598,5 +601,325 @@ describe('validasiFieldPenuh', () => {
     })
     expect(hasil.ok).toBe(false)
     if (!hasil.ok) expect(hasil.pesan).toContain('Field ke-2')
+  })
+})
+
+describe('validasiSumberOpsi', () => {
+  const tanpaOpsi: readonly { value: string }[] = []
+
+  it('tanpa sumber selalu lolos', () => {
+    expect(validasiSumberOpsi({ tipe: 'text', opsi: tanpaOpsi })).toEqual({ ok: true })
+  })
+
+  it('sumber enum pada select lolos tanpa opsi statis', () => {
+    const hasil = validasiSumberOpsi({
+      tipe: 'select',
+      opsi: tanpaOpsi,
+      optionSourceType: 'enum',
+      optionSourceKey: 'agama',
+    })
+    expect(hasil).toEqual({ ok: true })
+  })
+
+  it('sumber tak dikenal ditolak', () => {
+    const hasil = validasiSumberOpsi({
+      tipe: 'select',
+      opsi: tanpaOpsi,
+      optionSourceType: 'entah',
+      optionSourceKey: 'x',
+    })
+    expect(kode(hasil)).toBe('SUMBER_OPSI_TIDAK_DIKENAL')
+  })
+
+  it('key tak dikenal untuk type yang dikenal ditolak', () => {
+    const hasil = validasiSumberOpsi({
+      tipe: 'select',
+      opsi: tanpaOpsi,
+      optionSourceType: 'enum',
+      optionSourceKey: 'entah',
+    })
+    expect(kode(hasil)).toBe('SUMBER_OPSI_TIDAK_DIKENAL')
+  })
+
+  it('prefix bucket milik Form Kunjungan Rumah ditolak', () => {
+    expect(
+      kode(
+        validasiSumberOpsi({
+          tipe: 'select',
+          opsi: tanpaOpsi,
+          optionSourceType: 'bucket=',
+          optionSourceKey: 'bucket=kelompok-1',
+        }),
+      ),
+    ).toBe('SUMBER_OPSI_TIDAK_DIKENAL')
+    expect(
+      kode(
+        validasiSumberOpsi({
+          tipe: 'select',
+          opsi: tanpaOpsi,
+          optionSourceType: 'enum',
+          optionSourceKey: 'bucket=kelompok-1',
+        }),
+      ),
+    ).toBe('SUMBER_OPSI_TIDAK_DIKENAL')
+  })
+
+  it('sumber tidak boleh dipakai di field yang tidak butuh pilihan', () => {
+    const hasil = validasiSumberOpsi({
+      tipe: 'number',
+      opsi: tanpaOpsi,
+      optionSourceType: 'enum',
+      optionSourceKey: 'agama',
+    })
+    expect(kode(hasil)).toBe('SUMBER_OPSI_TIPE_SALAH')
+  })
+
+  it('daftar saran hanya untuk field teks', () => {
+    expect(
+      kode(
+        validasiSumberOpsi({
+          tipe: 'select',
+          opsi: tanpaOpsi,
+          optionSourceType: 'suggest',
+        }),
+      ),
+    ).toBe('SUMBER_OPSI_TIPE_SALAH')
+    expect(
+      validasiSumberOpsi({
+        tipe: 'text',
+        opsi: [{ value: 'Budi' }],
+        optionSourceType: 'suggest',
+      }),
+    ).toEqual({ ok: true })
+  })
+
+  it('sumber dan opsi manual sekaligus ditolak', () => {
+    const hasil = validasiSumberOpsi({
+      tipe: 'select',
+      opsi: [{ value: 'Islam' }],
+      optionSourceType: 'enum',
+      optionSourceKey: 'agama',
+    })
+    expect(kode(hasil)).toBe('SUMBER_OPSI_TIDAK_DIKENAL')
+  })
+
+  it('opsi manual kosong (value kosong) tidak dianggap konflik', () => {
+    expect(
+      validasiSumberOpsi({
+        tipe: 'select',
+        opsi: [{ value: '  ' }],
+        optionSourceType: 'enum',
+        optionSourceKey: 'agama',
+      }),
+    ).toEqual({ ok: true })
+  })
+
+  it('ditolak lewat validasiFieldPenuh dengan posisi field', () => {
+    const hasil = validasiFieldPenuh({
+      fields: [
+        { nama: 'umur', label: 'Umur', tipe: 'number' },
+        { nama: 'agama', label: 'Agama', tipe: 'select', optionSourceType: 'entah', optionSourceKey: 'x' },
+      ],
+    })
+    expect(kode(hasil)).toBe('SUMBER_OPSI_TIDAK_DIKENAL')
+    if (!hasil.ok) expect(hasil.pesan).toContain('Field ke-2')
+  })
+})
+
+describe('validasiHapusForm', () => {
+  const base = {
+    nama: 'Form Uji Coba',
+    kode: null,
+    ringkasan: {
+      jumlahVersi: 3,
+      jumlahSubmit: 0,
+      jumlahJawaban: 0,
+      jumlahLampiran: 0,
+      jumlahWarga: 0,
+      tanggalTerakhir: null,
+    },
+  }
+
+  it('form tanpa isian boleh dihapus biasa walau versinya banyak', () => {
+    expect(validasiHapusForm(base)).toEqual({ ok: true })
+  })
+
+  it('form bawaan sistem tidak boleh dihapus, walau tanpa isian', () => {
+    const hasil = validasiHapusForm({ ...base, kode: 'CHECKLIST_KUNJUNGAN_RUMAH' })
+    expect(kode(hasil)).toBe('FORM_BAWAAN')
+  })
+
+  it('form berisian ditolak tanpa hapusPermanent', () => {
+    const hasil = validasiHapusForm({
+      ...base,
+      ringkasan: { ...base.ringkasan, jumlahSubmit: 12, jumlahJawaban: 96, jumlahWarga: 12 },
+    })
+    expect(kode(hasil)).toBe('FORM_PUNYA_ISIAN')
+    if (!hasil.ok) {
+      expect(hasil.pesan).toContain('12 isian')
+      expect(hasil.pesan).toContain('96 jawaban')
+    }
+  })
+
+  it('hapus permanen tanpa konfirmasi nama ditolak', () => {
+    const hasil = validasiHapusForm({
+      ...base,
+      ringkasan: { ...base.ringkasan, jumlahSubmit: 1 },
+      hapusPermanent: true,
+    })
+    expect(kode(hasil)).toBe('KONFIRMASI_NAMA_SALAH')
+  })
+
+  it('nama konfirmasi harus sama persis', () => {
+    const params = {
+      ...base,
+      ringkasan: { ...base.ringkasan, jumlahSubmit: 1 },
+      hapusPermanent: true,
+    }
+    expect(kode(validasiHapusForm({ ...params, konfirmasiNama: 'form uji coba' }))).toBe(
+      'KONFIRMASI_NAMA_SALAH',
+    )
+    expect(validasiHapusForm({ ...params, konfirmasiNama: '  Form Uji Coba  ' })).toEqual({ ok: true })
+  })
+
+  it('konfirmasi nama tidak diminta kalau form tidak punya isian', () => {
+    expect(validasiHapusForm({ ...base, hapusPermanent: true, konfirmasiNama: null })).toEqual({ ok: true })
+  })
+
+  it('kunci konfirmasi hanya diminta kalau memang ada isian', () => {
+    const hasil = validasiHapusForm({
+      ...base,
+      ringkasan: { ...base.ringkasan, jumlahSubmit: 1 },
+      hapusPermanent: true,
+      konfirmasiNama: 'Form Uji Coba',
+    })
+    expect(hasil).toEqual({ ok: true })
+  })
+})
+
+// Dua parameter ini hanya dipakai untuk form bawaan, yang definisinya sudah ada
+// di database sebelum Form Builder bisa menyuntingnya. Keduanya opsional, jadi
+// form manual tidak ikut berubah perilakunya.
+describe('validasiFieldPenuh dengan normalisasiNama', () => {
+  // Pakai helper asli, bukan tiruan: nama yang divalidasi di produksi memang
+  // fungsi ini, jadi menyalin logikanya ke sini pasti bisa menyimpang.
+  const bukaPrefix = (nama: string) => namaTanpaPrefix(nama)
+
+  it('nama ber-prefix :: ditolak secara default', () => {
+    // Pola nama field hanya menerima huruf kecil, angka, dan garis bawah.
+    const hasil = validasiFieldPenuh({
+      fields: [{ nama: 'keluargaInfo::nik', label: 'NIK', tipe: 'text' }],
+    })
+    expect(kode(hasil)).toBe('NAMA_FIELD_TIDAK_VALID')
+  })
+
+  it('nama ber-prefix :: diterima setelah prefix dibuka', () => {
+    const hasil = validasiFieldPenuh({
+      normalisasiNama: bukaPrefix,
+      fields: [{ nama: 'keluargaInfo::nik', label: 'NIK', tipe: 'text' }],
+    })
+    expect(hasil).toEqual({ ok: true })
+  })
+
+  it('nama yang sama dalam dua bentuk berbeda tetap dianggap dobel', () => {
+    // `nik` dan `keluargaInfo::nik` menunjuk field yang sama, jadi tidak boleh
+    // lolos sebagai dua field terpisah.
+    const hasil = validasiFieldPenuh({
+      normalisasiNama: bukaPrefix,
+      fields: [
+        { nama: 'keluargaInfo::nik', label: 'NIK', tipe: 'text' },
+        { nama: 'nik', label: 'NIK lagi', tipe: 'text' },
+      ],
+    })
+    expect(kode(hasil)).toBe('NAMA_FIELD_BENTARAK')
+  })
+
+  it('id yang sama di dua section lolos karena diperiksa per section', () => {
+    // Justru inilah alasan prefix ada: template memakai ulang id antar section.
+    // `validateAllFields` memanggil `validasiFieldPenuh` satu kali per section,
+    // jadi dua section dengan id sama tidak pernah dibandingkan. Dipanggil
+    // sekaligus di sini, keduanya akan dianggap dobel — itu memang benar,
+    // karena dalam satu section nama ganda tidak bisa dibedakan.
+    const keluarga = validasiFieldPenuh({
+      normalisasiNama: bukaPrefix,
+      fields: [{ nama: 'keluargaInfo::nik', label: 'NIK', tipe: 'text' }],
+    })
+    const anggota = validasiFieldPenuh({
+      normalisasiNama: bukaPrefix,
+      fields: [{ nama: 'anggota::nik', label: 'NIK', tipe: 'text' }],
+    })
+    expect(keluarga).toEqual({ ok: true })
+    expect(anggota).toEqual({ ok: true })
+  })
+
+  it('dua nama berbeda di section yang sama tetap ditolak setelah prefix dibuka', () => {    const hasil = validasiFieldPenuh({
+      normalisasiNama: bukaPrefix,
+      fields: [
+        { nama: 'keluargaInfo::nik', label: 'NIK', tipe: 'text' },
+        { nama: 'keluargaInfo::nik', label: 'NIK dua', tipe: 'text' },
+      ],
+    })
+    expect(kode(hasil)).toBe('NAMA_FIELD_BENTARAK')
+  })
+})
+
+describe('validasiFieldPenuh dengan fieldBawaan', () => {
+  const bawaan = (nama: string, tipe: string, label = 'Label') => ({
+    nama,
+    label,
+    tipe: tipe as 'text',
+    fieldBawaan: true,
+  })
+
+  it('field bawaan boleh punya nama yang tidak lolos pola nama', () => {
+    // Nama bawaan form kunjungan rumah mengandung huruf besar dan sudah dipakai
+    // data yang tersimpan, jadi tidak boleh ditolak hanya karena bentuknya.
+    const hasil = validasiFieldPenuh({ fields: [bawaan('tglPengumpulan', 'date')] })
+    expect(hasil).toEqual({ ok: true })
+  })
+
+  it('field bawaan boleh tanpa opsi walau tipenya butuh opsi', () => {
+    const hasil = validasiFieldPenuh({ fields: [bawaan('jkn', 'checkbox')] })
+    expect(hasil).toEqual({ ok: true })
+  })
+
+  it('field bawaan boleh tanpa jumlah kolom walau tipenya group', () => {
+    const hasil = validasiFieldPenuh({ fields: [bawaan('record_legacy', 'group')] })
+    expect(hasil).toEqual({ ok: true })
+  })
+
+  it('field bawaan tetap wajib punya teks pertanyaan', () => {
+    const hasil = validasiFieldPenuh({ fields: [bawaan('nik', 'text', '   ')] })
+    expect(kode(hasil)).toBe('NAMA_FIELD_TIDAK_VALID')
+  })
+
+  it('field bawaan tetap wajib punya nama unik di sectionnya', () => {
+    const hasil = validasiFieldPenuh({
+      fields: [bawaan('nik', 'text'), bawaan('nik', 'text', 'NIK kedua')],
+    })
+    expect(kode(hasil)).toBe('NAMA_FIELD_BENTARAK')
+  })
+
+  it('field baru tetap diperiksa penuh walau ada field bawaan di sebelahnya', () => {
+    // `fieldBawaan` hanya berlaku pada field itu sendiri. Field baru di sebelahnya
+    // tetap harus lolos pola nama.
+    const hasilKedua = validasiFieldPenuh({
+      fields: [
+        bawaan('tglPengumpulan', 'date'),
+        { nama: 'bukanPola', label: 'Nama', tipe: 'text' },
+      ],
+    })
+    expect(kode(hasilKedua)).toBe('NAMA_FIELD_TIDAK_VALID')
+
+    // Catatan: `textarea` lolos di sini karena validator ini tidak tahu soal lima
+    // tipe yang bisa dirender form kader. Itu urusan `kode-bawaan.ts`, dan sudah
+    // diuji lewat cross-check di `kode-bawaan.test.ts`.
+    const hasil = validasiFieldPenuh({
+      fields: [
+        bawaan('tglPengumpulan', 'date'),
+        { nama: 'catatan', label: 'Catatan', tipe: 'textarea' },
+      ],
+    })
+    expect(hasil).toEqual({ ok: true })
   })
 })

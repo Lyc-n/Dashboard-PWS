@@ -21,11 +21,14 @@ interface Props {
   onDeselectField: () => void;
   selectedFieldClientId: string | null;
   onAddField: (sectionClientId: string) => void;
-  onAddSubSection: (parentClientId: string) => void;
+  /** undefined = form ini mengunci struktur section, jadi tombolnya disembunyikan. */
+  onAddSubSection?: (parentClientId: string) => void;
   onUpdateSection: (clientId: string, patch: Partial<DraftSection>) => void;
-  onDeleteSection: (clientId: string) => void;
+  /** undefined = form ini mengunci struktur section, jadi tombolnya disembunyikan. */
+  onDeleteSection?: (clientId: string) => void;
   onUpdateField: (clientId: string, patch: Partial<DraftField>) => void;
-  onDeleteField: (clientId: string) => void;
+  /** undefined = field ini tidak boleh dihapus, jadi tombolnya disembunyikan. */
+  onDeleteField?: (clientId: string) => void;
 }
 
 export function SectionNode({
@@ -113,17 +116,21 @@ export function SectionNode({
           <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); onAddField(section.clientId); }}>
             <Plus className="w-3 h-3" /> Field
           </Button>
-          <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); onAddSubSection(section.clientId); }}>
-            <Plus className="w-3 h-3" /> Sub
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-destructive hover:bg-destructive/10"
-            onClick={(e) => { e.stopPropagation(); onDeleteSection(section.clientId); }}
-          >
-            <Trash2 className="w-3 h-3" />
-          </Button>
+          {onAddSubSection ? (
+            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); onAddSubSection(section.clientId); }}>
+              <Plus className="w-3 h-3" /> Sub
+            </Button>
+          ) : null}
+          {onDeleteSection ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive hover:bg-destructive/10"
+              onClick={(e) => { e.stopPropagation(); onDeleteSection(section.clientId); }}
+            >
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          ) : null}
         </div>
       </div>
       

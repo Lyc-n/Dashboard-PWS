@@ -4,10 +4,13 @@ import {
   formFields,
   formFieldRules,
   formSections,
+  formVersions,
+  forms,
 } from "@/lib/schema/schema";
-import { validasiFieldPenuh, TIPE_BUTUH_OPSI } from "./validasi";
+import { validasiFieldPenuh } from "./validasi";
 import type { HasilValidasi, TipeField } from "./validasi";
 import { KesalahanValidasi, assertVersiBisaDiubah } from "./form-version.server";
+import { namaDenganPrefix, namaTanpaPrefix, validasiStrukturBawaan } from "../lib/kode-bawaan";
 import { catatAudit } from "./audit.server";
 import { sisipkanOpsi, sisipkanAturanVisibility } from "./rule.server";
 import type { AturanInput, OpsiInput } from "./rule.server";
@@ -51,8 +54,31 @@ interface FieldInput {
   placeholder: string | null;
   deskripsi: string | null;
   jumlahKolom: number | null;
+  /**
+   * Sumber pilihan jawaban dari data yang sudah ada. null = admin mengetik
+   * sendiri pilihannya di `opsi`. Katalog `sumber-opsi.ts` yang menentukan nilai
+   * mana yang sah; `validasiFieldPenuh` menolak yang tidak dikenal.
+   */
+  optionSourceType: string | null;
+  optionSourceKey: string | null;
   opsi: OpsiInput[];
   aturan: FieldRuleInput[];
+}
+
+/**
+ * `forms.kode` untuk form pemilik sebuah versi.
+ *
+ * Yang menentukan apakah draft ini boleh diubah bentuknya atau tidak. `null`
+ * berarti form manual: seluruh strukturnya bebas, jadi penjaga bawaan dilewati.
+ */
+async function ambilKodeFormVersi(executor: Executor, formVersionId: string): Promise<string | null> {
+  const [baris] = await executor
+    .select({ kode: forms.kode })
+    .from(formVersions)
+    .innerJoin(forms, eq(forms.id, formVersions.formId))
+    .where(eq(formVersions.id, formVersionId))
+    .limit(1);
+  return baris?.kode ?? null;
 }
 
 async function loadExisting(executor: Executor, formVersionId: string) {
@@ -118,7 +144,11 @@ function validateAllSections(
 function validateAllFields(
   fields: FieldInput[],
   sections: SectionInput[],
-  _existingFieldIds: Set<string>
+  existingFieldIds: Set<string>,
+  /** Bentuk nama yang divalidasi, kalau berbeda dari yang akan disimpan ke DB. */
+  normalisasiNama?: (nama: string) => string,
+  /** true kalau form ini form bawaan sistem, bukan form manual. */
+  bawaan = false,
 ): HasilValidasi {
   const fieldsBySection = new Map<string, FieldInput[]>();
   for (const f of fields) {
@@ -137,18 +167,23 @@ function validateAllFields(
       nama: f.nama,
       label: f.label,
       tipe: f.tipe,
-      optionSourceType: f.opsi.length === 0 && TIPE_BUTUH_OPSI.includes(f.tipe) ? null : undefined,
+      optionSourceType: f.optionSourceType,
+      optionSourceKey: f.optionSourceKey,
       jumlahKolom: f.jumlahKolom,
       opsi: f.opsi.map((o) => ({ value: o.value, aktif: o.aktif })),
       hapus: false,
+      // Field bawaan form sistem sudah ada di database dan tidak bisa diubah
+      // admin, jadi bentuknya mengikuti aturan form asal. Field yang baru
+      // ditambahkan admin tetap diperiksa penuh.
+      fieldBawaan: bawaan && f.id !== null && existingFieldIds.has(f.id),
     }));
     
-    const validation = validasiFieldPenuh({ fields: fieldDefs });
+    const validation = validasiFieldPenuh({ fields: fieldDefs, normalisasiNama });
     if (!validation.ok) {
       return { ok: false, kode: validation.kode, pesan: `Section ${section.nama}: ${validation.pesan}` };
     }
-    // Duplikat nama antar field sudah dicek validasiFieldPenuh di atas
-    // (global dalam payload, termasuk rename). Tidak ada cek tambahan di sini.
+    // Duplikat nama antar field sudah dicek validasiFieldPenuh di atas, per
+    // section (termasuk rename). Tidak ada cek tambahan di sini.
   }
   
   return { ok: true };
@@ -224,10 +259,60 @@ export async function buildFormVersion(
   const sectionsToDelete = existingSections.filter((s) => !incomingSectionIds.has(s.id));
   const fieldsToDelete = existingFields.filter((f) => !incomingFieldIds.has(f.id));
   
+// `forms.kode` menentukan apakah draft ini boleh diubah bentuknya atau tidak.
+  // `null` berarti form manual: seluruh strukturnya bebas.
+  const formKode = await ambilKodeFormVersi(db, formVersionId);
+  const bawaan = formKode !== null;
+
+  // Nama field form bawaan disimpan ber-namespace: `<section>::<id>`. Kedua form
+  // bawaan (kunjungan rumah dan kegiatan) memakai skema ini karena id field-nya
+  // dipakai ulang antar section — `nama`, `nik`, `tglLahir` muncul di banyak
+  // section, sementara `form_fields.nama` wajib unik per versi form.
+  //
+  // Pola nama field menolak `::`, jadi yang divalidasi adalah bentuk pendeknya
+  // sementara yang ditulis ke database memakai namespace. Form manual tidak
+  // memakai namespace sama sekali, jadi bentuk keduanya sama dan pemanggil lain
+  // tidak ikut berubah.
+  const normalisasiNama = bawaan ? namaTanpaPrefix : undefined;
+  // Prefix ditulis sekali saja di sini: di kolom `nama`, bukan di nama section.
+  // Field yang sudah ber-prefix tetap aman karena `namaTanpaPrefix` dijalankan
+  // lebih dulu, jadi builds berulang tidak menambah `::` ganda.
+  const namaTersimpan = (nama: string, sectionNama: string): string =>
+    bawaan ? namaDenganPrefix(sectionNama, namaTanpaPrefix(nama)) : nama;
+
   pastikan(validateAllSections(sectionsInput, existingSectionIds));
-  pastikan(validateAllFields(fieldsInput, sectionsInput, existingFieldIds));
+  pastikan(validateAllFields(fieldsInput, sectionsInput, existingFieldIds, normalisasiNama, bawaan));
   pastikan(validateParentRelations(sectionsInput, formVersionId));
   pastikan(validateRules(fieldsInput));
+
+  // Form bawaan (kunjungan rumah) bentuknya dipetakan balik ke form kader lewat
+  // nama section, prefix nama field, dan bucket. Validator di atas hanya melihat
+  // keabilitas editor; yang satu ini melihat apa akibatnya ke form kader.
+  const sectionClientIdKeId = new Map(sectionsInput.map((s) => [s.clientId, s.id ?? null]));
+  pastikan(
+    validasiStrukturBawaan({
+      formKode,
+      sections: sectionsInput.map((s) => ({ id: s.id, nama: s.nama })),
+      fields: fieldsInput.map((f) => ({
+        id: f.id,
+        sectionId: sectionClientIdKeId.get(f.sectionClientId) ?? null,
+        nama: f.nama,
+        tipe: f.tipe,
+        optionSourceType: f.optionSourceType,
+        optionSourceKey: f.optionSourceKey,
+      })),
+      sectionsLama: existingSections.map((s) => ({ id: s.id, nama: s.nama })),
+      fieldsLama: existingFields.map((f) => ({
+        id: f.id,
+        sectionId: f.sectionId,
+        nama: f.nama,
+        optionSourceKey: f.optionSourceKey,
+      })),
+      // Aturan yang disimpan builder semuanya bertipe `visibility` (lihat
+      // `sisipkanAturanVisibility`), jadi satu flag sudah cukup.
+      adaAturanVisibility: fieldsInput.some((f) => f.aturan.length > 0),
+    }),
+  );
   
   const now = new Date();
   
@@ -311,11 +396,15 @@ export async function buildFormVersion(
         const fieldData = {
           formVersionId,
           sectionId,
-          nama: field.nama,
+          nama: namaTersimpan(field.nama, section.nama),
           label: field.label,
           tipe: field.tipe,
-          optionSourceType: field.opsi.length === 0 && TIPE_BUTUH_OPSI.includes(field.tipe) ? null : undefined,
-          optionSourceKey: null,
+          // Ditulis apa adanya dari payload, bukan diturunkan dari `opsi`.
+          // Versi lama menurunkan optionSourceType dari panjang `opsi` dan
+          // selalu mengosongkan optionSourceKey, sehingga pilihan dari sumber
+          // data yang sudah ada hilang begitu admin Build.
+          optionSourceType: field.optionSourceType,
+          optionSourceKey: field.optionSourceKey,
           deskripsi: field.deskripsi,
           placeholder: field.placeholder,
           wajib: field.wajib,

@@ -5,7 +5,7 @@ import { Select } from "@/components/atoms/Select";
 import { FormField } from "@/components/molecules/FormField";
 import { listSurveyors, cariSasaranWarga } from "@/lib/utils.functions";
 import type { SasaranSuggestion } from "@/features/kunjungan-rumah/lib/warga-row";
-import { cn } from "@/lib/utils";
+import { cn, normalkanNik } from "@/lib/utils";
 import type { KunjunganRumahAction, KunjunganRumahState } from "@/features/kunjungan-rumah/store/kunjunganRumahReducer";
 
 const PLACEHOLDER: Partial<Record<string, string>> = {
@@ -198,7 +198,7 @@ export function KeluargaInfoSection({ state, templates, dispatch }: Props) {
                       key: f.id,
                       value:
                         sumber === "nik"
-                          ? e.target.value.replace(/\D/g, "").slice(0, 16)
+                          ? normalkanNik(e.target.value)
                           : e.target.value,
                     });
                   }}

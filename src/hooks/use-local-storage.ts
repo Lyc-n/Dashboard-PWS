@@ -4,17 +4,10 @@ function isBrowser(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
-export const STORAGE_QUOTA_EVENT = "pws:storage-quota";
-
 function isQuotaError(e: unknown): boolean {
   if (!e || typeof e !== "object") return false;
   const o = e as { name?: string; code?: number };
   return o.name === "QuotaExceededError" || o.name === "NS_ERROR_FILE_NO_SPACE_LEFT" || o.code === 22;
-}
-
-function emitQuotaError(key: string): void {
-  if (!isBrowser()) return;
-  window.dispatchEvent(new CustomEvent(STORAGE_QUOTA_EVENT, { detail: { key } }));
 }
 
 export function useLocalStorage<T>(key: string, initial: T) {
@@ -40,8 +33,9 @@ export function useLocalStorage<T>(key: string, initial: T) {
       try {
         if (pending.current !== null) window.localStorage.setItem(key, JSON.stringify(pending.current));
       } catch (e) {
-        // kuota penuh / storage tidak tersedia — beritahu via event agar UI toast
-        if (isQuotaError(e)) emitQuotaError(key);
+        if (isQuotaError(e)) {
+          // abaikan error kuota
+        }
       }
       timer.current = null;
     }, 300);
@@ -61,7 +55,9 @@ export function useLocalStorage<T>(key: string, initial: T) {
       try {
         if (pending.current !== null) window.localStorage.setItem(key, JSON.stringify(pending.current));
       } catch (e) {
-        if (isQuotaError(e)) emitQuotaError(key);
+        if (isQuotaError(e)) {
+          // abaikan error kuota
+        }
       }
     };
   }, [key]);

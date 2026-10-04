@@ -3,6 +3,7 @@ import { sasaranDef } from "@/lib/kunjungan-rumah-form";
 import type { KunjunganRumahTemplates } from "@/lib/kunjungan-rumah-templates";
 import type { SasaranKey } from "@/lib/kunjungan-rumah-form";
 import type { AnggotaKeluarga, KeluargaInfo, KunjunganRumahFoto, MasalahTindak, PenilaianForm, Sanitasi } from "@/features/kunjungan-rumah/models";
+import { hariIni } from "@/lib/utils";
 import { createRecordId } from "@/features/kunjungan-rumah/types";
 import type { KunjunganRumahRecord } from "@/features/kunjungan-rumah/types";
 import { opsiJk, opsiKawin, opsiPendidikan, opsiPekerjaan, opsiHubKK } from "@/features/kunjungan-rumah/lib/warga-row";
@@ -21,13 +22,8 @@ export interface KunjunganRumahState {
   invalid: Record<string, boolean>;
 }
 
-function todayISO(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 const EMPTY_INFO: KeluargaInfo = {
-  tglPengumpulan: todayISO(),
+  tglPengumpulan: hariIni(),
   alamat: "",
   kelurahan: "",
   kecamatan: "",

@@ -74,6 +74,16 @@ export function statusVariantFrom(value?: string | null): StatusVariant {
   }
 }
 
+export function hariIni(): string {
+  const t = new Date();
+  const y = t.getFullYear();
+  const m = String(t.getMonth() + 1).padStart(2, "0");
+  const d = String(t.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export const todayISO = hariIni;
+
 export function fmtDate(iso: string): string {
   const [y, m, d] = iso.split("-");
   if (!y || !m || !d) return iso;
@@ -104,6 +114,10 @@ export function downloadCsv(filename: string, head: string[], rows: (string | nu
   const esc = escapeCsvCell;
   const content = "\uFEFF" + [head, ...rows].map((r) => r.map(esc).join(",")).join("\n");
   triggerDownload(filename, new Blob([content], { type: "text/csv;charset=utf-8" }));
+}
+
+export function normalkanNik(nik: string): string {
+  return String(nik).replace(/\D/g, "").slice(0, 16);
 }
 
 export function isValidNik(nik: string): boolean {

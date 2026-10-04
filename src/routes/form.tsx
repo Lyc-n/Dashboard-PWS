@@ -73,7 +73,6 @@ function DaftarFormulir() {
                   <span className="flex flex-wrap items-center gap-2">
                     <b className="text-[13px] text-ink">{row.nama}</b>
                     <Badge variant="ok">Versi {row.version}</Badge>
-                    {row.subjekWargaWajib ? <Badge variant="izin">Wajib pilih warga</Badge> : null}
                   </span>
                   {row.deskripsi ? <span className="text-[12px] text-muted">{row.deskripsi}</span> : null}
                   <span className="text-[11px] text-muted">

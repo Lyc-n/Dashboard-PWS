@@ -8,6 +8,7 @@ import { AppShell, DataTable, KelurahanSection } from "@/components/organisms";
 import type { SummaryCardData } from "@/components/organisms";
 import { PageHeader, SectionCard, StatCard, Toolbar } from "@/components/molecules";
 import { Select, StatusBadge } from "@/components/atoms";
+import { paginate } from "@/features/laporan/components/report-shared";
 
 export const Route = createFileRoute("/")({
   beforeLoad: requireAuth,
@@ -45,9 +46,8 @@ function Dashboard() {
     return list;
   }, [data.recent, statusF, sortKey, sortDir]);
 
-  const maxPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageClamped = Math.min(page, maxPage);
-  const pageRows = filtered.slice((pageClamped - 1) * PAGE_SIZE, pageClamped * PAGE_SIZE);
+  const paginated = paginate(filtered, page, PAGE_SIZE);
+  const { maxPage, pageClamped, pageRows, info } = paginated;
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -62,30 +62,35 @@ function Dashboard() {
     <AppShell>
       <PageHeader
         title="Dashboard PWS"
-        description="Pantau cakupan kunjungan rumah oleh kader puskesmas."
+        description="Pantau cakupan kunjungan oleh kader puskesmas, plus isian form terbaru dari semua form."
       />
 
       <div className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-1">
         <StatCard caption="Warga terdata" value={data.totals.warga} sub="data_warga" />
-        <StatCard caption="Sudah dikunjungi" value={data.totals.dikunjungi} sub="punya ≥1 survei" />
-        <StatCard caption="Total kunjungan rumah" value={data.totals.kunjunganRumah} sub="baris surveys" />
+        <StatCard caption="Sudah dikunjungi" value={data.totals.dikunjungi} sub="punya ≥1 isian form" />
+        <StatCard
+          caption="Total isian form"
+          value={data.totals.kunjunganRumah}
+          sub="baris surveys yang menunjuk warga"
+        />
       </div>
 
       <KelurahanSection items={items} />
 
       <SectionCard
-        title="Kunjungan Rumah Terbaru"
-        sub="50 survei terakhir dari database."
+        title="Isian Form Terbaru"
+        sub="50 isian terakhir dari database, dari semua form. Nama form diambil dari form asalnya."
       >
         {filtered.length === 0 ? (
           <p className="px-1 py-6 text-center text-sm text-muted">
-            Belum ada data kunjungan di database. Isi lewat form kunjungan rumah atau jalankan seed.
+            Belum ada isian form di database. Isi lewat halaman Isi Formulir atau jalankan seed.
           </p>
         ) : (
           <DataTable
             className="mt-3.5"
             columns={[
               { key: "tgl", label: "Tanggal", sortable: true },
+              { key: "form", label: "Form" },
               { key: "kel", label: "Kelurahan" },
               { key: "nama", label: "Sasaran" },
               { key: "petugas", label: "Petugas" },
@@ -97,20 +102,31 @@ function Dashboard() {
               <tr key={row.id} className="border-b border-surface-2 last:border-none hover:bg-surface-2">
                 <td className="whitespace-nowrap px-3 py-2.5">{fmtDate(row.tanggal)}</td>
                 <td className="px-3 py-2.5">
-                  <div className="font-semibold text-ink">Kel. {row.kelurahan}</div>
+                  <div className="font-semibold text-ink">{row.formNama}</div>
+                  <div className="text-muted">Kel. {row.kelurahan}</div>
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="font-semibold text-ink">{row.nama}</div>
-                  <div className="text-[11px] text-muted">NIK {row.nik}</div>
+                  <div className="text-[11px] text-muted">
+                    {row.nik ? `NIK ${row.nik}` : "Tanpa warga"}
+                  </div>
                 </td>
                 <td className="px-3 py-2.5 text-muted">{row.petugas}</td>
                 <td className="px-3 py-2.5">
                   <StatusBadge value="Selesai" />
                 </td>
                 <td className="px-3 py-2.5">
-                  <Link to="/sasaran/$id" params={{ id: row.nik }} className="text-[11px] font-semibold text-accent hover:text-accent-hover">
-                    Lihat
-                  </Link>
+                  {row.nik ? (
+                    <Link
+                      to="/sasaran/$id"
+                      params={{ id: row.nik }}
+                      className="text-[11px] font-semibold text-accent hover:text-accent-hover"
+                    >
+                      Lihat
+                    </Link>
+                  ) : (
+                    <span className="text-[11px] text-muted">—</span>
+                  )}
                 </td>
               </tr>
             )}
@@ -127,9 +143,15 @@ function Dashboard() {
                   <span className="text-[11px] text-muted">{fmtDate(row.tanggal)}</span>
                   <span className="text-[11px] text-muted">· {row.petugas}</span>
                 </div>
-                <Link to="/sasaran/$id" params={{ id: row.nik }} className="mt-2 inline-flex text-[11px] font-semibold text-accent hover:text-accent-hover">
-                  Lihat Detail
-                </Link>
+                {row.nik ? (
+                  <Link
+                    to="/sasaran/$id"
+                    params={{ id: row.nik }}
+                    className="mt-2 inline-flex text-[11px] font-semibold text-accent hover:text-accent-hover"
+                  >
+                    Lihat Detail
+                  </Link>
+                ) : null}
               </div>
             )}
             sortKey={sortKey}
@@ -151,10 +173,12 @@ function Dashboard() {
                     <option key={p}>{p}</option>
                   ))}
                 </Select>
-                <span className="ml-auto text-xs font-semibold text-muted">{filtered.length} kunjungan rumah</span>
+                <span className="ml-auto text-xs font-semibold text-muted">
+                  {filtered.length} isian form
+                </span>
               </Toolbar>
             }
-            info={`Hal ${pageClamped} · ${(pageClamped - 1) * PAGE_SIZE + 1}–${Math.min(pageClamped * PAGE_SIZE, filtered.length)} dari ${filtered.length}`}
+            info={info}
             page={pageClamped}
             canPrev={pageClamped > 1}
             canNext={pageClamped < maxPage}

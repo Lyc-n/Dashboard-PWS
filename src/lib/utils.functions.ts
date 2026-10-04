@@ -10,6 +10,10 @@ import {
     querySasaranByNik,
     querySasaranListPaged,
     querySasaranWarga,
+    queryFormAdaSubmit,
+    queryJawabanSubmit,
+    queryRiwayatSubmit,
+    queryRingkasanSubmit,
     querySurveysWithWarga,
     querySurveyStatsByNik,
     queryWargaList,
@@ -19,7 +23,13 @@ import {
     touchSession,
     updateKunjunganRumahRecord,
 } from "./utils.server";
-import type { BarisWargaGabungan, RiwayatSasaran } from "./utils.server";
+import type {
+    BarisIsianForm,
+    BarisJawabanSubmit,
+    BarisRiwayatSubmit,
+    BarisWargaGabungan,
+    RiwayatSasaran,
+} from "./utils.server";
 import {
     listKegiatan as listKegiatanV2,
     simpanKegiatan,
@@ -37,6 +47,7 @@ import {
     daftarVersiForm,
     hapusForm,
     listFormBaru,
+    ringkasanHapusForm,
 } from "@/features/form-builder/services/form.server";
 import { ambilDefinisiVersi } from "@/features/form-builder/services/section.server";
 import { buildFormVersion } from "@/features/form-builder/services/build.server";
@@ -125,13 +136,24 @@ export interface SasaranListResult {
     total: number;
 }
 
+/**
+ * Baris isian form untuk dashboard dan laporan.
+ *
+ * `nik` boleh null: form yang tidak menunjuk warga per-submission (kegiatan, form
+ * generic dari Form Builder) tetap punya record sendiri. `formNama` ikut
+ * dibawa supaya tabel bisa melabeli baris sesuai form asalnya — `surveys` tidak
+ * punya kolom penanda form, jadi nama diambil dari join `form_versions → forms`.
+ */
 export interface SurveyRow {
     id: string;
     tanggal: string;
-    nik: string;
+    nik: string | null;
     nama: string;
     kelurahan: string;
     petugas: string;
+    formNama: string;
+    formKode: string | null;
+    formVersion: number;
 }
 
 export interface KelurahanStat {
@@ -255,6 +277,36 @@ export const getLaporanKunjunganRumah = createServerFn({ method: "GET" })
         async (): Promise<SurveyRow[]> => {
             return await querySurveysWithWarga(500)
         }
+    )
+
+// ---- riwayat submit semua form ----
+// Dipisah dari laporan kunjungan: di sini yang penting form mana, bukan cakupan
+// warga. Record form buatan Form Builder tidak punya kolom penanda di `surveys`,
+// jadi identitasnya selalu dibaca lewat join ke `forms` dan ditampilkan apa adanya.
+
+export const getRiwayatSubmit = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .validator((data: { formId?: number | null; limit?: number }) => data)
+    .handler(
+        async ({ data }): Promise<BarisRiwayatSubmit[]> =>
+            await queryRiwayatSubmit({ formId: data.formId ?? null, limit: data.limit ?? 200 }),
+    )
+
+/** Daftar form yang punya submission, untuk dropdown filter riwayat. */
+export const getFormAdaSubmit = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .handler(async (): Promise<Array<{ formId: number; nama: string; jumlahSubmit: number }>> =>
+        await queryFormAdaSubmit(),
+    )
+
+export const getDetailSubmit = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .validator((data: { surveyId: string }) => data)
+    .handler(
+        async ({ data }): Promise<{ answers: BarisJawabanSubmit[]; row: BarisIsianForm | null }> => {
+            const answers = await queryJawabanSubmit(data.surveyId)
+            return { answers, row: await queryRingkasanSubmit(data.surveyId) }
+        },
     )
 
 // ---- kunjungan rumah — CRUD langsung ke DB, tanpa localStorage ----
@@ -410,12 +462,38 @@ export const terbitkanVersiBuilder = createServerFn({ method: "POST" })
     .validator((data: { formVersionId: string }) => data)
     .handler(async ({ data }) => await terbitkanVersiForm(data.formVersionId, { actorId: null }));
 
-export const hapusFormBuilder = createServerFn({ method: "POST" })
+/**
+ * Ringkasan isi form (versi, submit, jawaban, warga, tanggal terakhir).
+ *
+ * Dipanggil sebelum dialog hapus dibuka supaya admin melihat angka yang akan
+ * hilang, bukan sekadar konfirmasi buta. Server yang menghitungnya — angka
+ * dari klien bisa saja kedaluwarsa di antara dialog dibuka dan tombol ditekan.
+ */
+export const ringkasanHapusFormBuilder = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
     .validator((data: { formId: number }) => data)
-    .handler(async ({ data }) => {
-        await hapusForm({ formId: data.formId, actorId: null });
-    });
+    .handler(async ({ data }) => await ringkasanHapusForm(data.formId));
+
+/**
+ * Hapus form. `hapusPermanent` + `konfirmasiNama` hanya perlu diisi kalau form
+ * sudah punya isian: tanpa itu server menolak dengan `FORM_PUNYA_ISIAN` dan
+ * pesan yang menyebutkan berapa banyak data yang akan hilang.
+ */
+export const hapusFormBuilder = createServerFn({ method: "POST" })
+    .middleware([authSessionToken])
+    .validator((data: {
+        formId: number
+        hapusPermanent?: boolean
+        konfirmasiNama?: string | null
+    }) => data)
+    .handler(async ({ data }) =>
+        await hapusForm({
+            formId: data.formId,
+            hapusPermanent: data.hapusPermanent,
+            konfirmasiNama: data.konfirmasiNama ?? null,
+            actorId: null,
+        }),
+    );
 
 export const buildFormBuilder = createServerFn({ method: "POST" })
     .middleware([authSessionToken])

@@ -10,7 +10,15 @@ import type {
 import { SASARAN_DEFS, SASARAN_KEYS } from "@/lib/kunjungan-rumah-form";
 import type { SasaranKey } from "@/lib/kunjungan-rumah-form";
 
-/** `forms.nama` untuk form kunjungan rumah. Dipakai juga sebagai kunci lookup di server. */
+/**
+ * `forms.nama` bawaan untuk form kunjungan rumah.
+ *
+ * Hanya nilai awal: begitu form ter-seed, yang dicari aplikasi adalah
+ * `forms.kode` (lihat `KODE_FORM_BAWAAN` dan `getKunjunganRumahForm()`), bukan
+ * nama ini. Jadi admin bebas mengganti nama form lewat Form Builder tanpa
+ * memutus form kader. Seeder memakai konstanta ini supaya nama bawaannya tidak
+ * menyimpang dari kode.
+ */
 export const FORM_KUNJUNGAN_RUMAH = "Form Kunjungan Rumah";
 
 /**
@@ -56,11 +64,20 @@ export interface TemplateQuestionRow {
   hint: string | null;
   wajib: boolean;
   urutan: number;
+  /** Nonaktif = sengaja disembunyikan dari form kader. Bukan berarti dihapus. */
+  aktif: boolean;
   opsi: string[];
 }
 
 export interface KunjunganRumahTemplateRows {
-  version: number;
+  /**
+   * Nomor versi definisi di database (`form_versions.version`).
+   *
+   * Hanya untuk ditampilkan, bukan untuk menilai kecocokan: nomor itu
+   * naik setiap kali admin menerbitkan revisi baru lewat Form Builder, sedangkan
+   * bentuk template di kode tetap sama.
+   */
+  versiDefinisi: number;
   questions: Record<string, TemplateQuestionRow[]>;
 }
 
@@ -72,7 +89,7 @@ function toField(row: TemplateQuestionRow, section: KunjunganRumahSection, order
     section,
     ...(sasaranKey ? { sasaranKey } : {}),
     required: row.wajib,
-    active: true,
+    active: row.aktif,
     order,
     ...(row.opsi.length > 0 ? { options: row.opsi } : {}),
     ...(row.hint ? { hint: row.hint } : {}),
@@ -83,26 +100,22 @@ function toField(row: TemplateQuestionRow, section: KunjunganRumahSection, order
  * Bangun `KunjunganRumahTemplates` dari baris database.
  *
  * Yang diambil dari DB: section, kode, label, tipe, opsi select, hint, bucket layout,
- * urutan, dan flag wajib. Yang tetap dari kode: `version`, `hasilOpsi`, `prioritasDefault`,
- * dan `conditionals` — tiga hal itu masih konstanta TS sesuai keputusan "definisi saja
- * dari DB", dan `KunjunganRumahTemplates.version` bertipe literal jadi tidak bisa
- * diambil dari kolom.
+ * urutan, flag wajib, dan flag aktif. Yang tetap dari kode: `version`, `hasilOpsi`,
+ * `prioritasDefault`, dan `conditionals` — tiga hal itu masih konstanta TS sesuai
+ * keputusan "definisi saja dari DB", dan `KunjunganRumahTemplates.version` bertipe
+ * literal jadi tidak bisa diambil dari kolom.
  *
  * Baris `tipe: "group"` dilewati: grup hanya untuk grouping struktural (blok K1, KF1, dst)
  * dan tidak pernah dirender sebagai field. Karena grup ikut menggeser `urutan` di DB,
  * `order` dihitung ulang dari posisi setelah grup dibuang — itu yang membuatnya sama
  * dengan template lokal.
+ *
+ * `rows.versiDefinisi` sengaja tidak diperiksa. Nomor itu naik setiap kali admin
+ * menerbitkan revisi definisi lewat Form Builder, dan publishing itu memang
+ * perubahan yang diinginkan. Menyamakan nomor revisinya dengan konstanta template
+ * akan menggagalkan seluruh form kader setiap kali definisi diubah.
  */
 export function templateFromRows(rows: KunjunganRumahTemplateRows): KunjunganRumahTemplates {
-  // `version` disimpan di kolom `forms.version`. Kalau berbeda dari konstanta di kode,
-  // definisi di DB bukan milik versi template yang sedang berjalan — lebih baik gagal
-  // keras daripada diam-diam merender field yang sudah tidak cocok.
-  if (rows.version !== KUNJUNGAN_RUMAH_TEMPLATE_VERSION) {
-    throw new Error(
-      `Version form di database (${rows.version}) tidak cocok dengan template aplikasi (${KUNJUNGAN_RUMAH_TEMPLATE_VERSION}). Jalankan ulang seeder atau naikkan KUNJUNGAN_RUMAH_TEMPLATE_VERSION.`
-    );
-  }
-
   // `version` dan `hasilOpsi` sengaja dari kode, bukan dari rows — lihat catatan fungsi.
   const plain: Record<PlainSection, KunjunganRumahTemplateField[]> = {
     keluargaInfo: [],

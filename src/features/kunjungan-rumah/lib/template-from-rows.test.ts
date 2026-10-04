@@ -39,6 +39,7 @@ function rowsFromTemplate(t: KunjunganRumahTemplates, opts?: { insertGroups?: bo
       hint: f.hint ?? null,
       wajib: f.required,
       urutan: i + 1,
+      aktif: true,
       opsi: f.options ?? [],
     }));
   }
@@ -60,6 +61,7 @@ function rowsFromTemplate(t: KunjunganRumahTemplates, opts?: { insertGroups?: bo
           hint: null,
           wajib: false,
           urutan,
+          aktif: true,
           opsi: [],
         });
       }
@@ -71,13 +73,14 @@ function rowsFromTemplate(t: KunjunganRumahTemplates, opts?: { insertGroups?: bo
         hint: f.hint ?? null,
         wajib: f.required,
         urutan: ++urutan,
+        aktif: true,
         opsi: f.options ?? [],
       });
     }
     questions[key] = rows;
   }
 
-  return { version: VERSION, questions };
+  return { versiDefinisi: VERSION, questions };
 }
 
 describe("templateFromRows", () => {
@@ -100,7 +103,7 @@ describe("templateFromRows", () => {
     const rows = rowsFromTemplate(asli);
     rows.questions["hasil"] = [];
     rows.questions["sectionEntah"] = [
-      { kode: "x", pertanyaan: "X", tipe: "text", bucket: null, hint: null, wajib: false, urutan: 1, opsi: [] },
+      { kode: "x", pertanyaan: "X", tipe: "text", bucket: null, hint: null, wajib: false, urutan: 1, aktif: true, opsi: [] },
     ];
     const hasil = templateFromRows(rows);
     expect(hasil).toEqual(asli);
@@ -112,10 +115,24 @@ describe("templateFromRows", () => {
     expect(() => templateFromRows(rows)).toThrow(/bucket tidak valid/);
   });
 
-  it("menolak versi definisi yang tidak cocok dengan kode aplikasi", () => {
-    const rows = rowsFromTemplate(createDefaultKunjunganRumahTemplates());
-    rows.version = VERSION + 1;
-    expect(() => templateFromRows(rows)).toThrow(/tidak cocok/);
+  it("toleransi nomor versi definisi yang sudah naik setelah publish ulang", () => {
+    // Publish revisi baru lewat Form Builder menaikkan `form_versions.version`.
+    // Itu perubahan yang wajar, jadi mapper tidak boleh menolak definisi hanya
+    // karena nomornya berbeda dari konstanta template di kode.
+    const asli = createDefaultKunjunganRumahTemplates();
+    const rows = rowsFromTemplate(asli);
+    rows.versiDefinisi = VERSION + 1;
+    expect(templateFromRows(rows)).toEqual(asli);
+  });
+
+  it("menyalin flag aktif dari baris, jadi field nonaktif disembunyikan dari kader", () => {
+    const asli = createDefaultKunjunganRumahTemplates();
+    const rows = rowsFromTemplate(asli);
+    const nik = rows.questions["keluargaInfo"]!.find((r) => r.kode === "nik")!;
+    nik.aktif = false;
+    const hasil = templateFromRows(rows);
+    expect(hasil.keluargaInfo.find((f) => f.id === "nik")!.active).toBe(false);
+    expect(hasil.keluargaInfo.find((f) => f.id === "alamat")!.active).toBe(true);
   });
 
   it("menyertakan opsi select dan mengabaikan opsi pada field non-select", () => {

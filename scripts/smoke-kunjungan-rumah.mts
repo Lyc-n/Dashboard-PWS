@@ -18,14 +18,21 @@
  * Semua baris dummy memakai NIK sintetis `9000000000000001` dan dihapus di
  * akhir, termasuk bila ada sisa dari penjalanan sebelumnya.
  */
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db.server";
 import { dataWargaTable, surveys } from "@/lib/schema/schema";
-import { HASIL_KUNJUNGAN_RUMAH } from "@/lib/constants";
+import { HASIL_KUNJUNGAN_RUMAH, KODE_FORM_BAWAAN } from "@/lib/constants";
+import { ambilDefinisiVersi } from "@/features/form-builder/services/section.server";
+import { buildFormVersion } from "@/features/form-builder/services/build.server";
+import {
+  buatDraftBerikutnya,
+  terbitkanVersiForm,
+} from "@/features/form-builder/services/form-version.server";
 import { listPetugasOpsi } from "@/lib/user-registry.server";
 import {
   getKunjunganRumahRecord,
   listKunjunganRumahRecords,
+  updateKunjunganRumahRecord,
   querySurveysWithWarga,
   querySurveyStatsByNik,
   queryWargaList,
@@ -53,6 +60,51 @@ function pastikanDatabaseUji(): void {
     );
   }
   console.log(`Database uji: ${nama}`);
+}
+
+/**
+ * Daftar versi form kunjungan rumah beserta statusnya, dipakai sebagai
+ * bandingan sebelum dan sesudah pengujian yang menerbitkan versi baru.
+ */
+async function snapshotVersiKunjunganRumah() {
+  return (await db.execute(sql`
+    SELECT v.id, v.version, v.status
+    FROM form_versions v
+    JOIN forms f ON f.id = v."formId"
+    WHERE f.kode = ${KODE_FORM_BAWAAN.kunjunganRumah}
+    ORDER BY v.version
+  `)) as { id: string; version: number; status: string }[];
+}
+
+/**
+ * Kembalikan daftar versi ke keadaan semula.
+ *
+ * PERINGATAN: ini membersihkan dengan sendirinya, bukan lewat rollback.
+ * `terbitkanVersiForm()` membuka `db.transaction` sendiri, jadi tidak bisa
+ * dibungkus `dalamTransaksiUji()` — pemanggilnya akan mengambil koneksi lain
+ * dan menunggu kunci yang dipegang transaksi luar. Karena itu skrip ini tidak
+ * boleh pernah menunjuk database produksi; cleanup-nya diverifikasi lewat
+ * `snapshotVersiKunjunganRumah()` yang dibandingkan sebelum dan sesudah.
+ */
+async function pulihkanVersiKunjunganRumah(snapshot: { id: string; status: string }[]): Promise<void> {
+  const idsSnapshot = snapshot.map((r) => r.id);
+  const dihapus = await db.execute(sql`
+    DELETE FROM form_versions
+    WHERE "formId" = (SELECT id FROM forms WHERE kode = ${KODE_FORM_BAWAAN.kunjunganRumah})
+      AND NOT (id = ANY(${idsSnapshot}::uuid[]))
+    RETURNING version
+  `);
+  if (dihapus.length > 0) {
+    console.log(`   dibuang versi percobaan: ${dihapus.map((r) => (r as { version: number }).version).join(", ")}`);
+  }
+  for (const baris of snapshot) {
+    await db.execute(sql`
+      UPDATE form_versions
+      SET status = ${baris.status}::form_version_status,
+          "publishedAt" = (CASE WHEN ${baris.status} = 'published' THEN now() ELSE NULL END)
+      WHERE id = ${baris.id}
+    `);
+  }
 }
 
 async function bersihkanSisaDummy(): Promise<void> {
@@ -192,6 +244,10 @@ async function main(): Promise<void> {
       throw new Error("Daftar kunjungan terbaru tidak menampilkan petugas dummy.");
     }
     console.log("OK dashboard/sasaran: warga, statistik, dan petugas terbaca.");
+
+    await ujiRoundTripNamaField();
+    await ujiTerbitkanVersiBaru();
+    await ujiUpdateRecordVersiLama();
   } finally {
     if (idTersimpan) {
       await removeKunjunganRumahRecord(idTersimpan);
@@ -199,6 +255,149 @@ async function main(): Promise<void> {
     }
     await bersihkanSisaDummy();
   }
+}
+
+/**
+ * Nama field form bawaan disimpan ber-namespace (`<section>::<id>`) supaya tetap
+ * unik per versi form walau id-nya dipakai ulang antar section. Editor membaca
+ * bentuk pendeknya dan `buildFormVersion()` menambahkan namespace kembali, jadi
+ * build berulang tidak boleh menambah `::` ganda.
+ */
+async function ujiRoundTripNamaField(): Promise<void> {
+  const formId = (
+    await db.execute(sql`SELECT id FROM forms WHERE kode = ${KODE_FORM_BAWAAN.kunjunganRumah}`)
+  )[0] as { id: number };
+
+  const sebelum = (await db.execute(sql`
+    SELECT f.nama
+    FROM form_fields f
+    JOIN form_versions v ON v.id = f."formVersionId"
+    WHERE v."formId" = ${formId.id} AND v.status = 'published'
+    ORDER BY f.nama
+  `)).map((r) => (r as { nama: string }).nama);
+
+  const draft = await buatDraftBerikutnya(formId.id);
+  try {
+    const definisi = await ambilDefinisiVersi(draft);
+    const semuaNama = definisi.sections.flatMap((s) => s.fields.map((f) => f.nama));
+    if (semuaNama.some((n) => n.includes("::"))) {
+      throw new Error("Editor masih menerima nama field ber-prefix :: — namespace belum dibuka.");
+    }
+    if (!semuaNama.includes("nik")) {
+      throw new Error("Nama field bentuk pendek tidak terbaca di editor.");
+    }
+
+    await buildFormVersion({
+      formVersionId: draft,
+      sections: definisi.sections.map((s, i) => ({
+        clientId: s.id ?? `sec-${i}`,
+        id: s.id ?? null,
+        parentClientId: s.parentId ?? null,
+        nama: s.nama,
+        deskripsi: s.deskripsi ?? null,
+        aktif: s.aktif ?? true,
+      })),
+      fields: definisi.sections.flatMap((s, i) =>
+        s.fields.map((f, j) => ({
+          clientId: f.id ?? `f-${i}-${j}`,
+          id: f.id ?? null,
+          sectionClientId: s.id ?? `sec-${i}`,
+          nama: f.nama,
+          label: f.label,
+          tipe: f.tipe,
+          wajib: f.wajib ?? false,
+          aktif: f.aktif ?? true,
+          placeholder: f.placeholder ?? null,
+          deskripsi: f.deskripsi ?? null,
+          jumlahKolom: f.jumlahKolom ?? null,
+          optionSourceType: f.optionSourceType ?? null,
+          optionSourceKey: f.optionSourceKey ?? null,
+          opsi: f.opsi.map((o, k) => ({
+            value: o.value ?? "",
+            label: o.label,
+            urutan: o.urutan ?? k,
+            aktif: o.aktif ?? true,
+          })),
+          aturan: [],
+        })),
+      ),
+    } as Parameters<typeof buildFormVersion>[0]);
+
+    const sesudah = (await db.execute(sql`
+      SELECT f.nama
+      FROM form_fields f
+      WHERE f."formVersionId" = ${draft}
+      ORDER BY f.nama
+    `)).map((r) => (r as { nama: string }).nama);
+
+    if (sesudah.some((n) => n.includes(":::"))) {
+      throw new Error("Build menambahkan prefix ganda pada nama field.");
+    }
+    if (JSON.stringify(sesudah) !== JSON.stringify(sebelum)) {
+      const beda = sesudah.filter((n, i) => n !== sebelum[i]).slice(0, 3);
+      throw new Error(`Nama field berubah setelah build: ${beda.join(", ")}`);
+    }
+    console.log(`OK round-trip nama field: ${sesudah.length} field utuh setelah build.`);
+  } finally {
+    await db.execute(sql`DELETE FROM form_versions WHERE id = ${draft}`);
+  }
+}
+
+/**
+ * Menerbitkan revisi definisi tidak boleh menyembunyikan record yang sudah ada.
+ *
+ * Record menempel ke `surveys.formVersionId` saat dibuat, jadi kalau pembacaan
+ * record hanya looking versi published terbaru, penerbitan versi baru akan
+ * mengosongkan rekap. Ini skenario yang paling merusak kalau sampai salah.
+ */
+async function ujiTerbitkanVersiBaru(): Promise<void> {
+  const snapshot = await snapshotVersiKunjunganRumah();
+  const formId = (
+    await db.execute(sql`SELECT id FROM forms WHERE kode = ${KODE_FORM_BAWAAN.kunjunganRumah}`)
+  )[0] as { id: number };
+  const sebelum = await listKunjunganRumahRecords();
+
+  try {
+    const draft = await buatDraftBerikutnya(formId.id);
+    await terbitkanVersiForm(draft);
+
+    const sesudah = await listKunjunganRumahRecords();
+    if (sesudah.length !== sebelum.length) {
+      throw new Error(
+        `Record hilang setelah penerbitan versi baru: ${sebelum.length} → ${sesudah.length}.`,
+      );
+    }
+    console.log(`OK terbitkan versi baru: ${sesudah.length} record tetap terdaftar.`);
+  } finally {
+    await pulihkanVersiKunjunganRumah(snapshot);
+    const sekarang = await snapshotVersiKunjunganRumah();
+    if (JSON.stringify(sekarang) !== JSON.stringify(snapshot)) {
+      throw new Error(
+        `Pemulihan versi gagal: diharapkan ${JSON.stringify(snapshot)}, sekarang ${JSON.stringify(sekarang)}`,
+      );
+    }
+  }
+}
+
+/**
+ * Record lama — yang menempel ke versi yang sudah diarsipkan — masih harus bisa
+ * dibuka dan diperbarui setelah definisi form direvisi.
+ */
+async function ujiUpdateRecordVersiLama(): Promise<void> {
+  const daftar = await listKunjunganRumahRecords();
+  if (daftar.length === 0) return; // tidak ada record untuk diuji
+  const target = daftar[0] as { id: string };
+
+  const sebelum = await getKunjunganRumahRecord(target.id);
+  const hasil = await updateKunjunganRumahRecord(target.id, { ...(sebelum as object) });
+  if (String((hasil as { id?: unknown }).id) !== target.id) {
+    throw new Error("Update record lama mengembalikan id yang salah.");
+  }
+  const sesudah = await getKunjunganRumahRecord(target.id);
+  if (JSON.stringify(sesudah) !== JSON.stringify(sebelum)) {
+    throw new Error("Isi record berubah setelah update dengan payload yang sama.");
+  }
+  console.log("OK update record versi lama: isi tetap sama.");
 }
 
 main()

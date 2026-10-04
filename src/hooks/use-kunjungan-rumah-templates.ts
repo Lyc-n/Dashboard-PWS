@@ -1,46 +1,30 @@
-import { useCallback } from "react";
-import { KUNJUNGAN_RUMAH_TEMPLATE_VERSION } from "@/lib/kunjungan-rumah-templates";
-import type { KunjunganRumahTemplates } from "@/lib/kunjungan-rumah-templates";
 import { useKunjunganRumahTemplateDb } from "@/hooks/use-kunjungan-rumah-template-db";
-import { triggerDownload } from "@/lib/utils";
+import type { KunjunganRumahTemplates } from "@/lib/kunjungan-rumah-templates";
 
 /**
- * Definisi form kunjungan rumah sekarang dibaca dari database, bukan localStorage.
- * Ekspor JSON tetap ada karena berguna sebagai backup, tapi semua jalur tulis
- * (set/reset/import) sengaja dimatikan sampai ada endpoint admin di server.
- * Mengganti definisi form lewat UI butuh tabel questions/form_field_options dan
- * validasi yang lebih besar dari sekadar menimpa satu blob JSON.
+ * Definisi form kunjungan rumah dibaca dari database, bukan localStorage.
+ *
+ * Definisinya hanya-baca di sini: seluruh perubahan lewat Form Builder, yang
+ * menyunting tabel `forms`/`form_sections`/`form_fields`/`form_field_rules`
+ * lewat siklus draft-publish. Jadi hook ini tidak lagi mengekspos jalur tulis
+ * (`setTemplates`, `resetTemplates`, `importJson`) maupun ekspor JSON — semua
+ * ikut hilang bersama tab "Form Kunjungan Rumah". Export memang masih berguna
+ * sebagai backup, tapi belum ada tempat yang wajar untuk meletakkannya sekarang
+ * bahwa form ini bisa disunting admin.
+ *
+ * Hook dipakai di tiga tempat: form kader (`useKunjunganRumahForm`) untuk
+ * merender pertanyaan, rekap (`use-rekap-kunjungan-rumah`) untuk menghitung
+ * field, dan `/kelola` untuk angka field aktif.
  */
 export function useKunjunganRumahTemplates() {
   const { templates, loading, error, source, refresh } = useKunjunganRumahTemplateDb();
-
-  const exportJson = useCallback(() => {
-    const stamp = new Date().toISOString().slice(0, 10);
-    triggerDownload(`kunjungan-rumah-templates-${stamp}.json`, new Blob([JSON.stringify(templates, null, 2)], { type: "application/json" }));
-  }, [templates]);
-
-  const readOnly = useCallback((): never => {
-    throw new Error("Definisi form hanya bisa diubah lewat database untuk sekarang.");
-  }, []);
-
-  const importJson = useCallback(
-    (_file: File, onDone?: (ok: boolean, msg: string) => void) => {
-      onDone?.(false, `Impor dinonaktifkan. Definisi form (version ${KUNJUNGAN_RUMAH_TEMPLATE_VERSION}) dikelola lewat database.`);
-    },
-    []
-  );
 
   return {
     templates,
     loading,
     error,
     source,
-    readOnly: true as const,
     refresh,
-    exportJson,
-    setTemplates: readOnly,
-    resetTemplates: readOnly,
-    importJson,
   };
 }
 

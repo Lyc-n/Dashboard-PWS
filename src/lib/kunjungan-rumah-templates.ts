@@ -46,26 +46,6 @@ export interface KunjunganRumahTemplates {
   hasilOpsi: string[];
 }
 
-// ── helper ──
-export function slugify(label: string): string {
-  return label
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 40) || "field";
-}
-
-function uniqueId(base: string, existing: Set<string>): string {
-  let id = base;
-  let n = 2;
-  while (existing.has(id)) {
-    id = `${base}-${n++}`;
-  }
-  existing.add(id);
-  return id;
-}
-
 // ── Default ──
 export function createDefaultKunjunganRumahTemplates(): KunjunganRumahTemplates {
   // KeluargaInfo 12 field
@@ -298,15 +278,4 @@ export function validateKunjunganRumahTemplates(obj: unknown): obj is KunjunganR
   }
   if (!Array.isArray(o.hasilOpsi) || o.hasilOpsi.length === 0 || !o.hasilOpsi.every((x) => typeof x === "string")) return false;
   return true;
-}
-
-export function getNextOrder(fields: KunjunganRumahTemplateField[]): number {
-  if (fields.length === 0) return 0;
-  return Math.max(...fields.map((f) => f.order)) + 1;
-}
-
-export function createFieldId(label: string, existing: KunjunganRumahTemplateField[]): string {
-  const base = slugify(label);
-  const set = new Set(existing.map((f) => f.id));
-  return uniqueId(base, set);
 }

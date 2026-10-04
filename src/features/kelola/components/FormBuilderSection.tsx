@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { AdminModal } from "./AdminModal";
-import { ConfirmModal } from "./ConfirmModal";
+import { HapusFormDialog } from "./HapusFormDialog";
 import { FormBuilderWorkspace } from "./builder/FormBuilderWorkspace";
 import { Button, EmptyState, Input, StatusBadge, Textarea } from "@/components/atoms";
+import { useToast } from "@/providers/toast";
 import { Card, CardHeader } from "@/components/molecules";
 import { useFormBuilder } from "@/hooks/use-form-builder";
 import { useFormBuilderDraft } from "@/hooks/use-form-builder-draft";
@@ -31,17 +32,21 @@ export function FormBuilderSection() {
     pilihVersi,
     buatForm,
     hapusForm,
+    ringkasanHapus,
+    bukaDialogHapus,
+    tutupDialogHapus,
     terbitkan,
     buatDraft,
   } = useFormBuilder();
 
+  const toast = useToast();
   const draft = useFormBuilderDraft();
   const { loadDocument, clearDocument, document, ...draftRest } = draft;
 
   const [modalForm, setModalForm] = useState(false);
   const [nama, setNama] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
-  const [modalHapus, setModalHapus] = useState<{ formId: number; nama: string } | null>(null);
+  const [targetHapus, setTargetHapus] = useState<{ formId: number; nama: string } | null>(null);
 
   const formTerpilih = forms.find((f) => f.id === formId) ?? null;
 
@@ -53,10 +58,20 @@ export function FormBuilderSection() {
     setDeskripsi("");
   };
 
-  const konfirmasiHapus = async () => {
-    if (!modalHapus) return;
-    await hapusForm(modalHapus.formId);
-    setModalHapus(null);
+  /**
+   * Hapus form lalu sebut angka yang benar-benar hilang, supaya admin tidak
+   * hanya melihat toast "berhasil" tanpa tahu combien data yang ikut hilang.
+   */
+  const konfirmasiHapus = async (konfirmasiNama: string | null) => {
+    if (!targetHapus) return;
+    const hasil = await hapusForm(targetHapus.formId, konfirmasiNama ?? undefined);
+    if (!hasil) return;
+    setTargetHapus(null);
+    toast(
+      hasil.jumlahSubmit > 0
+        ? `Form dihapus permanen: ${hasil.jumlahVersi} versi, ${hasil.jumlahSubmit} isian, ${hasil.jumlahJawaban} jawaban.`
+        : `Form dihapus: ${hasil.jumlahVersi} versi, ${hasil.jumlahJawaban} jawaban.`,
+    );
   };
 
   useEffect(() => {
@@ -78,7 +93,7 @@ export function FormBuilderSection() {
       <Card>
         <CardHeader
           title="Form"
-          sub="Form yang dibuat di sini. Form bawaan sistem tetap diatur lewat tabnya masing-masing."
+          sub="Form bawaan sistem ikut tampil dan bisa disunting di sini lewat draft baru. Strukturnya sebagian terkunci karena form kader membacanya lewat nama section dan kode field."
           actions={
             <Button variant="primary" size="sm" onClick={() => setModalForm(true)}>
               Form Baru
@@ -89,7 +104,7 @@ export function FormBuilderSection() {
         {loading ? <p className="mt-3 text-[13px] text-muted">Memuat daftar form…</p> : null}
 
         {!loading && forms.length === 0 ? (
-          <EmptyState title="Belum ada form manual." className="mt-3">
+          <EmptyState title="Belum ada form." className="mt-3">
             <p>Buat form dulu, lalu susun pertanyaannya per section.</p>
           </EmptyState>
         ) : null}
@@ -109,16 +124,25 @@ export function FormBuilderSection() {
                     {form.nama}
                   </button>
                   <div className="flex items-center gap-2">
+                    {form.kode ? <StatusBadge variant="process">Bawaan</StatusBadge> : null}
                     <StatusBadge variant={form.aktif ? "done" : "off"}>{form.aktif ? "Aktif" : "Nonaktif"}</StatusBadge>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:bg-destructive/10"
-                      onClick={() => setModalHapus({ formId: form.id, nama: form.nama })}
-                      disabled={saving}
-                    >
-                      Hapus
-                    </Button>
+                    {/* Form bawaan tidak bisa dihapus — server juga menolaknya.
+                        Tombolnya disembunyikan supaya tidak menawarkan aksi yang
+                        pasti gagal. */}
+                    {form.kode ? null : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:bg-destructive/10"
+                        onClick={() => {
+                          setTargetHapus({ formId: form.id, nama: form.nama });
+                          void bukaDialogHapus(form.id);
+                        }}
+                        disabled={saving}
+                      >
+                        Hapus
+                      </Button>
+                    )}
                   </div>
                 </div>
               </li>
@@ -180,6 +204,7 @@ export function FormBuilderSection() {
             <FormBuilderWorkspace
               formVersionId={formVersionId!}
               bisaUbah={bisaUbah}
+              kodeForm={formTerpilih.kode ?? null}
               onBack={handleBack}
               document={document}
               draft={draftRest}
@@ -206,15 +231,16 @@ export function FormBuilderSection() {
         </AdminModal>
       ) : null}
 
-      {modalHapus ? (
-        <ConfirmModal
-          title="Hapus Form"
-          message={`Yakin ingin menghapus form "${modalHapus.nama}"? Semua versi, section, dan field akan terhapus permanen.`}
-          onClose={() => setModalHapus(null)}
-          onConfirm={() => void konfirmasiHapus()}
-          confirmLabel="Hapus"
-          variant="danger"
-          disabled={saving}
+      {targetHapus ? (
+        <HapusFormDialog
+          nama={targetHapus.nama}
+          ringkasan={ringkasanHapus}
+          busy={saving}
+          onClose={() => {
+            setTargetHapus(null);
+            tutupDialogHapus();
+          }}
+          onConfirm={(konfirmasiNama) => void konfirmasiHapus(konfirmasiNama)}
         />
       ) : null}
     </div>

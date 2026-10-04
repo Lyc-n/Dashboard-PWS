@@ -12,7 +12,6 @@ import { requireAdmin } from "@/lib/auth";
 import { TABS } from "@/features/kelola/types";
 import type { KelolaTab } from "@/features/kelola/types";
 import { FormBuilderSection } from "@/features/kelola/components/FormBuilderSection";
-import { FormKunjunganRumahSection } from "@/features/kelola/components/FormKunjunganRumahSection";
 import { UserSection } from "@/features/kelola/components/UserSection";
 
 export const Route = createFileRoute("/kelola")({
@@ -22,7 +21,10 @@ export const Route = createFileRoute("/kelola")({
 
 function Kelola() {
   const { pengguna, fasilitas, error: registryError, loading: registryLoading, save, setAktif } = useUserRegistry();
-  const { templates, setTemplates, resetTemplates, exportJson, importJson, readOnly, source, error, loading } = useKunjunganRumahTemplates();
+  // Hook ini hanya dipakai untuk angka ringkasan di bawah. Definisi formnya
+  // sendiri disunting di tab Form Builder — termasuk form kunjungan rumah,
+  // yang tidak lagi punya tab sendiri.
+  const { templates, error: templateError, loading: templateLoading } = useKunjunganRumahTemplates();
 
   const [tab, setTab] = useState<KelolaTab>("form-builder");
 
@@ -38,11 +40,13 @@ function Kelola() {
     <AppShell>
       <PageHeader
         title="Kelola Master Data"
-        description="Admin menyusun form, template kunjungan rumah, dan akun staff/kader. Perubahan langsung sinkron ke form kader."
+        description="Admin menyusun form, dan akun staff/kader. Perubahan langsung sinkron ke form kader."
       />
 
       {registryError ? <p className="mt-3 text-sm text-destructive">{registryError}</p> : null}
       {registryLoading ? <p className="mt-3 text-sm text-muted-foreground">Memuat daftar akun…</p> : null}
+      {templateError ? <p className="mt-3 text-sm text-destructive">{templateError}</p> : null}
+      {templateLoading ? <p className="mt-3 text-sm text-muted-foreground">Menghitung field aktif…</p> : null}
 
       <div className="mt-4 grid grid-cols-2 gap-3 max-md:grid-cols-1">
         <StatCard caption="Field Kunjungan Rumah aktif" value={activeFieldCount} />
@@ -58,20 +62,6 @@ function Kelola() {
       </div>
 
       {tab === "form-builder" ? <FormBuilderSection /> : null}
-
-      {tab === "form-kunjungan-rumah" ? (
-        <FormKunjunganRumahSection
-          templates={templates}
-          setTemplates={setTemplates}
-          resetTemplates={resetTemplates}
-          exportJson={exportJson}
-          importJson={importJson}
-          readOnly={readOnly}
-          source={source}
-          error={error}
-          loading={loading}
-        />
-      ) : null}
 
       {tab === "staff" ? (
         <UserSection pengguna={pengguna} fasilitas={fasilitas} save={save} setAktif={setAktif} />

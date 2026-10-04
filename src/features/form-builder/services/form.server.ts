@@ -10,11 +10,13 @@
  * baris `forms`, bukan struktur form. Penjaga "published tidak bisa diedit" tetap
  * berlaku untuk section dan field (lihat build.server.ts).
  */
-import { asc, desc, eq, isNull } from 'drizzle-orm'
+import { asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db.server'
-import { forms, formVersions } from '@/lib/schema/schema'
+import { forms, formVersions, surveys } from '@/lib/schema/schema'
 import { KesalahanValidasi, buatDraftBerikutnya } from './form-version.server'
 import { catatAudit } from './audit.server'
+import type { RingkasanHapusForm } from './validasi'
+import { validasiHapusForm } from './validasi'
 
 /**
  * Kode error PostgreSQL untuk unique violation. `forms.nama` punya unique
@@ -29,19 +31,31 @@ function kodePostgres(err: unknown): string | null {
   return typeof kode === 'string' ? kode : null
 }
 
-/** Form yang dibuat manual di editor, urut nama. */
+/**
+ * Semua form, urut nama.
+ *
+ * Form bawaan sistem ikut ditampilkan, tidak cuma yang dibuat manual di editor.
+ * Alasannya keduanya memang satu bentuk kerja: definisi form bawaan disimpan di
+ * tabel yang sama dan disunting lewat draft/publish yang sama, jadi menyembunyikannya
+ * hanya membuat admin mencari tempat lain yang tidak ada.
+ *
+ * Bedanya nanti ada di UI: `bawaan` menandai form yang tidak boleh dihapus dan
+ * strukturnya terkunci (lihat `kode-bawaan.ts`). Penegakannya tetap di server —
+ * `ringkasanHapusForm` menolak form berkode dan `buildFormVersion` menolak
+ * perubahan struktur yang tidak diizinkan — jadi penanda ini untuk tampilan saja.
+ */
 export async function listFormBaru() {
   return await db
     .select({
       id: forms.id,
       nama: forms.nama,
+      kode: forms.kode,
       deskripsi: forms.deskripsi,
       subjekWargaWajib: forms.subjekWargaWajib,
       aktif: forms.aktif,
       createdAt: forms.createdAt,
     })
     .from(forms)
-    .where(isNull(forms.kode))
     .orderBy(asc(forms.nama))
 }
 
@@ -111,7 +125,13 @@ export async function buatFormBaru(input: BuatFormBaruInput): Promise<HasilBuatF
           nama: namaBersih,
           kode: null,
           deskripsi: deskripsi ?? null,
-          subjekWargaWajib: true,
+          // FALSE, bukan true: form buatan Form Builder tidak selalu per-warga.
+          // Kalau true, setiap submit dipaksa meminta NIK warga, dan baris itu
+          // ikut terhitung sebagai "warga dikunjungi" di dashboard, /sasaran,
+          // dan laporan — padahal isiannya bisa tentang apa saja. Form yang
+          // memang per-warga dibuat lewat Form Kunjungan Rumah, yang
+          // `subjekWargaWajib`-nya sudah diatur terpisah di seeder.
+          subjekWargaWajib: false,
           aktif: true,
         })
         .returning({ id: forms.id })
@@ -150,15 +170,119 @@ export async function buatFormBaru(input: BuatFormBaruInput): Promise<HasilBuatF
 }
 
 /**
- * Hapus form beserta semua versinya. Versi, section, field, opsi, aturan
- * ikut terhapus lewat on delete cascade. Form bawaan (kode != null) tidak
- * bisa dihapus lewat fungsi ini — hanya form manual (kode is null).
+ * Ringkasan isi satu form, dihitung sebelum dihapus.
+ *
+ * Dipakai untuk dua hal: memberi tahu apakah form masih aman dihapus tanpa
+ * konfirmasi tambahan, dan memberi tahu admin berapa banyak data yang akan
+ * hilang. Satu query dengan subquery teragregasi, bukan satu query per angka —
+ * tabel `surveys` sudah berisi data warga yang tidak boleh dipindai berulang.
+ */
+export async function ringkasanHapusForm(formId: number): Promise<RingkasanHapusForm> {
+  if (!Number.isInteger(formId) || formId < 1) {
+    throw new KesalahanValidasi({ ok: false, kode: 'VERSI_TIDAK_ADA', pesan: 'Form tidak valid.' })
+  }
+
+  const form = await db
+    .select({ nama: forms.nama, kode: forms.kode })
+    .from(forms)
+    .where(eq(forms.id, formId))
+    .limit(1)
+
+  const baris = form[0]
+  if (!baris) {
+    throw new KesalahanValidasi({ ok: false, kode: 'VERSI_TIDAK_ADA', pesan: 'Form tidak ditemukan.' })
+  }
+  if (baris.kode !== null) {
+    throw new KesalahanValidasi({
+      ok: false,
+      kode: 'FORM_BAWAAN',
+      pesan: 'Form bawaan sistem tidak bisa dihapus.',
+    })
+  }
+
+  const [hasil] = await db.execute(sql`
+    SELECT
+      (SELECT COUNT(*)::int FROM form_versions fv WHERE fv."formId" = ${formId})          AS "jumlahVersi",
+      (SELECT COUNT(*)::int FROM surveys s
+        WHERE s."formVersionId" IN (SELECT id FROM form_versions fv2 WHERE fv2."formId" = ${formId})
+      )                                                                                  AS "jumlahSubmit",
+      (SELECT COUNT(*)::int FROM survey_entries e
+        WHERE e."surveyId" IN (
+          SELECT s2.id FROM surveys s2
+          WHERE s2."formVersionId" IN (SELECT id FROM form_versions fv3 WHERE fv3."formId" = ${formId})
+        )
+      )                                                                                  AS "jumlahJawaban",
+      (SELECT COUNT(*)::int FROM survey_files fl
+        WHERE fl."surveyId" IN (
+          SELECT s3.id FROM surveys s3
+          WHERE s3."formVersionId" IN (SELECT id FROM form_versions fv4 WHERE fv4."formId" = ${formId})
+        )
+      )                                                                                  AS "jumlahLampiran",
+      (SELECT COUNT(DISTINCT s4."wargaNik")::int FROM surveys s4
+        WHERE s4."wargaNik" IS NOT NULL
+          AND s4."formVersionId" IN (SELECT id FROM form_versions fv5 WHERE fv5."formId" = ${formId})
+      )                                                                                  AS "jumlahWarga",
+      (SELECT to_char(MAX(s5."tanggal"), 'YYYY-MM-DD') FROM surveys s5
+        WHERE s5."formVersionId" IN (SELECT id FROM form_versions fv6 WHERE fv6."formId" = ${formId})
+      )                                                                                  AS "tanggalTerakhir"
+  `)
+
+  // `db.execute` mengembalikan baris postgres apa adanya; semua angka sudah
+  // di-cast ke int di SQL, jadi di sini hanya dibaca sebagai number.
+  const angka = (hasil as Record<string, unknown>) as {
+    jumlahVersi?: number
+    jumlahSubmit?: number
+    jumlahJawaban?: number
+    jumlahLampiran?: number
+    jumlahWarga?: number
+    tanggalTerakhir?: string | null
+  }
+
+  return {
+    jumlahVersi: angka.jumlahVersi ?? 0,
+    jumlahSubmit: angka.jumlahSubmit ?? 0,
+    jumlahJawaban: angka.jumlahJawaban ?? 0,
+    jumlahLampiran: angka.jumlahLampiran ?? 0,
+    jumlahWarga: angka.jumlahWarga ?? 0,
+    tanggalTerakhir: angka.tanggalTerakhir ?? null,
+  }
+}
+
+/** Hasil hapus, supaya UI bisa menyebut angka yang benar-benar hilang. */
+export interface HasilHapusForm {
+  jumlahVersi: number
+  jumlahSubmit: number
+  jumlahJawaban: number
+  jumlahLampiran: number
+  jumlahWarga: number
+}
+
+/**
+ * Hapus form beserta semua versinya — termasuk isiannya kalau form sudah
+ * pernah diisi.
+ *
+ * Dua tahap, karena `surveys.formVersionId` tidak meng-cascade: kalau isian
+ * masih ada, `DELETE FROM forms` ditolak Postgres dengan pelanggaran FK yang
+ * tidak berguna untuk petugas. Jadi isian dihapus lebih dulu secara eksplisit,
+ * baru form-nya.
+ *
+ * Urutan penghapusan (semua dalam satu transaksi):
+ *   1. `surveys` milik semua versi form ini. `survey_entries` dan
+ *      `survey_files` ikut cascade dari `surveys` — sekaligus membongkar FK
+ *      `survey_entries.fieldId` yang kalau tidak akan menahan penghapusan
+ *      `form_fields`.
+ *   2. `forms`; versi, section, field, opsi, dan aturan ikut cascade dari situ.
+ *
+ * Aturan utamanya ada di `validasiHapusForm`): form bawaan tidak boleh dihapus,
+ * form berisian hanya boleh dihapus dengan `hapusPermanent` + konfirmasi nama.
  */
 export async function hapusForm(input: {
   formId: number
+  hapusPermanent?: boolean
+  konfirmasiNama?: string | null
   actorId?: string | null
-}): Promise<void> {
-  const { formId, actorId } = input
+}): Promise<HasilHapusForm> {
+  const { formId, hapusPermanent, konfirmasiNama, actorId } = input
 
   const form = await db
     .select({ id: forms.id, kode: forms.kode, nama: forms.nama })
@@ -167,28 +291,55 @@ export async function hapusForm(input: {
     .limit(1)
 
   if (!form[0]) {
-    throw new KesalahanValidasi({
-      ok: false,
-      kode: 'VERSI_TIDAK_ADA',
-      pesan: 'Form tidak ditemukan.',
-    })
+    throw new KesalahanValidasi({ ok: false, kode: 'VERSI_TIDAK_ADA', pesan: 'Form tidak ditemukan.' })
   }
 
-  if (form[0].kode !== null) {
-    throw new KesalahanValidasi({
-      ok: false,
-      kode: 'FORM_BAWAAN',
-      pesan: 'Form bawaan sistem tidak bisa dihapus.',
-    })
-  }
+  const ringkasan = await ringkasanHapusForm(formId)
+  const validasi = validasiHapusForm({
+    nama: form[0].nama,
+    kode: form[0].kode,
+    ringkasan,
+    hapusPermanent,
+    konfirmasiNama,
+  })
+  if (!validasi.ok) throw new KesalahanValidasi(validasi)
 
-  await db.delete(forms).where(eq(forms.id, formId))
+  const idsVersi = await db
+    .select({ id: formVersions.id })
+    .from(formVersions)
+    .where(eq(formVersions.formId, formId))
 
+  await db.transaction(async (tx) => {
+    if (idsVersi.length > 0) {
+      await tx
+        .delete(surveys)
+        .where(
+          inArray(
+            surveys.formVersionId,
+            idsVersi.map((v) => v.id),
+          ),
+        )
+    }
+    await tx.delete(forms).where(eq(forms.id, formId))
+  })
+
+  // Audit ditulis setelah transaksi selesai: kalau insert audit gagal, datanya
+  // sudah benar-benar terhapus dan menolak hapus demi audit hanya akan membuat
+  // admin bingung. `catatAudit` sendiri tidak pernah melempar.
   await catatAudit({
     userId: actorId ?? null,
     aksi: 'delete',
     entitas: 'forms',
     entitasId: String(formId),
-    sebelum: { nama: form[0].nama, kode: form[0].kode },
+    sebelum: { nama: form[0].nama, kode: form[0].kode, ...ringkasan },
+    sesudah: { ...ringkasan, hapusPermanent: hapusPermanent === true },
   })
+
+  return {
+    jumlahVersi: ringkasan.jumlahVersi,
+    jumlahSubmit: ringkasan.jumlahSubmit,
+    jumlahJawaban: ringkasan.jumlahJawaban,
+    jumlahLampiran: ringkasan.jumlahLampiran,
+    jumlahWarga: ringkasan.jumlahWarga,
+  }
 }
