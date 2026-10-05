@@ -22,8 +22,8 @@ export const TIPE_FIELD_LABELS: Record<TipeFieldEditor, string> = {
 export interface FlatNode {
   kind: "section" | "field";
   clientId: string;
+  /** Section asal untuk node field. null hanya untuk field yatim. */
   parentKey: string | null;
-  depth: number;
   index: number;
 }
 
@@ -31,14 +31,6 @@ export interface DraftOpsi {
   clientId: string;
   value: string;
   label: string;
-  aktif: boolean;
-}
-
-export interface DraftAturan {
-  clientId: string;
-  sourceClientId: string;
-  operator: "equals" | "not_equals";
-  value: string;
   aktif: boolean;
 }
 
@@ -62,13 +54,11 @@ export interface DraftField {
   optionSourceType: string | null;
   optionSourceKey: string | null;
   opsi: DraftOpsi[];
-  aturan: DraftAturan[];
 }
 
 export interface DraftSection {
   id: string | null;
   clientId: string;
-  parentClientId: string | null;
   nama: string;
   deskripsi: string | null;
   aktif: boolean;
@@ -85,7 +75,6 @@ export interface BuildFormVersionInput {
   sections: {
     clientId: string;
     id: string | null;
-    parentClientId: string | null;
     nama: string;
     deskripsi: string | null;
     aktif: boolean;
@@ -105,13 +94,6 @@ export interface BuildFormVersionInput {
     optionSourceType: string | null;
     optionSourceKey: string | null;
     opsi: { value: string; label: string; urutan: number; aktif: boolean }[];
-    aturan: {
-      sourceClientId: string;
-      operator: "equals" | "not_equals";
-      value: string | null;
-      aktif: boolean;
-      urutan: number;
-    }[];
   }[];
   actorId?: string | null;
 }

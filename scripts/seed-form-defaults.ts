@@ -20,7 +20,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db.server";
 import {
-  formFieldRules,
+  formFieldOptions,
   formFields,
   formSections,
   formVersions,
@@ -224,7 +224,7 @@ function sectionsKegiatan(): BarisSection[] {
         // hard-coded, jadi tidak ada `users.id` yang bisa dipercaya sebagai
         // "siapa yang sedang login".
         //
-        // Opsi field ini TIDAK ditulis ke `form_field_rules`. Oksinya diambil
+        // Opsi field ini TIDAK ditulis ke `form_field_options`. Oksinya diambil
         // saat render dan saat validasi dari tabel `users` lewat
         // `optionSourceType`/`optionSourceKey`, jadi menambah petugas di
         // /kelola langsung mengubah pilihan di form tanpa seeding ulang.
@@ -360,7 +360,7 @@ async function seedForm(params: {
         );
       }
 
-      // Semua opsi di seluruh section di-insert sekaligus. `form_field_rules`
+      // Semua opsi di seluruh section di-insert sekaligus. `form_field_options`
       // tidak butuh id balikan per opsi, jadi ini cukup satu round trip.
       // Opsi statis di seluruh section di-insert sekaligus, jadi cukup satu
       // round trip. Field dengan `optionSourceType` (mis. daftar petugas dari
@@ -372,12 +372,11 @@ async function seedForm(params: {
         if (!f || f.optionSourceType || f.options.length === 0) return []
         return f.options.map((value, i) => ({
           fieldId: col.id,
-          tipe: "option" as const,
           value,
           urutan: i,
         }))
       })
-      if (opsiRows.length > 0) await tx.insert(formFieldRules).values(opsiRows)
+      if (opsiRows.length > 0) await tx.insert(formFieldOptions).values(opsiRows)
     }
 
     return true;

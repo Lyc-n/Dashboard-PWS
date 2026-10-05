@@ -6,9 +6,7 @@
  * nama form, `forms.kode`, atau nama field yang ditulis di file ini, jadi form
  * baru yang diterbitkan admin langsung bisa diisi tanpa perubahan kode.
  *
- * Section dirender dalam urutan `urutan` yang sudah diurutkan server, dan level
- * nesting diambil dari `depth` — rantai `parentId` tidak pernah ditelusuri di
- * klien supaya hierarki tidak bisa dibaca dengan cara berbeda dari server.
+ * Section dirender dalam urutan `urutan` yang sudah diurutkan server.
  *
  * Tiap field dirender oleh `DynamicField` sesuai `tipe`-nya. Scene ini hanya
  * menyediakan tempatnya, penanda wajib, dan jangkar untuk menggulir ke field wajib
@@ -32,28 +30,13 @@ import { Button, Input, Select } from "@/components/atoms";
 import { useToast } from "@/providers/toast";
 import { nilaiKosong, useFormRuntime } from "@/hooks/use-form-runtime";
 import { DynamicField, fieldAnchorId } from "@/features/survey/components/DynamicField";
+import { SaranWargaDropdown } from "@/features/survey/components/SaranWargaDropdown";
 import type { FieldRuntime, DefinisiRuntime } from "@/features/survey/services/form-runtime.server";
-import type { SasaranSuggestion } from "@/features/kunjungan-rumah/lib/warga-row";
-import { cn } from "@/lib/utils";
-
-
 
 export interface FormulirSceneProps {
   formVersionId: string;
   /** Definisi dari `ambilFormulir`; pemuatan dan kegagalan ditangani halamannya. */
   definisi: DefinisiRuntime;
-}
-
-/**
- * Tanda level section dari `depth` yang dihitung server.
- *
- * Baris putus-putus di kiri dipakai supaya level terbaca tanpa menulis kata
- * "level" di depan judul. `depth` sudah pasti bilangan bulat kecil karena server
- * menghitungnya dengan batas rantai.
- */
-function gayaSection(depth: number): string {
-  if (depth <= 0) return "";
-  return cn("border-l-2 border-dashed border-line pl-3", depth >= 2 && "ml-2");
 }
 
 /**
@@ -78,38 +61,6 @@ function BarisField({
   return (
     <div id={fieldAnchorId(field.id)}>
       <DynamicField field={field} value={value} onChange={onChange} invalid={invalid} />
-    </div>
-  );
-}
-
-/** Daftar suggestion warga; pola yang sama dengan form Kunjungan Rumah. */
-function SaranWarga({
-  rows,
-  busy,
-  onPilih,
-}: {
-  rows: SasaranSuggestion[];
-  busy: boolean;
-  onPilih: (row: SasaranSuggestion) => void;
-}) {
-  if (!busy && rows.length === 0) return null;
-  return (
-    <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-line bg-surface shadow-lg">
-      {busy ? <p className="px-3 py-2 text-[11px] text-muted">Mencari data sasaran…</p> : null}
-      {rows.map((r) => (
-        <button
-          key={r.rawId}
-          type="button"
-          onClick={() => onPilih(r)}
-          className="block w-full px-3 py-2 text-left hover:bg-[var(--color-accent-light)]"
-        >
-          <span className="block text-[12px] font-semibold text-ink">{r.namaArt || r.namaKk || "—"}</span>
-          <span className="block text-[11px] text-muted">
-            {r.nik ? `NIK ${r.nik}` : "NIK belum ada"} · KK {r.namaKk || "—"}
-            {r.kelurahan ? ` · ${r.kelurahan}` : ""}
-          </span>
-        </button>
-      ))}
     </div>
   );
 }
@@ -284,7 +235,12 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
                 autoComplete="off"
                 invalid={wargaKurang}
               />
-              <SaranWarga rows={saranWarga} busy={mencariWarga} onPilih={pilihWarga} />
+              <SaranWargaDropdown
+                rows={saranWarga}
+                busy={mencariWarga}
+                onPilih={pilihWarga}
+                tampilkanKelurahan
+              />
             </div>
             <Input
               value={wargaNik}
@@ -310,7 +266,7 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
           key={section.id}
           title={
             <span>
-              {index + 1}. <span className={gayaSection(section.depth)}>{section.nama}</span>
+              {index + 1}. {section.nama}
             </span>
           }
           sub={section.deskripsi}

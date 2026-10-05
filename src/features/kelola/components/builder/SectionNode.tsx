@@ -1,28 +1,23 @@
 import { useSortable } from "@dnd-kit/react/sortable";
-import { ChevronRight, Plus, Trash2, GripVertical, FolderOpen } from "lucide-react";
+import { Plus, Trash2, GripVertical, FolderOpen } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import type { DraftSection, FlatNode, DraftField } from "./types";
-import { ROOT_GROUP } from "./tree";
+import { SECTION_GROUP } from "./tree";
 import { FieldNode } from "./FieldNode";
 
 interface Props {
   section: DraftSection;
   flatTree: FlatNode[];
-  depth: number;
   index: number;
   disabled?: boolean;
   isSelected: boolean;
-  isOrphan?: boolean;
-  sectionsByClientId: Map<string, DraftSection>;
   fieldsByClientId: Map<string, DraftField>;
   onSelect: (clientId: string) => void;
   onSelectField: (clientId: string) => void;
   onDeselectField: () => void;
   selectedFieldClientId: string | null;
   onAddField: (sectionClientId: string) => void;
-  /** undefined = form ini mengunci struktur section, jadi tombolnya disembunyikan. */
-  onAddSubSection?: (parentClientId: string) => void;
   onUpdateSection: (clientId: string, patch: Partial<DraftSection>) => void;
   /** undefined = form ini mengunci struktur section, jadi tombolnya disembunyikan. */
   onDeleteSection?: (clientId: string) => void;
@@ -34,49 +29,39 @@ interface Props {
 export function SectionNode({
   section,
   flatTree,
-  depth,
   index,
   disabled,
   isSelected,
-  isOrphan = false,
-  sectionsByClientId,
   fieldsByClientId,
   onSelect,
   onSelectField,
   onDeselectField,
   selectedFieldClientId,
   onAddField,
-  onAddSubSection,
   onUpdateSection,
   onDeleteSection,
   onUpdateField,
   onDeleteField,
 }: Props) {
-  // Terima section (reorder sibling) + field (pindah masuk). Tolak palette? palette
-  // justru diterima di sini untuk membuat field baru — lihat matriks accept.
+  // Terima section (reorder) + field (pindah masuk) + palette (buat field baru).
   const { ref, isDropTarget, isDragging } = useSortable({
     id: section.clientId,
     index,
-    group: section.parentClientId ?? ROOT_GROUP,
+    group: SECTION_GROUP,
     type: "section",
-    accept: ["palette", "section", "field"],
+    accept: ["palette", "template", "section", "field"],
     data: { kind: "section", clientId: section.clientId },
     disabled,
   });
-  
-  const children = flatTree.filter(
-    (n) => n.kind === "section" && n.parentKey === section.clientId
-  );
+
   const fields = flatTree.filter(
     (n) => n.kind === "field" && n.parentKey === section.clientId
   );
-  
-  const hasChildren = children.length > 0;
 
   return (
     <div
       ref={ref}
-      className={`relative ${depth > 0 ? "ml-6 border-l border-line pl-3" : ""}`}
+      className="relative"
       style={{ opacity: isDragging ? 0.5 : 1 }}
     >
       <div
@@ -86,11 +71,7 @@ export function SectionNode({
         onClick={() => onSelect(section.clientId)}
       >
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
-          {hasChildren ? (
-            <ChevronRight className="w-4 h-4 text-muted shrink-0" style={{ transform: "rotate(90deg)" }} />
-          ) : (
-            <div className="w-4 h-4 shrink-0" />
-          )}
+          <div className="w-4 h-4 shrink-0" />
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <GripVertical className="w-4 h-4 text-muted cursor-grab opacity-0 group-hover:opacity-100" />
             <FolderOpen className="w-4 h-4 text-accent shrink-0" />
@@ -100,11 +81,6 @@ export function SectionNode({
               className="flex-1 min-w-0 bg-transparent border-0 focus:ring-0 text-sm font-medium text-ink placeholder:text-muted"
               placeholder="Nama section"
             />
-            {isOrphan && (
-              <span className="text-[10px] text-destructive font-mono px-1.5 py-0.5 rounded bg-destructive/10" title="Parent section tidak ditemukan, ditampilkan sebagai root. Perbaiki parent-nya sebelum Build.">
-                yatim
-              </span>
-            )}
             {section.id && (
               <span className="text-[10px] text-muted font-mono px-1.5 py-0.5 rounded bg-line">
                 {section.id.slice(0, 8)}
@@ -116,11 +92,6 @@ export function SectionNode({
           <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); onAddField(section.clientId); }}>
             <Plus className="w-3 h-3" /> Field
           </Button>
-          {onAddSubSection ? (
-            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); onAddSubSection(section.clientId); }}>
-              <Plus className="w-3 h-3" /> Sub
-            </Button>
-          ) : null}
           {onDeleteSection ? (
             <Button
               size="sm"
@@ -133,14 +104,14 @@ export function SectionNode({
           ) : null}
         </div>
       </div>
-      
+
       {section.deskripsi && (
         <div className="mt-1 ml-6 text-xs text-muted italic border-l border-line pl-2">
           {section.deskripsi}
         </div>
       )}
-      
-      <>
+
+      <div className="ml-6">
         {fields.map((f, idx) => {
           const field = fieldsByClientId.get(f.clientId);
           if (!field) return null;
@@ -164,36 +135,7 @@ export function SectionNode({
             Belum ada pertanyaan. Tarik dari panel kiri atau klik + Field.
           </div>
         )}
-      </>
-      
-      {children.map((child, childIdx) => {
-        const childSection = sectionsByClientId.get(child.clientId);
-        if (!childSection) return null;
-        return (
-          <SectionNode
-            key={child.clientId}
-            section={childSection}
-            flatTree={flatTree}
-            depth={depth + 1}
-            index={childIdx}
-            disabled={disabled}
-            isSelected={isSelected}
-            isOrphan={false}
-            sectionsByClientId={sectionsByClientId}
-            fieldsByClientId={fieldsByClientId}
-            onSelect={onSelect}
-            onSelectField={onSelectField}
-            onDeselectField={onDeselectField}
-            selectedFieldClientId={selectedFieldClientId}
-            onAddField={onAddField}
-            onAddSubSection={onAddSubSection}
-            onUpdateSection={onUpdateSection}
-            onDeleteSection={onDeleteSection}
-            onUpdateField={onUpdateField}
-            onDeleteField={onDeleteField}
-          />
-        );
-      })}
+      </div>
     </div>
   );
 }

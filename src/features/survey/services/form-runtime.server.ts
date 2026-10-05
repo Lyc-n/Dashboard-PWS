@@ -4,7 +4,7 @@
  * PEMISAHAN DENGAN FORM BUILDER
  * ----------------------------
  * Builder (define + publish) memegang hak tulis atas `forms`, `form_versions`,
- * `form_sections`, `form_fields`, dan `form_field_rules`. File ini tidak pernah
+ * `form_sections`, `form_fields`, dan `form_field_options`. File ini tidak pernah
  * menulis ke tabel-tabel itu — semuanya hanya `SELECT`. Satu-satunya tabel yang
  * ditulis runtime adalah `surveys` + `survey_entries`.
  *
@@ -16,18 +16,18 @@
  * di proyek ini, makanya penjaganya di dalam resolver, bukan di pemanggil.
  *
  * CATATAN SOAL FIELD `image` dan `file`: keduanya BELUM didukung fase ini.
- * Lampirannya hidup di `survey_files`, bukan `survey_entries`, jadi di sini
- * keduanya tetap dikembalikan sebagai field biasa (klien menampilkannya sebagai
- * "belum didukung") dan jawaban untuk field itu ditolak dengan pesan yang
- * terbaca. Tidak ada penanganan file yang dikarang di sini supaya tidak ada
- * jalur penyimpanan yang setengah jadi.
+ * Tidak ada kolom lampiran di database, jadi di sini keduanya tetap
+ * dikembalikan sebagai field biasa (klien menampilkannya sebagai "belum
+ * didukung") dan jawaban untuk field itu ditolak dengan pesan yang terbaca.
+ * Tidak ada penanganan file yang dikarang di sini supaya tidak ada jalur
+ * penyimpanan yang setengah jadi.
  */
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db.server'
 import {
   dataWargaTable,
   formFields,
-  formFieldRules,
+  formFieldOptions,
   formSections,
   formVersions,
   forms,
@@ -42,6 +42,8 @@ import {
 import type { HasilValidasi, TipeField } from '@/features/form-builder/services/validasi'
 import { KesalahanValidasi } from '@/features/form-builder/services/form-version.server'
 import { resolveOpsiDinamis } from '@/features/form-builder/services/option-source.server'
+import { cariSumber, SUMBER_CARI_WARGA } from '@/features/form-builder/services/sumber-opsi'
+import type { KolomWarga } from '@/features/form-builder/services/sumber-opsi'
 import { catatAudit } from '@/features/form-builder/services/audit.server'
 import { pastikanPetugasValid } from '@/lib/user-registry.server'
 
@@ -54,13 +56,6 @@ type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
  * dan penyimpanan) memakai satu jalur kode yang sama.
  */
 type Executor = Db | DbTx
-
-/**
- * Batas atas kedalaman section. Sama alasannya dengan `section.server.ts`:
- * `form_sections.parentId` hanya FK ke id, jadi rantai ancestor bisa berputar
- * kalau datanya rusak, dan perhitungannya tidak boleh berjalan tanpa henti.
- */
-const MAX_DEPTH = 20
 
 /** Field yang jawabannya berupa daftar, jadi keanggotaannya diperiksa terpisah. */
 const TIPE_LAMPIRAN: readonly TipeField[] = ['image', 'file']
@@ -81,6 +76,8 @@ export interface BarisFormulirTerisi {
   formId: number
   nama: string
   deskripsi: string | null
+  /** Kode form (null untuk form manual, terisi untuk form bawaan). */
+  kode: string | null
   /** true = tiap isian wajib menunjuk satu warga di `surveys.wargaNik`. */
   subjekWargaWajib: boolean
   formVersionId: string
@@ -96,9 +93,10 @@ export interface BarisFormulirTerisi {
  * Daftar form yang sedang bisa diisi petugas.
  *
  * Hanya form aktif yang punya versi `published`, jadi daftar ini persis
- * "form yang tayang". Partial unique index `form_versions_one_published_per_form`
- * menjamin paling banyak satu baris per form, tidak perlu `distinct` atau
- * agregasi per form.
+ * "form yang tayang". Aturan "satu form hanya boleh punya satu versi published"
+ * dijaga `terbitkanVersiForm()`: versi lama di-archive dalam transaksi yang sama
+ * sebelum versi baru ditulis, jadi paling banyak satu baris per form dan tidak
+ * perlu `distinct` atau agregasi per form.
  *
  * Jumlah section dan field dihitung dengan dua query terelompok, bukan satu
  * query per form: Kunjungan Rumah punya belasan section dan ratusan field, dan
@@ -110,6 +108,7 @@ export async function daftarFormulirTerisi(): Promise<BarisFormulirTerisi[]> {
       formId: forms.id,
       nama: forms.nama,
       deskripsi: forms.deskripsi,
+      kode: forms.kode,
       subjekWargaWajib: forms.subjekWargaWajib,
       formVersionId: formVersions.id,
       version: formVersions.version,
@@ -167,7 +166,7 @@ export async function daftarFormulirTerisi(): Promise<BarisFormulirTerisi[]> {
 // Definisi runtime untuk halaman isi
 // ---------------------------------------------------------------------------
 
-/** Opsi statis dari `form_field_rules` bertipe 'option' dengan `value` terisi. */
+/** Opsi statis dari `form_field_options` bertipe 'option' dengan `value` terisi. */
 export interface OpsiRuntime {
   value: string
   label: string | null
@@ -179,17 +178,6 @@ export interface OpsiRuntime {
 export interface OpsiDinamisRuntime {
   value: string
   label: string
-}
-
-/** Aturan visibility. `sourceFieldId` null berarti sumbernya sudah dihapus. */
-export interface AturanRuntime {
-  id: string
-  sourceFieldId: string | null
-  operator: 'equals' | 'not_equals' | null
-  value: string | null
-  label: string | null
-  urutan: number
-  aktif: boolean
 }
 
 export interface FieldRuntime {
@@ -220,7 +208,16 @@ export interface FieldRuntime {
    * teks, dan TIDAK membatasi jawaban: petugas boleh mengetik nilai lain.
    */
   saran: string[]
-  aturan: AturanRuntime[]
+  /**
+   * Kolom Data Sasaran yang diisi dari baris yang dipilih petugas.
+   *
+   * Non-null hanya untuk sumber `cari_warga` pada field teks: mengetik memunculkan
+   * dropdown, memilih satu baris mengisi field INI saja — bukan field lain.
+   *
+   * Berbeda dari `opsiDinamis`, ini bukan daftar jawaban. Yang diketik bebas tetap
+   * diterima saat simpan, sama seperti saran.
+   */
+  cariWarga: KolomWarga | null
 }
 
 export interface SectionRuntime {
@@ -228,9 +225,6 @@ export interface SectionRuntime {
   nama: string
   deskripsi: string | null
   urutan: number
-  parentId: string | null
-  /** Kedalaman dari root, dihitung server supaya klien tidak menelusuri parent. */
-  depth: number
   fields: FieldRuntime[]
 }
 
@@ -251,39 +245,19 @@ export interface DefinisiRuntime {
 }
 
 /**
- * Kedalaman setiap section, dihitung dari `parentId`.
+ * Kolom Data Sasaran yang dipakai field ini, atau null kalau field tidak mencari
+ * warga.
  *
- * Dihitung di memori karena semua section satu versi sudah terambil dalam satu
- * query. Rantai dihentikan di `MAX_DEPTH` dan saat id yang sama muncul dua
- * kali supaya data rusak menghasilkan angka yang bisa dipakai (ind-dat), bukan
- * loop tak berujung.
+ * Sumber `cari_warga` mewarisi `kolom` dari katalog `SUMBER_OPSI`, jadi bentuk
+ * nilainya tidak mungkin salah: `tsc` akan menolak kalau katalog menambah kolom
+ * yang tidak ada di {@link KolomWarga}.
  */
-function hitungDepth(
-  sections: readonly { id: string; parentId: string | null }[],
-): Map<string, number> {
-  const parentOf = new Map(sections.map((s) => [s.id, s.parentId]))
-  const depth = new Map<string, number>()
-
-  for (const section of sections) {
-    let nilai = 0
-    let kursor = section.parentId
-    const sudahDilihat = new Set<string>()
-
-    while (
-      kursor !== null &&
-      nilai < MAX_DEPTH &&
-      parentOf.has(kursor) &&
-      !sudahDilihat.has(kursor)
-    ) {
-      sudahDilihat.add(kursor)
-      nilai += 1
-      kursor = parentOf.get(kursor) ?? null
-    }
-
-    depth.set(section.id, nilai)
-  }
-
-  return depth
+function kolomCariWarga(
+  optionSourceType: string | null,
+  optionSourceKey: string | null,
+): KolomWarga | null {
+  if (optionSourceType !== SUMBER_CARI_WARGA) return null
+  return cariSumber(optionSourceType, optionSourceKey)?.kolom ?? null
 }
 
 /** Kunci cache resolver opsi dinamis: satu sumber = satu query. */
@@ -342,7 +316,6 @@ async function muatDefinisiRuntime(
   const semuaSection = await executor
     .select({
       id: formSections.id,
-      parentId: formSections.parentId,
       nama: formSections.nama,
       deskripsi: formSections.deskripsi,
       urutan: formSections.urutan,
@@ -352,10 +325,6 @@ async function muatDefinisiRuntime(
     .where(eq(formSections.formVersionId, formVersionId))
     .orderBy(asc(formSections.urutan))
 
-  // Section nonaktif ikut diambil untuk menghitung `depth` child-nya: kalau
-  // parent-nya hilang dari daftar, klien tidak bisa tahu anak itu berada di
-  // level berapa.
-  const depth = hitungDepth(semuaSection)
   const sections = semuaSection.filter((s) => s.aktif)
 
   if (sections.length === 0) {
@@ -430,61 +399,34 @@ async function muatDefinisiRuntime(
         nama: s.nama,
         deskripsi: s.deskripsi,
         urutan: s.urutan,
-        parentId: s.parentId,
-        depth: depth.get(s.id) ?? 0,
         fields: [],
       })),
     }
   }
 
-  // Opsi dan aturan satu query karena satu tabelnya; dipisah berdasarkan
-  // `tipe` supaya jumlah query tetap empat, bukan satu per field.
-  const semuaRule = await executor
+  // Satu query untuk semua pilihan jawaban, lalu dikelompokkan per field.
+  const semuaOpsi = await executor
     .select({
-      id: formFieldRules.id,
-      fieldId: formFieldRules.fieldId,
-      tipe: formFieldRules.tipe,
-      value: formFieldRules.value,
-      label: formFieldRules.label,
-      sourceFieldId: formFieldRules.sourceFieldId,
-      operator: formFieldRules.operator,
-      urutan: formFieldRules.urutan,
-      aktif: formFieldRules.aktif,
+      fieldId: formFieldOptions.fieldId,
+      value: formFieldOptions.value,
+      label: formFieldOptions.label,
+      urutan: formFieldOptions.urutan,
+      aktif: formFieldOptions.aktif,
     })
-    .from(formFieldRules)
-    .where(inArray(formFieldRules.fieldId, fields.map((f) => f.id)))
-    .orderBy(asc(formFieldRules.urutan))
+    .from(formFieldOptions)
+    .where(inArray(formFieldOptions.fieldId, fields.map((f) => f.id)))
+    .orderBy(asc(formFieldOptions.urutan))
 
   const opsiPerField = new Map<string, OpsiRuntime[]>()
-  const aturanPerField = new Map<string, AturanRuntime[]>()
-
-  for (const rule of semuaRule) {
-    if (rule.tipe === 'option') {
-      // Kolom `value` nullable karena tabelnya dipakai aturan visibility juga.
-      const list = opsiPerField.get(rule.fieldId) ?? []
-      if (rule.value !== null) {
-        list.push({
-          value: rule.value,
-          label: rule.label,
-          urutan: rule.urutan,
-          aktif: rule.aktif,
-        })
-      }
-      opsiPerField.set(rule.fieldId, list)
-      continue
-    }
-
-    const list = aturanPerField.get(rule.fieldId) ?? []
+  for (const opsi of semuaOpsi) {
+    const list = opsiPerField.get(opsi.fieldId) ?? []
     list.push({
-      id: rule.id,
-      sourceFieldId: rule.sourceFieldId,
-      operator: rule.operator,
-      value: rule.value,
-      label: rule.label,
-      urutan: rule.urutan,
-      aktif: rule.aktif,
+      value: opsi.value,
+      label: opsi.label,
+      urutan: opsi.urutan,
+      aktif: opsi.aktif,
     })
-    aturanPerField.set(rule.fieldId, list)
+    opsiPerField.set(opsi.fieldId, list)
   }
 
   // Opsi dinamis di-resolve sekali per pasangan sumber yang berbeda, bukan sekali
@@ -503,7 +445,7 @@ async function muatDefinisiRuntime(
 
   for (const field of fields) {
     if (!field.optionSourceType) continue
-    // Saran menempel pada field-nya sendiri (baris form_field_rules-nya),
+    // Saran menempel pada field-nya sendiri (baris form_field_options-nya),
     // jadi tidak ikut cache bersama sumber.
     const perField = field.optionSourceType === 'suggest'
     const kunci = perField ? field.id : kunciSumber(field.optionSourceType, field.optionSourceKey)
@@ -541,8 +483,6 @@ async function muatDefinisiRuntime(
       nama: section.nama,
       deskripsi: section.deskripsi,
       urutan: section.urutan,
-      parentId: section.parentId,
-      depth: depth.get(section.id) ?? 0,
       fields: (fieldsBySection.get(section.id) ?? []).map((field) => {
         const dinamis = opsiDinamisField.get(field.id) ?? null
         return {
@@ -556,12 +496,12 @@ async function muatDefinisiRuntime(
           urutan: field.urutan,
           jumlahKolom: field.jumlahKolom,
           aktif: field.aktif,
+          cariWarga: kolomCariWarga(field.optionSourceType, field.optionSourceKey),
           opsi: opsiPerField.get(field.id) ?? [],
           opsiDinamis: dinamis ? dinamis.opsi : null,
           sumberOpsiTidakDikenali: dinamis ? dinamis.tidakDikenali : false,
           sumberOpsiLabel: dinamis ? dinamis.label : null,
           saran: dinamis ? dinamis.saran : [],
-          aturan: aturanPerField.get(field.id) ?? [],
         }
       }),
     })),
@@ -607,50 +547,6 @@ export interface SimpanFormulirInput {
 export interface HasilSimpanFormulir {
   surveyId: string
   jumlahJawaban: number
-}
-
-/**
- * Bandingkan jawaban sumber aturan dengan nilai pembandingnya sebagai daftar
- * teks. `survey_entries.value` jsonb bisa berisi apa saja, jadi hanya teks,
- * angka, boolean, dan daftar dari ketiganya yang bisa dibandingkan; nilai lain
- * diperlakukan sebagai tidak ada.
- *
- * Daftar ikut dibaca karena field `checkbox` mengirim array, dan untuk checkbox
- * "sama dengan Y" berarti "Y ada di dalam daftarnya".
- */
-function teksPembanding(nilai: unknown): string[] {
-  if (nilai === null || nilai === undefined) return []
-  if (typeof nilai === 'string') {
-    const teks = nilai.trim()
-    return teks === '' ? [] : [teks]
-  }
-  if (typeof nilai === 'number' || typeof nilai === 'boolean') return [String(nilai)]
-  if (Array.isArray(nilai)) {
-    const keluar: string[] = []
-    for (const isi of nilai as unknown[]) keluar.push(...teksPembanding(isi))
-    return keluar
-  }
-  return []
-}
-
-/**
- * Apakah satu aturan visibility terpenuhi oleh jawaban yang dikirim.
- *
- * Aturan dianggap terpenuhi kalau sumbernya sudah hilang, operatornya kosong,
- * atau nilai pembandingnya kosong. Ketiganya berarti aturan tidak bisa
- * dievaluasi, dan semuanya diperlakukan "terpenuhi" supaya satu baris rusak di
- * editor tidak menyembunyikan field-nya selamanya — petugas tidak punya jalan
- * lain untuk memperbaikinya dari layar isi.
- */
-function aturanTerpenuhi(aturan: AturanRuntime, nilai: Map<string, unknown>): boolean {
-  if (aturan.sourceFieldId === null) return true
-  if (aturan.operator === null) return true
-
-  const target = (aturan.value ?? '').trim()
-  if (target === '') return true
-
-  const isi = teksPembanding(nilai.get(aturan.sourceFieldId))
-  return aturan.operator === 'equals' ? isi.includes(target) : !isi.includes(target)
 }
 
 /** `''`, `null`, `undefined`, dan daftar kosong dianggap belum diisi. */
@@ -700,9 +596,8 @@ function sebutkan(list: readonly string[]): string {
  *      dipercaya, dan FK `survey_entries.fieldId` ke `form_fields` tidak tahu
  *      versi form-nya)
  *   5. Warga sesuai aturan form, dan NIK-nya benar-benar ada di `data_warga`
- *   6. Aturan visibility: jawaban field tersembunyi dibuang
- *   7. Semua field wajib yang terlihat terisi (semuanya sekaligus)
- *   8. Bentuk nilai dan pilihan jawaban sesuai definisi
+ *   6. Semua field wajib yang terlihat terisi (semuanya sekaligus)
+ *   7. Bentuk nilai dan pilihan jawaban sesuai definisi
  */
 export async function simpanFormulir(input: SimpanFormulirInput): Promise<HasilSimpanFormulir> {
   const { formVersionId, petugasId, actorId, jawaban } = input
@@ -804,20 +699,11 @@ export async function simpanFormulir(input: SimpanFormulirInput): Promise<HasilS
   }
   const wargaNik = definisi.form.subjekWargaWajib ? nikDiminta : null
 
-  // 6. Visibility. Jawaban field tersembunyi dibuang, bukan ditolak: petugas
-  //    bisa saja membuka form saat kondisinya masih terpenuhi, lalu berubah
-  //    sebelum mengirim. Field wajib yang tersembunyi juga tidak ikut diminta
-  //    di langkah 7.
+  // 6. Semua field wajib yang kosong dicatat sekalian, bukan satu per field.
   const jawabanTersimpan: JawabanFormulir[] = []
   const belumTerisi: string[] = []
 
   for (const field of petaField.values()) {
-    const tersembunyi = field.aturan
-      .filter((a) => a.aktif)
-      .some((aturan) => !aturanTerpenuhi(aturan, nilaiTerkirim))
-
-    if (tersembunyi) continue
-
     const value = nilaiTerkirim.get(field.id)
     if (field.wajib && nilaiKosong(value)) {
       belumTerisi.push(field.label)

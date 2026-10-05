@@ -212,12 +212,6 @@ export async function ringkasanHapusForm(formId: number): Promise<RingkasanHapus
           WHERE s2."formVersionId" IN (SELECT id FROM form_versions fv3 WHERE fv3."formId" = ${formId})
         )
       )                                                                                  AS "jumlahJawaban",
-      (SELECT COUNT(*)::int FROM survey_files fl
-        WHERE fl."surveyId" IN (
-          SELECT s3.id FROM surveys s3
-          WHERE s3."formVersionId" IN (SELECT id FROM form_versions fv4 WHERE fv4."formId" = ${formId})
-        )
-      )                                                                                  AS "jumlahLampiran",
       (SELECT COUNT(DISTINCT s4."wargaNik")::int FROM surveys s4
         WHERE s4."wargaNik" IS NOT NULL
           AND s4."formVersionId" IN (SELECT id FROM form_versions fv5 WHERE fv5."formId" = ${formId})
@@ -233,7 +227,6 @@ export async function ringkasanHapusForm(formId: number): Promise<RingkasanHapus
     jumlahVersi?: number
     jumlahSubmit?: number
     jumlahJawaban?: number
-    jumlahLampiran?: number
     jumlahWarga?: number
     tanggalTerakhir?: string | null
   }
@@ -242,7 +235,6 @@ export async function ringkasanHapusForm(formId: number): Promise<RingkasanHapus
     jumlahVersi: angka.jumlahVersi ?? 0,
     jumlahSubmit: angka.jumlahSubmit ?? 0,
     jumlahJawaban: angka.jumlahJawaban ?? 0,
-    jumlahLampiran: angka.jumlahLampiran ?? 0,
     jumlahWarga: angka.jumlahWarga ?? 0,
     tanggalTerakhir: angka.tanggalTerakhir ?? null,
   }
@@ -253,7 +245,6 @@ export interface HasilHapusForm {
   jumlahVersi: number
   jumlahSubmit: number
   jumlahJawaban: number
-  jumlahLampiran: number
   jumlahWarga: number
 }
 
@@ -267,11 +258,10 @@ export interface HasilHapusForm {
  * baru form-nya.
  *
  * Urutan penghapusan (semua dalam satu transaksi):
- *   1. `surveys` milik semua versi form ini. `survey_entries` dan
- *      `survey_files` ikut cascade dari `surveys` — sekaligus membongkar FK
- *      `survey_entries.fieldId` yang kalau tidak akan menahan penghapusan
- *      `form_fields`.
- *   2. `forms`; versi, section, field, opsi, dan aturan ikut cascade dari situ.
+ *   1. `surveys` milik semua versi form ini. `survey_entries` ikut cascade dari
+ *      `surveys` — sekaligus membongkar FK `survey_entries.fieldId` yang kalau
+ *      tidak akan menahan penghapusan `form_fields`.
+ *   2. `forms`; versi, section, field, dan pilihan jawaban ikut cascade dari situ.
  *
  * Aturan utamanya ada di `validasiHapusForm`): form bawaan tidak boleh dihapus,
  * form berisian hanya boleh dihapus dengan `hapusPermanent` + konfirmasi nama.
@@ -339,7 +329,6 @@ export async function hapusForm(input: {
     jumlahVersi: ringkasan.jumlahVersi,
     jumlahSubmit: ringkasan.jumlahSubmit,
     jumlahJawaban: ringkasan.jumlahJawaban,
-    jumlahLampiran: ringkasan.jumlahLampiran,
     jumlahWarga: ringkasan.jumlahWarga,
   }
 }

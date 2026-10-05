@@ -56,12 +56,9 @@ import {
     buatDraftBerikutnya,
     terbitkanVersiForm,
 } from "@/features/form-builder/services/form-version.server";
-import {
-    ambilFormulirUntukIsi,
-    daftarFormulirTerisi,
-    simpanFormulir as simpanFormulirRuntime,
-} from "@/features/survey/services/form-runtime.server";
+import { ambilFormulirUntukIsi, daftarFormulirTerisi, simpanFormulir as simpanFormulirRuntime } from "@/features/survey/services/form-runtime.server";
 import type { SimpanFormulirInput } from "@/features/survey/services/form-runtime.server";
+import { KODE_FORM_BAWAAN } from "@/lib/constants";
 import { SEMUA_TIPE_FIELD, TIPE_BUTUH_OPSI } from "@/features/form-builder/services/validasi";
 
 
@@ -364,6 +361,50 @@ export const listKegiatan = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
     .handler(async () => await listKegiatanV2())
 
+export const getKegiatanMonthlyStats = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .handler(async () => {
+        const kegiatan = await listKegiatanV2()
+        const now = new Date()
+        const months: Array<{ key: string; label: string }> = []
+        for (let i = 11; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+            const key = d.toISOString().slice(0, 7)
+            const label = d.toLocaleString("id-ID", { month: "short", year: "2-digit" })
+            months.push({ key, label })
+        }
+        const byMonth = new Map<string, {
+            totalKegiatan: number
+            totalHadir: number
+            totalPeserta: number
+            byJenis: Map<string, number>
+        }>()
+        months.forEach(m => byMonth.set(m.key, { totalKegiatan: 0, totalHadir: 0, totalPeserta: 0, byJenis: new Map() }))
+        kegiatan.forEach(k => {
+            const monthKey = k.tgl.slice(0, 7)
+            const bucket = byMonth.get(monthKey)
+            if (!bucket) return
+            bucket.totalKegiatan += 1
+            bucket.totalHadir += k.hadir
+            bucket.totalPeserta += k.total
+            const jenisCount = bucket.byJenis.get(k.jenis) ?? 0
+            bucket.byJenis.set(k.jenis, jenisCount + 1)
+        })
+        return months.map(m => {
+            const b = byMonth.get(m.key)!
+            const pctHadir = b.totalPeserta > 0 ? Math.round((b.totalHadir / b.totalPeserta) * 100) : 0
+            return {
+                month: m.key,
+                label: m.label,
+                totalKegiatan: b.totalKegiatan,
+                totalHadir: b.totalHadir,
+                totalPeserta: b.totalPeserta,
+                pctHadir,
+                byJenis: Array.from(b.byJenis.entries()).map(([jenis, count]) => ({ jenis, count })),
+            }
+        })
+    })
+
 export const saveKegiatan = createServerFn({ method: "POST" })
     .middleware([authSessionToken])
     .validator((data: { record: Record<string, unknown> }) => data)
@@ -504,7 +545,7 @@ export const buildFormBuilder = createServerFn({ method: "POST" })
 
 // ---- runtime form generik (isi form dari definisi yang tayang) ----
 // Lawanan dari Form Builder di atas: Builder memegang definisi form (forms,
-// form_versions, form_sections, form_fields, form_field_rules) dan satu-satunya
+// form_versions, form_sections, form_fields, form_field_options) dan satu-satunya
 // yang boleh menulisnya, sedangkan runtime hanya MEMBACA definisi itu dan
 // menulis ke `surveys` + `survey_entries`. Pemisahan ini yang membuat "define +
 // publish" benar-benar terpisah dari "read published + fill": menyunting form
@@ -527,6 +568,13 @@ export const buildFormBuilder = createServerFn({ method: "POST" })
 export const listFormulir = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
     .handler(async () => await daftarFormulirTerisi());
+
+export const listFormulirForNav = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .handler(async () => {
+        const all = await daftarFormulirTerisi();
+        return all.filter((f) => f.kode !== KODE_FORM_BAWAAN.kunjunganRumah);
+    });
 
 export const ambilFormulir = createServerFn({ method: "GET" })
     .middleware([authSessionToken])

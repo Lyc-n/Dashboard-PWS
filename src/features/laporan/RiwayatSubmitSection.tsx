@@ -22,7 +22,7 @@ import { getDetailSubmit, getRiwayatSubmit } from '@/lib/utils.functions'
 import type { BarisRiwayatSubmit, JsonNilai } from '@/lib/utils.server'
 import { formatNilaiJawaban } from '@/features/survey/lib/format-jawaban'
 import { fmtDate } from '@/lib/utils'
-import { PAGE_SIZE } from '@/lib/constants'
+import { PAGE_SIZE, KELS } from '@/lib/constants'
 
 type BarisRiwayat = BarisRiwayatSubmit
 
@@ -42,6 +42,9 @@ interface Props {
   formList: Array<{ formId: number; nama: string; jumlahSubmit: number }>
   loading: boolean
   error: string | null
+  defaultDari?: string
+  defaultSampai?: string
+  defaultKel?: string
 }
 
 function Nik({ nik, nama }: { nik: string | null; nama: string }) {
@@ -164,11 +167,17 @@ export function RiwayatSubmitSection({
   formList,
   loading,
   error,
+  defaultDari,
+  defaultSampai,
+  defaultKel,
 }: Props) {
   const [formId, setFormId] = useState<number | 'all'>('all')
   const [cari, setCari] = useState('')
   const [page, setPage] = useState(1)
   const [terbuka, setTerbuka] = useState<string | null>(null)
+  const [dari, setDari] = useState(defaultDari ?? '2026-01-01')
+  const [sampai, setSampai] = useState(defaultSampai ?? '2026-12-31')
+  const [kel, setKel] = useState(defaultKel ?? 'all')
 
   const [terfilter, setTerfilter] = useState<BarisRiwayat[]>(rows)
   const [gagalMuat, setGagalMuat] = useState<string | null>(null)
@@ -203,15 +212,27 @@ export function RiwayatSubmitSection({
 
   const hasil = useMemo(() => {
     const q = cari.trim().toLowerCase()
-    if (!q) return terfilter
-    return terfilter.filter(
+    let filtered = terfilter
+
+    // Filter by date range
+    filtered = filtered.filter(
+      (r) => r.tanggal >= dari && r.tanggal <= sampai
+    )
+
+    // Filter by kelurahan
+    if (kel !== 'all') {
+      filtered = filtered.filter((r) => r.kelurahan === kel)
+    }
+
+    if (!q) return filtered
+    return filtered.filter(
       (r) =>
         r.nama.toLowerCase().includes(q) ||
         r.formNama.toLowerCase().includes(q) ||
         (r.nik ?? '').includes(q) ||
         r.petugas.toLowerCase().includes(q),
     )
-  }, [terfilter, cari])
+  }, [terfilter, cari, dari, sampai, kel])
 
   const { maxPage, pageClamped, pageRows, info } = paginate(
     hasil,
@@ -225,6 +246,14 @@ export function RiwayatSubmitSection({
         title="Saring Riwayat Submit"
         sub="Semua form yang sudah diisi petugas, termasuk form buatan Form Builder."
       >
+        <Input type="date" value={dari} onChange={(e) => setDari(e.target.value)} aria-label="Tanggal awal" className="max-w-42.5 max-md:max-w-none" />
+        <Input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} aria-label="Tanggal akhir" className="max-w-42.5 max-md:max-w-none" />
+        <Select value={kel} onChange={(e) => setKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-42.5 max-md:max-w-none">
+          <option value="all">Semua kelurahan</option>
+          {KELS.map((k) => (
+            <option key={k}>{k}</option>
+          ))}
+        </Select>
         <Select
           value={String(formId)}
           onChange={(e) => {

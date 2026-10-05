@@ -1,7 +1,19 @@
 import { check, date, foreignKey, index, integer, pgTable, text, varchar, boolean, timestamp, uuid, jsonb, uniqueIndex, smallint} from "drizzle-orm/pg-core";
-import type { AnyPgColumn } from "drizzle-orm/pg-core";
+
 import { sql } from "drizzle-orm";
-import { hubunganKeluargaEnum, jenisKelaminEnum, statusKawinEnum, agama, pekerjaan, pendidikanEnum, fasKes, role, formFieldType, formFieldRuleType, formFieldRuleOperator, auditAction } from "./type-enum";
+import { hubunganKeluargaEnum, jenisKelaminEnum, statusKawinEnum, agama, pekerjaan, pendidikanEnum, fasKes, role, formFieldType, auditAction } from "./type-enum";
+
+// WAJIB `withTimezone: true` di setiap kolom timestamp. Jangan dikembalikan jadi
+// `timestamp()` polos.
+//
+// Alasannya nyata, bukan teori: driver `postgres` v3 membaca `timestamp without
+// time zone` sebagai waktu LOKAL, sedangkan nilainya ditulis sebagai UTC
+// (`now()` dengan `TimeZone = UTC`). Di Asia/Jakarta hasilnya bergeser 7 jam:
+// `'2026-10-04 07:41:52'::timestamp` terbaca `2026-10-04T00:41:52Z`. Uji nyata
+// lewat driver yang dipakai app, bukan asumsi.
+//
+// Kolom `date` (surveys.tanggal, data_warga.tgl_lahir) TIDAK ikut aturan ini:
+// tanggal kalender memang tidak punya zona waktu.
 
 export const dataWargaTable = pgTable("data_warga", {
     nik: varchar({ length: 16 }).notNull().primaryKey(),
@@ -22,16 +34,16 @@ export const dataWargaTable = pgTable("data_warga", {
     agama: agama().notNull(),
     pendidikan: pendidikanEnum().notNull(),
     pekerjaan: pekerjaan().notNull(),
-    createdAt: timestamp().defaultNow().notNull(),
-    updatedAt: timestamp().defaultNow().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 });
 
 export const wilayahKerja = pgTable('wilayah_kerja', {
   id: smallint().primaryKey().notNull().generatedAlwaysAsIdentity(),
   kecamatan: text().notNull(),
   kelurahan: text().notNull(),
-  createdAt: timestamp().defaultNow().notNull(),
-  updatedAt: timestamp().defaultNow().notNull(),
+  createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (t) =>
 [
   uniqueIndex("wilayah_kerja_kecamatan_kelurahan").on(t.kecamatan, t.kelurahan),
@@ -45,8 +57,8 @@ export const fasilitasKesehatan = pgTable('fasilitas_kesehatan', {
   alamat: text().notNull(),
   rt: varchar({ length: 3 }),
   rw: varchar({ length: 3 }),
-  createdAt: timestamp().defaultNow().notNull(),
-  updatedAt: timestamp().defaultNow().notNull(),
+  createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (t) =>
 [
   // Menampilkan daftar fasilitas per wilayah kerja, jadi index ini sudah ada di
@@ -66,8 +78,8 @@ export const users = pgTable("users", {
   pinHash: varchar({ length: 255 }).notNull(),
   phone: varchar({ length: 20 }),
   aktif: boolean().notNull().default(true),
-  createdAt: timestamp().defaultNow().notNull(),
-  updatedAt: timestamp().defaultNow().notNull(),
+  createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (t) =>
 [
   // Login selalu menyaring lewat fasKesId untuk membatasi petugas ke fasilitas
@@ -94,8 +106,8 @@ export const forms = pgTable("forms", {
     subjekWargaWajib: boolean().notNull().default(true),
     deskripsi: text(), // deskripsi form
     aktif: boolean().notNull().default(true), // tampilkan form atau tidak, agar user bisa menonaktifkan form sementara sebelum hapus total
-    createdAt: timestamp().defaultNow().notNull(),
-    updatedAt: timestamp().defaultNow().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (t) =>
 [
     uniqueIndex("forms_kode_key").on(t.kode),
@@ -106,16 +118,12 @@ export const formVersions = pgTable("form_versions", {
   formId: smallint().notNull().references(() => forms.id, { onDelete: "cascade" }),
   version: integer().notNull(),
   status: varchar({ length: 20 }).notNull().default('draft'),
-  publishedAt: timestamp(),
-  createdAt: timestamp().defaultNow().notNull(),
-  updatedAt: timestamp().defaultNow().notNull(),
+  publishedAt: timestamp({ withTimezone: true }),
+  createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (t) =>
 [
   uniqueIndex("form_versions_form_id_version").on(t.formId, t.version),
-  // Partial unique index: satu form hanya boleh punya SATU versi berstatus
-  // 'published'. Ditegakkan database, bukan hanya backend, karena dua request
-  // publish paralel bisa sama-sama lolos validasi lalu sama-sama commit.
-  uniqueIndex("form_versions_one_published_per_form").on(t.formId).where(sql`${t.status} = 'published'`),
   index("form_versions_form_id_status_idx").on(t.formId, t.status),
   check("form_versions_status_check", sql`${t.status} IN ('draft', 'published', 'archived')`),
   check("form_versions_version_check", sql`${t.version} >= 1`),
@@ -128,24 +136,18 @@ export const formVersions = pgTable("form_versions", {
 export const formSections = pgTable("form_sections", {
     id: uuid().primaryKey().defaultRandom(),
     formVersionId: uuid().notNull().references(() => formVersions.id, { onDelete: "cascade", }), 
-    // CATATAN: parentId sengaja hanya FK ke id, jadi database TIDAK menolak parent dari
-    // versi form lain. Aturan "parent harus satu versi" divalidasi di backend
-    // (src/features/form-builder/services/validasi.ts). Composite FK untuk parent tidak
-    // dipakai karena butuh trigger untuk pesan error yang bisa dibaca petugas.
-    parentId: uuid().references((): AnyPgColumn => formSections.id, { onDelete: "cascade", }), // id untuk sub sections
     nama: varchar({ length: 100 }).notNull(),
     deskripsi: text(),
     urutan: integer().notNull(),
     aktif: boolean().notNull().default(true),
-    createdAt: timestamp().defaultNow().notNull(),
-    updatedAt: timestamp().defaultNow().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (t) =>
 [
     // Syarat FK komposit form_fields (sectionId, formVersionId) -> (id, formVersionId).
     // Postgres butuh kolom target punya UNIQUE persis di kombinasi itu.
     uniqueIndex("form_sections_id_form_version_id").on(t.id, t.formVersionId),
     index("form_sections_form_version_urutan_idx").on(t.formVersionId, t.urutan),
-    index("form_sections_parent_id_idx").on(t.parentId),
 ])
 
 // tabel pertanyaan tiap section 
@@ -173,8 +175,8 @@ export const formFields = pgTable("form_fields", {
     // jsonb di `survey_entries.value`.
     jumlahKolom: integer(),
     aktif: boolean().notNull().default(true), // tampilkan atau tidak
-    createdAt: timestamp().defaultNow().notNull(),
-    updatedAt: timestamp().defaultNow().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (t) =>
 [
     // Set SEBELUM references() tunggal: composite FK ini yang memastikan field dan
@@ -192,42 +194,25 @@ export const formFields = pgTable("form_fields", {
     index("form_fields_section_urutan_idx").on(t.sectionId, t.urutan),
 ]);
 
-export const formFieldRules = pgTable("form_field_rules", {
+// Tabel pilihan jawaban (`option`) untuk setiap field.
+//
+// Semula tabel ini juga menampung aturan visibility — "tampilkan field ini hanya
+// bila field lain bernilai X". Aturan itu dihapus: tidak pernah dipakai di data
+// mana pun, dan menambah tiga kolom (tipe, sourceFieldId, operator) plus satu
+// enum untuk sesuatu yang nol. Sekarang satu baris = satu pilihan jawaban.
+export const formFieldOptions = pgTable("form_field_options", {
     id: uuid().primaryKey().defaultRandom(),
     fieldId: uuid().notNull().references(() => formFields.id, { onDelete: "cascade", }), // opsi milik pertanyaan ini
-    tipe: formFieldRuleType().notNull(),
-    // SET NULL, bukan CASCADE: menghapus field sumber tidak boleh diam-diam menghapus
-    // aturan visibility milik field lain.
-    //
-    // Perhatikan: sourceFieldId BOLEH jadi NULL. Postgres menjalankan SET NULL
-    // sebelum baris hilang, jadi kalau check constraint di bawah mensyaratkan
-    // sourceFieldId not null untuk tipe 'visibility', field sumber tidak akan bisa
-    // dihapus sama sekali. Aturan justru sengaja dibiarkan yatim supaya petugas
-    // bisa memperbaiki atau menonaktifkannya sendiri di editor.
-    sourceFieldId: uuid().references(() => formFields.id, { onDelete: 'set null' }),
-    operator: formFieldRuleOperator(),
-    value: text(), // yang disimpan di payload jawaban
+    value: text().notNull(), // yang disimpan di payload jawaban
     label: varchar({ length: 255 }), // yang ditulis petugas, mis. "Tidak/Belum Sekolah"
     urutan: integer().notNull().default(0), // urutan pilihan
     aktif: boolean().notNull().default(true),
-    createdAt: timestamp().defaultNow().notNull(),
-    updatedAt: timestamp().defaultNow().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (t) =>
 [
     // Opsi field selalu ikut section berurutan saat form dirender.
-    index("form_field_rules_field_urutan_idx").on(t.fieldId, t.urutan),
-    index("form_field_rules_source_field_id_idx").on(t.sourceFieldId),
-    // Opsi jawaban wajib punya nilai yang disimpan.
-    check("form_field_rules_option_check", sql`
-      ${t.tipe} <> 'option' or ${t.value} is not null
-    `),
-    // Aturan visibility wajib punya operator. sourceFieldId sengaja TIDAK ikut
-    // dicek supaya aturan yatim (sumbernya dihapus) tetap bisa disimpan; syarat
-    // "sumber wajib ada" ditegakkan saat membuat aturan di backend, lihat
-    // services/validasi.ts -> validasiAturanField.
-    check("form_field_rules_visibility_check", sql`
-      ${t.tipe} <> 'visibility' or ${t.operator} is not null
-    `),
+    index("form_field_options_field_urutan_idx").on(t.fieldId, t.urutan),
 ]);
 
 // tabel hasil dan riwayat survey
@@ -242,8 +227,8 @@ export const surveys = pgTable("surveys", {
     wargaNik: varchar({ length: 16 }).references(() => dataWargaTable.nik), // penanda terhubung dengan data warga apa
     petugasId: uuid().notNull().references(() => users.id), // penanda terhubung dengan petugas atau surveyor
     tanggal: date().notNull(), // tanggal pelaksanaan survey
-    createdAt: timestamp().defaultNow().notNull(),
-    updatedAt: timestamp().defaultNow().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (t) =>
 [
     // Empat filter yang dipakai layar utama: "survey bulan ini", "riwayat warga ini",
@@ -265,8 +250,8 @@ export const surveyEntries = pgTable('survey_entries', {
     // milik formVersionId milik survey. Aturan itu divalidasi di backend sebelum insert
     fieldId: uuid().notNull().references(() => formFields.id), // penanda terhubung dengan question apa
     value: jsonb(),
-    createdAt: timestamp().defaultNow().notNull(),
-    updatedAt: timestamp().defaultNow().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (t) =>
 [
     uniqueIndex("survey_entries_survey_id_field_id").on(t.surveyId, t.fieldId),
@@ -291,7 +276,7 @@ export const auditLogs = pgTable("audit_logs", {
     sebelum: jsonb(), // nilai lama
     sesudah: jsonb(), // nilai baru
     ip: varchar({ length: 64 }),
-    createdAt: timestamp().defaultNow().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 }, (t) =>
 [
     // "Apa saja yang diubah petugas ini?" dan "siapa yang lihat data warga ini?" —
@@ -304,6 +289,6 @@ export const auditLogs = pgTable("audit_logs", {
 export const validSession = pgTable("valid_session",{
     uid: uuid().primaryKey().defaultRandom(),
     token: text().notNull().unique(),
-    expiresAt: timestamp().notNull(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
 })
 

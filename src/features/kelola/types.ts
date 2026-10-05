@@ -5,7 +5,7 @@
 //
 // Tab "Form Kunjungan Rumah" juga dihapus. Definisi form kunjungan rumah sekarang
 // disunting lewat Form Builder seperti form lain, dan bagian yang tidak boleh
-// diubah dikunci di editor (lihat `kunciEditorForm`). Catatan lama yang menyuruh
+// diubah dikunci di editor (lihat `aturanForm`). Catatan lama yang menyuruh
 // form bawaan disunting lewat tab sendiri tidak berlaku lagi sejak form bawaan
 // ikut tampil di Form Builder.
 export const TABS = [

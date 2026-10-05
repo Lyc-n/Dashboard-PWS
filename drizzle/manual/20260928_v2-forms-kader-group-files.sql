@@ -134,3 +134,14 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- 8. Tabel survey_files dihapus ----------------------------------------------
+-- Tabel ini tidak pernah masuk definisi Drizzle (src/lib/schema/*.ts), jadi
+-- `drizzle-kit push` tidak mengenalinya dan tidak akan pernah mengelolanya.
+-- Isinya kosong dan fitur lampiran belum didukung, jadi tabelnya dibuang.
+--
+-- DROP diletakkan di file terakhir yang menyentuh survey_files, bukan di
+-- 20260928_form-builder-v2.sql yang membuatnya: kalau file yang membuat
+-- di-drop, file ini (yang ALTER kolom `ordinal`) akan gagal saat diputar ulang.
+DROP TRIGGER IF EXISTS survey_files_set_updated_at ON survey_files;
+DROP TABLE IF EXISTS survey_files;

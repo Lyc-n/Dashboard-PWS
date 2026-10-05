@@ -6,7 +6,6 @@ import type {
   DraftSection,
   DraftField,
   DraftOpsi,
-  DraftAturan,
   BuildFormVersionInput,
   SelectedItem,
   PaletteItem,
@@ -16,9 +15,11 @@ import type {
 import type { DragEndEvent } from "@dnd-kit/react";
 import { isSortable } from "@dnd-kit/react/sortable";
 import { move } from "@dnd-kit/helpers";
-import { flattenTree, ROOT_GROUP } from "@/features/kelola/components/builder/tree";
+import { flattenDatar } from "@/features/kelola/components/builder/tree";
 import { SEMUA_TIPE_FIELD, TIPE_BUTUH_OPSI } from "@/features/form-builder/services/validasi";
 import { SUMBER_SUGGEST, tipeBolehPakaiSumber } from "@/features/form-builder/services/sumber-opsi";
+import { cariTemplate, presetDariTemplate } from "@/features/form-builder/services/template-field";
+import type { PresetField } from "@/features/form-builder/services/template-field";
 import { useToast } from "@/providers/toast";
 
 function generateClientId(): string {
@@ -32,31 +33,45 @@ function createEmptyOpsi(tipe: TipeFieldEditor): DraftOpsi[] {
   return [];
 }
 
-function createDefaultField(sectionClientId: string, tipe: TipeFieldEditor = "text"): DraftField {
+/**
+ * Field kosong dengan isian dari template, kalau ada.
+ *
+ * `preset` menimpa bagian yang diisi. Yang tidak ikut ditimpa: `wajib`, `aktif`,
+ * `placeholder`, `deskripsi`. Template tidak menebak keputusan itu — itu milik
+ * tiap form.
+ *
+ * Setiap bagian opsional karena pemanggil boleh mengisi sebagian saja: tombol
+ * "+ Field" hanya butuh tipe, template mengisi semua. `opsi` tetap kosong kalau
+ * preset menetapkan sumber jawaban (lihat `presetDariTemplate`) karena daftar
+ * jawabannya sudah ada di enum atau di database.
+ */
+function createDefaultField(
+  sectionClientId: string,
+  preset?: Partial<PresetField>,
+): DraftField {
+  const tipe = preset?.tipe ?? "text";
   return {
     id: null,
     clientId: generateClientId(),
     sectionClientId,
-    nama: "",
-    label: "",
+    nama: preset?.nama ?? "",
+    label: preset?.label ?? "",
     tipe,
     wajib: false,
     aktif: true,
     placeholder: null,
     deskripsi: null,
     jumlahKolom: tipe === "group" ? 2 : null,
-    optionSourceType: null,
-    optionSourceKey: null,
-    opsi: createEmptyOpsi(tipe),
-    aturan: [],
+    optionSourceType: preset?.optionSourceType ?? null,
+    optionSourceKey: preset?.optionSourceKey ?? null,
+    opsi: preset?.opsi ?? createEmptyOpsi(tipe),
   };
 }
 
-function createDefaultSection(parentClientId: string | null = null): DraftSection {
+function createDefaultSection(): DraftSection {
   return {
     id: null,
     clientId: generateClientId(),
-    parentClientId,
     nama: "Section baru",
     deskripsi: null,
     aktif: true,
@@ -67,7 +82,6 @@ function definisiToDraft(definisi: DefinisiVersi): DraftFormDocument {
   const sections: DraftSection[] = definisi.sections.map((s) => ({
     id: s.id,
     clientId: s.id,
-    parentClientId: s.parentId,
     nama: s.nama,
     deskripsi: s.deskripsi,
     aktif: s.aktif,
@@ -94,18 +108,6 @@ function definisiToDraft(definisi: DefinisiVersi): DraftFormDocument {
         label: o.label || "",
         aktif: o.aktif,
       })),
-      aturan: f.aturan
-        .filter(
-          (a): a is typeof a & { sourceFieldId: string; operator: "equals" | "not_equals" } =>
-            a.sourceFieldId !== null && a.operator !== null,
-        )
-        .map((a, i) => ({
-          clientId: a.id || `aturan-${f.id}-${i}`,
-          sourceClientId: a.sourceFieldId,
-          operator: a.operator,
-          value: a.value || "",
-          aktif: a.aktif,
-        })),
     }))
   );
   
@@ -114,7 +116,7 @@ function definisiToDraft(definisi: DefinisiVersi): DraftFormDocument {
 
 interface UseFormBuilderDraftReturn {
   document: DraftFormDocument | null;
-  flatTree: ReturnType<typeof flattenTree>;
+  flatTree: ReturnType<typeof flattenDatar>;
   selectedItem: SelectedItem;
   setSelectedItem: (item: SelectedItem) => void;
   palette: PaletteItem[];
@@ -122,9 +124,15 @@ interface UseFormBuilderDraftReturn {
   buildError: string | null;
   loadDocument: (definisi: DefinisiVersi) => void;
   clearDocument: () => void;
-  addSection: (parentClientId: string | null) => string;
+  addSection: () => string;
   deleteSection: (clientId: string) => void;
-  addField: (sectionClientId: string, tipe: TipeFieldEditor) => string;
+  /**
+   * Tambah field ke satu section.
+   *
+   * Tanpa `preset` hasilnya field kosong dengan tipe `text` (tombol "+ Field").
+   * Dengan `preset` hasilnya template siap pakai yang langsung terisi.
+   */
+  addField: (sectionClientId: string, preset?: Partial<PresetField>) => string;
   deleteField: (clientId: string) => void;
   updateSection: (clientId: string, patch: Partial<DraftSection>) => void;
   updateField: (clientId: string, patch: Partial<DraftField>) => void;
@@ -140,9 +148,6 @@ interface UseFormBuilderDraftReturn {
   setSumberOpsi: (fieldClientId: string, type: string | null, key: string | null) => void;
   updateOpsi: (fieldClientId: string, opsiClientId: string, patch: Partial<DraftOpsi>) => void;
   deleteOpsi: (fieldClientId: string, opsiClientId: string) => void;
-  addAturan: (fieldClientId: string, sourceClientId: string) => void;
-  updateAturan: (fieldClientId: string, aturanClientId: string, patch: Partial<DraftAturan>) => void;
-  deleteAturan: (fieldClientId: string, aturanClientId: string) => void;
   handleDragEnd: (event: DragEndEvent) => void;
   buildForm: () => Promise<BuildFormVersionResult | null>;
 }
@@ -163,7 +168,7 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
   , []);
   
   const flatTree = useMemo(() => 
-    document ? flattenTree(document.sections, document.fields) : []
+    document ? flattenDatar(document.sections, document.fields) : []
   , [document]);
   
   const loadDocument = useCallback((definisi: DefinisiVersi) => {
@@ -182,52 +187,31 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
     setDocument((prev) => prev ? updater(prev) : null);
   }, []);
   
-  const addSection = useCallback((parentClientId: string | null) => {
+  const addSection = useCallback(() => {
     const clientId = generateClientId();
     updateDocument((doc) => ({
       ...doc,
-      sections: [...doc.sections, { ...createDefaultSection(parentClientId), clientId }],
+      sections: [...doc.sections, { ...createDefaultSection(), clientId }],
     }));
     return clientId;
   }, [updateDocument]);
   
   const deleteSection = useCallback((clientId: string) => {
-    updateDocument((doc) => {
-      const descendantSectionIds = new Set<string>();
-      function collectDescendants(parentId: string) {
-        for (const s of doc.sections) {
-          if (s.parentClientId === parentId) {
-            descendantSectionIds.add(s.clientId);
-            collectDescendants(s.clientId);
-          }
-        }
-      }
-      collectDescendants(clientId);
-
-      const sectionsToDelete = new Set([clientId, ...descendantSectionIds]);
-      const deletedFieldIds = new Set(
-        doc.fields.filter((f) => sectionsToDelete.has(f.sectionClientId)).map((f) => f.clientId)
-      );
-
-      return {
-        ...doc,
-        sections: doc.sections.filter((s) => !sectionsToDelete.has(s.clientId)),
-        fields: doc.fields
-          .filter((f) => !deletedFieldIds.has(f.clientId))
-          .map((f) => ({
-            ...f,
-            aturan: f.aturan.filter((a) => !deletedFieldIds.has(a.sourceClientId)),
-          })),
-      };
-    });
+    updateDocument((doc) => ({
+      ...doc,
+      sections: doc.sections.filter((s) => s.clientId !== clientId),
+      // Field milik section yang dihapus ikut terhapus: di database keduanya
+      // Cascade, jadi tidak boleh menyisakan field yatim di draft.
+      fields: doc.fields.filter((f) => f.sectionClientId !== clientId),
+    }));
     setSelectedItem(null);
   }, [updateDocument]);
   
-  const addField = useCallback((sectionClientId: string, tipe: TipeFieldEditor) => {
+  const addField = useCallback((sectionClientId: string, preset?: Partial<PresetField>) => {
     const clientId = generateClientId();
     updateDocument((doc) => ({
       ...doc,
-      fields: [...doc.fields, { ...createDefaultField(sectionClientId, tipe), clientId }],
+      fields: [...doc.fields, { ...createDefaultField(sectionClientId, preset), clientId }],
     }));
     return clientId;
   }, [updateDocument]);
@@ -235,12 +219,7 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
   const deleteField = useCallback((clientId: string) => {
     updateDocument((doc) => ({
       ...doc,
-      fields: doc.fields
-        .filter((f) => f.clientId !== clientId)
-        .map((f) => ({
-          ...f,
-          aturan: f.aturan.filter((a) => a.sourceClientId !== clientId),
-        })),
+      fields: doc.fields.filter((f) => f.clientId !== clientId),
     }));
     setSelectedItem((prev) => prev?.type === "field" && prev.clientId === clientId ? null : prev);
   }, [updateDocument]);
@@ -321,39 +300,6 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
     }));
   }, [updateDocument]);
   
-  const addAturan = useCallback((fieldClientId: string, sourceClientId: string) => {
-    updateDocument((doc) => ({
-      ...doc,
-      fields: doc.fields.map((f) =>
-        f.clientId === fieldClientId
-          ? { ...f, aturan: [...f.aturan, { clientId: generateClientId(), sourceClientId, operator: "equals", value: "", aktif: true }] }
-          : f
-      ),
-    }));
-  }, [updateDocument]);
-  
-  const updateAturan = useCallback((fieldClientId: string, aturanClientId: string, patch: Partial<DraftAturan>) => {
-    updateDocument((doc) => ({
-      ...doc,
-      fields: doc.fields.map((f) =>
-        f.clientId === fieldClientId
-          ? { ...f, aturan: f.aturan.map((a) => (a.clientId === aturanClientId ? { ...a, ...patch } : a)) }
-          : f
-      ),
-    }));
-  }, [updateDocument]);
-  
-  const deleteAturan = useCallback((fieldClientId: string, aturanClientId: string) => {
-    updateDocument((doc) => ({
-      ...doc,
-      fields: doc.fields.map((f) =>
-        f.clientId === fieldClientId
-          ? { ...f, aturan: f.aturan.filter((a) => a.clientId !== aturanClientId) }
-          : f
-      ),
-    }));
-  }, [updateDocument]);
-  
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     if (event.canceled || !document) return;
     const { source, target } = event.operation;
@@ -363,9 +309,10 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
     const sourceData = source.data as { kind?: string; clientId?: string; fieldType?: TipeFieldEditor };
     const targetData = target.data as { kind?: string; clientId?: string };
 
-    // Palette → buat field baru. Target field dialihkan ke section induknya.
-    if (sourceId.startsWith("palette-")) {
-      const fieldType = sourceData.fieldType ?? (sourceId.replace("palette-", "") as TipeFieldEditor);
+    // Komponen palette atau template → buat field baru.
+    if (sourceData.kind === "palette" || sourceData.kind === "template") {
+      // Target bisa jadi section atau field di dalamnya. Field dialihkan ke
+      // section induknya supaya komponen mendarat di section yang benar.
       let targetSection: string | null = null;
       if (targetData.kind === "section" && targetData.clientId) {
         targetSection = targetData.clientId;
@@ -373,7 +320,27 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
         targetSection = document.fields.find((f) => f.clientId === targetData.clientId)?.sectionClientId ?? null;
       }
       if (!targetSection || !document.sections.some((s) => s.clientId === targetSection)) return;
-      const newClientId = addField(targetSection, fieldType);
+
+      const preset =
+        sourceData.kind === "template"
+          ? (() => {
+              // Id drag dibaca sebagai template. Id tak dikenal diabaikan,
+              // supaya drag yang gagal itu tidak pernah diam-diam membuat field
+              // kosong tanpa penjelasan.
+              const template = cariTemplate(sourceId);
+              return template ? presetDariTemplate(template) : null;
+            })()
+          : {
+              nama: "",
+              label: "",
+              tipe: sourceData.fieldType ?? "text",
+              optionSourceType: null,
+              optionSourceKey: null,
+              opsi: [],
+            };
+
+      if (!preset) return;
+      const newClientId = addField(targetSection, preset);
       setSelectedItem({ type: "field", clientId: newClientId });
       return;
     }
@@ -407,42 +374,17 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
       return;
     }
 
-    // Section → reorder sibling / pindah parent (selalu sibling target, tak pernah jadi anak).
-    const groups: Record<string, string[]> = {};
-    for (const s of document.sections) {
-      (groups[s.parentClientId ?? ROOT_GROUP] ??= []).push(s.clientId);
-    }
-    const moved = move(groups, event);
-    const newParentKey = Object.keys(moved).find((g) => (moved[g] ?? []).includes(sourceId));
-    const newParent = !newParentKey || newParentKey === ROOT_GROUP ? null : newParentKey;
-    // Pengaman siklus: parent baru tak boleh keturunan section yang dipindah.
-    let cursor: string | null = newParent;
-    while (cursor) {
-      if (cursor === sourceId) return;
-      cursor = document.sections.find((s) => s.clientId === cursor)?.parentClientId ?? null;
-    }
+    // Section → urutan datar di dalam satu versi form.
+    const urutan = document.sections.map((s) => s.clientId);
+    const moved = move({ sections: urutan }, event).sections;
     const byId = new Map(document.sections.map((s) => [s.clientId, s]));
     const seen = new Set<string>();
     const newSections: DraftSection[] = [];
-    const pushGroup = (groupKey: string, parent: string | null, keepParent: boolean) => {
-      for (const sid of moved[groupKey] ?? []) {
-        const s = byId.get(sid);
-        if (!s || seen.has(sid)) continue;
+    for (const sid of moved) {
+      const s = byId.get(sid);
+      if (s && !seen.has(sid)) {
         seen.add(sid);
-        newSections.push(keepParent ? s : { ...s, parentClientId: parent });
-        pushGroup(sid, sid, false);
-      }
-    };
-    pushGroup(ROOT_GROUP, null, false);
-    // Grup yatim (parent hilang): tampilkan, jangan ubah parent-nya.
-    for (const key of Object.keys(moved)) {
-      if (key === ROOT_GROUP || byId.has(key)) continue;
-      for (const sid of moved[key] ?? []) {
-        const s = byId.get(sid);
-        if (s && !seen.has(sid)) {
-          seen.add(sid);
-          newSections.push(s);
-        }
+        newSections.push(s);
       }
     }
     for (const s of document.sections) {
@@ -464,7 +406,6 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
       const sectionsPayload = document.sections.map((s) => ({
         clientId: s.clientId,
         id: s.id,
-        parentClientId: s.parentClientId,
         nama: s.nama.trim(),
         deskripsi: s.deskripsi?.trim() ?? null,
         aktif: s.aktif,
@@ -489,13 +430,6 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
           label: o.label.trim() || o.value.trim(),
           urutan: idx,
           aktif: o.aktif,
-        })),
-        aturan: f.aturan.map((a, idx) => ({
-          sourceClientId: a.sourceClientId,
-          operator: a.operator,
-          value: a.value.trim() || null,
-          aktif: a.aktif,
-          urutan: idx,
         })),
       }));
       
@@ -539,9 +473,6 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
     updateOpsi,
     deleteOpsi,
     setSumberOpsi,
-    addAturan,
-    updateAturan,
-    deleteAturan,
     handleDragEnd,
     buildForm,
   };

@@ -18,6 +18,9 @@
     "db:smoke-kunjungan-rumah": "tsx scripts/smoke-kunjungan-rumah.mts",
     "db:seed-uji": "tsx scripts/seed-uji-coba.mts",
     "db:set-non-warga": "tsx scripts/set-warga-bentuk-non-warga.mts",
+    "db:push": "drizzle-kit push",
+    "db:pull": "drizzle-kit pull",
+    "db:sql": "drizzle-kit generate",
     "format": "prettier --write . && eslint --fix",
     "check": "prettier --check ."
   },
@@ -38,6 +41,7 @@
     "postgres": "^3.4.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "recharts": "^3.10.1",
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  validasiAturanField,
   validasiEdisiVersi,
   validasiFieldPenuh,
   validasiNamaField,
@@ -11,7 +10,6 @@ import {
   validasiNilaiOpsiTerpilih,
   validasiSumberOpsi,
   validasiHapusForm,
-  validasiParentSection,
   validasiTerbitkanVersi,
 } from '@/features/form-builder/services/validasi'
 import type {HasilValidasi} from '@/features/form-builder/services/validasi';
@@ -53,65 +51,6 @@ describe('validasiOpsiField', () => {
   })
 })
 
-describe('validasiParentSection', () => {
-  const dasar = {
-    formVersionId: 'v1',
-    parentId: null,
-    sectionId: null,
-    parentFormVersionId: null,
-  }
-
-  it('section tanpa parent lolos', () => {
-    expect(validasiParentSection(dasar)).toEqual({ ok: true })
-  })
-
-  it('parent dari versi lain ditolak', () => {
-    const hasil = validasiParentSection({
-      ...dasar,
-      parentId: 'p1',
-      parentFormVersionId: 'v2',
-    })
-    expect(kode(hasil)).toBe('PARENT_BEDA_VERSI')
-  })
-
-  it('parent dari versi sama lolos', () => {
-    expect(
-      validasiParentSection({ ...dasar, parentId: 'p1', parentFormVersionId: 'v1' }),
-    ).toEqual({ ok: true })
-  })
-
-  it('parent yang tidak ada ditolak', () => {
-    const hasil = validasiParentSection({
-      ...dasar,
-      parentId: 'hilang',
-      parentFormVersionId: null,
-    })
-    expect(kode(hasil)).toBe('PARENT_BEDA_VERSI')
-  })
-
-  it('section jadi parent dirinya sendiri ditolak', () => {
-    const hasil = validasiParentSection({
-      ...dasar,
-      sectionId: 's1',
-      parentId: 's1',
-      parentFormVersionId: 'v1',
-    })
-    expect(kode(hasil)).toBe('PARENT_SAMA_DIRI')
-  })
-
-  it('parent berputar ditolak', () => {
-    // s1 -> s2 -> s1: saat s1 diubah jadi anak s2, s1 sudah ada di rantai ancestor.
-    const hasil = validasiParentSection({
-      ...dasar,
-      sectionId: 's1',
-      parentId: 's2',
-      parentFormVersionId: 'v1',
-      ancestorIds: ['s2', 's1'],
-    })
-    expect(kode(hasil)).toBe('PARENT_SIKLUS')
-  })
-})
-
 describe('validasiEdisiVersi', () => {
   it('draft boleh diedit', () => {
     expect(validasiEdisiVersi('draft')).toEqual({ ok: true })
@@ -141,65 +80,6 @@ describe('validasiTerbitkanVersi', () => {
 
   it('archived tidak boleh diterbitkan', () => {
     expect(kode(validasiTerbitkanVersi('archived'))).toBe('VERSI_BUKAN_DRAFT')
-  })
-})
-
-describe('validasiAturanField', () => {
-  it('opsi tanpa nilai ditolak', () => {
-    const hasil = validasiAturanField({
-      tipe: 'option',
-      sourceFieldId: null,
-      operator: null,
-      value: null,
-      fieldFormVersionId: 'v1',
-    })
-    expect(kode(hasil)).toBe('ATURAN_TIDAK_LENGKAP')
-  })
-
-  it('visibility tanpa sumber ditolak', () => {
-    const hasil = validasiAturanField({
-      tipe: 'visibility',
-      sourceFieldId: null,
-      operator: 'equals',
-      value: 'Ya',
-      fieldFormVersionId: 'v1',
-    })
-    expect(kode(hasil)).toBe('ATURAN_TIDAK_LENGKAP')
-  })
-
-  it('visibility tanpa operator ditolak', () => {
-    const hasil = validasiAturanField({
-      tipe: 'visibility',
-      sourceFieldId: 'f1',
-      operator: null,
-      value: 'Ya',
-      fieldFormVersionId: 'v1',
-    })
-    expect(kode(hasil)).toBe('ATURAN_TIDAK_LENGKAP')
-  })
-
-  it('sumber dari versi lain ditolak', () => {
-    const hasil = validasiAturanField({
-      tipe: 'visibility',
-      sourceFieldId: 'f1',
-      operator: 'equals',
-      value: 'Ya',
-      fieldFormVersionId: 'v1',
-      sourceFormVersionId: 'v2',
-    })
-    expect(kode(hasil)).toBe('ATURAN_SUMBER_BEDA_VERSI')
-  })
-
-  it('visibility lengkap dari versi sama lolos', () => {
-    const hasil = validasiAturanField({
-      tipe: 'visibility',
-      sourceFieldId: 'f1',
-      operator: 'equals',
-      value: 'Ya',
-      fieldFormVersionId: 'v1',
-      sourceFormVersionId: 'v1',
-    })
-    expect(hasil).toEqual({ ok: true })
   })
 })
 
@@ -389,7 +269,7 @@ describe('validasiOpsiField dengan sumber opsi dinamis', () => {
 
   it('field dengan optionSourceType boleh tanpa opsi statis', () => {
     // Opsinya dibaca dari tabel `users` saat render, jadi tidak ada baris di
-    // form_field_rules. Menolaknya di sini akan membuat field Petugas mustahil
+    // form_field_options. Menolaknya di sini akan membuat field Petugas mustahil
     // disimpan.
     expect(validasiOpsiField({ tipe: 'select', opsi: [], sumberOpsiDinamis: 'users' })).toEqual({ ok: true })
   })
@@ -734,7 +614,6 @@ describe('validasiHapusForm', () => {
       jumlahVersi: 3,
       jumlahSubmit: 0,
       jumlahJawaban: 0,
-      jumlahLampiran: 0,
       jumlahWarga: 0,
       tanggalTerakhir: null,
     },

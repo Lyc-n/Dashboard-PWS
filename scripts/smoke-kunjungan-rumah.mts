@@ -292,7 +292,6 @@ async function ujiRoundTripNamaField(): Promise<void> {
       sections: definisi.sections.map((s, i) => ({
         clientId: s.id ?? `sec-${i}`,
         id: s.id ?? null,
-        parentClientId: s.parentId ?? null,
         nama: s.nama,
         deskripsi: s.deskripsi ?? null,
         aktif: s.aktif ?? true,
@@ -318,7 +317,6 @@ async function ujiRoundTripNamaField(): Promise<void> {
             urutan: o.urutan ?? k,
             aktif: o.aktif ?? true,
           })),
-          aturan: [],
         })),
       ),
     } as Parameters<typeof buildFormVersion>[0]);

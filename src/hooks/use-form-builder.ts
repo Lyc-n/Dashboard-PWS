@@ -10,6 +10,7 @@ import {
   terbitkanVersiBuilder,
   ringkasanHapusFormBuilder,
 } from "@/lib/utils.functions";
+import { invalidateNavForms } from "@/lib/nav-forms-cache";
 import type { ambilDefinisiVersi } from "@/features/form-builder/services/section.server";
 import type {
     daftarVersiForm,
@@ -153,6 +154,7 @@ export function useFormBuilder() {
         const hasil = await buatFormBuilder({ data: { nama, deskripsi } });
         await muatForms();
         await pilihForm(hasil.formId);
+        invalidateNavForms();
       } catch (err) {
         setError(pesanError(err));
       } finally {
@@ -232,7 +234,13 @@ export function useFormBuilder() {
   )
 
   const terbitkan = useCallback(
-    () => (formVersionId ? jalankan(() => terbitkanVersiBuilder({ data: { formVersionId } })) : Promise.resolve()),
+    () => {
+      if (!formVersionId) return Promise.resolve();
+      return jalankan(async () => {
+        await terbitkanVersiBuilder({ data: { formVersionId } });
+        invalidateNavForms();
+      });
+    },
     [jalankan, formVersionId],
   );
 

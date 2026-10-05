@@ -72,7 +72,6 @@ export function HapusFormDialog({
           <Angka label="Versi" value={ringkasan.jumlahVersi} />
           <Angka label="Isian" value={ringkasan.jumlahSubmit} />
           <Angka label="Jawaban" value={ringkasan.jumlahJawaban} />
-          <Angka label="Lampiran" value={ringkasan.jumlahLampiran} />
           <Angka label="Warga" value={ringkasan.jumlahWarga} />
           <Angka
             label="Isian terakhir"

@@ -1,19 +1,20 @@
-import { and, eq } from "drizzle-orm";
+import { count, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db.server";
 import {
   formFields,
-  formFieldRules,
+  formFieldOptions,
   formSections,
   formVersions,
   forms,
+  surveyEntries,
 } from "@/lib/schema/schema";
 import { validasiFieldPenuh } from "./validasi";
 import type { HasilValidasi, TipeField } from "./validasi";
 import { KesalahanValidasi, assertVersiBisaDiubah } from "./form-version.server";
-import { namaDenganPrefix, namaTanpaPrefix, validasiStrukturBawaan } from "../lib/kode-bawaan";
+import { aturanForm, namaDenganPrefix, namaTanpaPrefix } from "../lib/kode-bawaan";
 import { catatAudit } from "./audit.server";
-import { sisipkanOpsi, sisipkanAturanVisibility } from "./rule.server";
-import type { AturanInput, OpsiInput } from "./rule.server";
+import { sisipkanOpsi } from "./opsi.server";
+import type { OpsiInput } from "./opsi.server";
 import type { BuildFormVersionInput, BuildFormVersionResult } from "@/features/kelola/components/builder/types";
 
 function pastikan(hasil: HasilValidasi): void {
@@ -27,19 +28,9 @@ type Executor = Db | DbTx;
 interface SectionInput {
   clientId: string;
   id: string | null;
-  parentClientId: string | null;
   nama: string;
   deskripsi: string | null;
   aktif: boolean;
-}
-
-/** Aturan dalam payload masih memakai clientId (belum jadi DB id). */
-interface FieldRuleInput {
-  sourceClientId: string;
-  operator: "equals" | "not_equals";
-  value: string | null;
-  aktif: boolean;
-  urutan: number;
 }
 
 interface FieldInput {
@@ -62,7 +53,6 @@ interface FieldInput {
   optionSourceType: string | null;
   optionSourceKey: string | null;
   opsi: OpsiInput[];
-  aturan: FieldRuleInput[];
 }
 
 /**
@@ -81,14 +71,30 @@ async function ambilKodeFormVersi(executor: Executor, formVersionId: string): Pr
   return baris?.kode ?? null;
 }
 
-async function loadExisting(executor: Executor, formVersionId: string) {
+/** Baris `form_sections` versi ini, seperlunya untuk deciding upsert vs delete. */
+type ExistingSection = {
+  id: string;
+  nama: string;
+  urutan: number;
+  aktif: boolean;
+};
+
+/** Baris `form_fields` versi ini, seperlunya untuk deciding upsert vs delete. */
+type ExistingField = {
+  id: string;
+  sectionId: string;
+  nama: string;
+  optionSourceKey: string | null;
+};
+
+async function loadExisting(executor: Executor, formVersionId: string): Promise<{
+  existingSections: ExistingSection[];
+  existingFields: ExistingField[];
+}> {
   const existingSections = await executor
     .select({
       id: formSections.id,
-      formVersionId: formSections.formVersionId,
-      parentId: formSections.parentId,
       nama: formSections.nama,
-      deskripsi: formSections.deskripsi,
       urutan: formSections.urutan,
       aktif: formSections.aktif,
     })
@@ -98,19 +104,9 @@ async function loadExisting(executor: Executor, formVersionId: string) {
   const existingFields = await executor
     .select({
       id: formFields.id,
-      formVersionId: formFields.formVersionId,
       sectionId: formFields.sectionId,
       nama: formFields.nama,
-      label: formFields.label,
-      tipe: formFields.tipe,
-      optionSourceType: formFields.optionSourceType,
       optionSourceKey: formFields.optionSourceKey,
-      deskripsi: formFields.deskripsi,
-      placeholder: formFields.placeholder,
-      wajib: formFields.wajib,
-      urutan: formFields.urutan,
-      jumlahKolom: formFields.jumlahKolom,
-      aktif: formFields.aktif,
     })
     .from(formFields)
     .where(eq(formFields.formVersionId, formVersionId));
@@ -118,10 +114,7 @@ async function loadExisting(executor: Executor, formVersionId: string) {
   return { existingSections, existingFields };
 }
 
-function validateAllSections(
-  sections: SectionInput[],
-  _existingSectionIds: Set<string>
-): HasilValidasi {
+function validateAllSections(sections: SectionInput[]): HasilValidasi {
   // Duplikat dicek global dalam payload (termasuk rename), bukan hanya section baru.
   const namaMap = new Map<string, string>();
 
@@ -141,15 +134,30 @@ function validateAllSections(
   return { ok: true };
 }
 
+/**
+ * Bentuk nama yang divalidasi dan apakah form ini bawaan, digabung satu objek.
+ *
+ * Dua parameter opsional yang selalu berpasangan mudah terbalik, dan salah urutan
+ * tidak menghasilkan error — hanya validasi yang salah tempat.
+ */
+interface OpsiValidasiField {
+  /**
+   * Bentuk nama yang divalidasi, kalau berbeda dari yang akan disimpan ke
+   * database. Form bawaan menyimpan `<section>::<id>` tapi divalidasi bentuk
+   * singkatnya.
+   */
+  normalisasiNama?: (nama: string) => string;
+  /** true kalau form ini bawaan sistem, bukan form manual. */
+  bawaan?: boolean;
+}
+
 function validateAllFields(
   fields: FieldInput[],
   sections: SectionInput[],
   existingFieldIds: Set<string>,
-  /** Bentuk nama yang divalidasi, kalau berbeda dari yang akan disimpan ke DB. */
-  normalisasiNama?: (nama: string) => string,
-  /** true kalau form ini form bawaan sistem, bukan form manual. */
-  bawaan = false,
+  opsi: OpsiValidasiField = {},
 ): HasilValidasi {
+  const { normalisasiNama, bawaan = false } = opsi;
   const fieldsBySection = new Map<string, FieldInput[]>();
   for (const f of fields) {
     const list = fieldsBySection.get(f.sectionClientId) ?? [];
@@ -189,109 +197,158 @@ function validateAllFields(
   return { ok: true };
 }
 
-function validateParentRelations(
-  sections: SectionInput[],
-  _formVersionId: string
-): HasilValidasi {
-  const clientIdToSection = new Map(sections.map((s) => [s.clientId, s]));
-  
-  for (const section of sections) {
-    if (!section.parentClientId) continue;
-    
-    const parent = clientIdToSection.get(section.parentClientId);
-    if (!parent) {
-      return { ok: false, kode: "PARENT_BEDA_VERSI", pesan: `Section ${section.nama}: parent tidak ditemukan.` };
-    }
-    if (parent.clientId === section.clientId) {
-      return { ok: false, kode: "PARENT_SAMA_DIRI", pesan: `Section ${section.nama}: tidak boleh parent dirinya sendiri.` };
-    }
-    
-    let current = parent;
-    while (current.parentClientId) {
-      const next = clientIdToSection.get(current.parentClientId);
-      if (!next) break;
-      if (next.clientId === section.clientId) {
-        return { ok: false, kode: "PARENT_SIKLUS", pesan: `Section ${section.nama}: siklus hierarki.` };
-      }
-      current = next;
-    }
-  }
-  
-  return { ok: true };
+/**
+ * Pesan untuk field yang sudah punya isian.
+ *
+ * Dipisah dari {@link pastikanFieldBolehDihapus} supaya bisa diuji tanpa
+ * database: yang diuji adalah hitungan dan pemotongan daftar nama, bukan
+ * query-nya.
+ *
+ * @param dipakai hasil `group by fieldId`, sudah berisi jumlah isian per field
+ * @param namaField peta `fieldId` -> `form_fields.nama` untuk pesan yang bisa dibaca
+ */
+export function pesanFieldTerpakai(
+  dipakai: { fieldId: string; total: number }[],
+  namaField: Map<string, string>,
+): string {
+  const total = dipakai.reduce((n, d) => n + d.total, 0);
+  // Sisakan sampai 3 nama supaya pesan tidak jadi paragraf kalau admin hapus
+  // banyak field sekaligus.
+  const contoh = dipakai
+    .slice(0, 3)
+    .map((d) => `"${namaField.get(d.fieldId) ?? d.fieldId}" (${d.total} isian)`)
+    .join(", ");
+  const sisa = dipakai.length > 3 ? `, dan ${dipakai.length - 3} field lainnya` : "";
+
+  return (
+    `Field ${contoh}${sisa} sudah punya ${total} isian, jadi tidak bisa dihapus. ` +
+    `Nonaktifkan fieldnya lewat ikon mata, atau hapus isiannya dulu.`
+  );
 }
 
-function validateRules(fields: FieldInput[]): HasilValidasi {
-  const clientIdToField = new Map(fields.map((f) => [f.clientId, f]));
-  
-  for (const field of fields) {
-    for (const aturan of field.aturan) {
-      if (!aturan.sourceClientId) {
-        return { ok: false, kode: "ATURAN_TIDAK_LENGKAP", pesan: `Field ${field.nama}: aturan tanpa sumber.` };
-      }
-      const source = clientIdToField.get(aturan.sourceClientId);
-      if (!source) {
-        return { ok: false, kode: "FIELD_TIDAK_ADA", pesan: `Field ${field.nama}: sumber aturan tidak ditemukan.` };
-      }
-      if (source.clientId === field.clientId) {
-        return { ok: false, kode: "ATURAN_TIDAK_LENGKAP", pesan: `Field ${field.nama}: tidak boleh jadi sumber aturannya sendiri.` };
-      }
-    }
-  }
-  
-  return { ok: true };
+/**
+ * Tolak build yang menghapus field yang sudah punya isian.
+ *
+ * `survey_entries.fieldId` sengaja `on delete no action` (lihat
+ * src/lib/schema/schema.ts), jadi menghapus field yang sudah terisi akan ditolak
+ * Postgres dengan pelanggaran foreign key. Kalau tidak dicek di sini, satu field
+ * yang bermasalah membatalkan seluruh transaksi build: semua edit lain di versi
+ * itu ikut hilang, dan petugas melihat pesan error Postgres yang tidak
+ * bisa dipahami.
+ *
+ * Dicek di dalam transaksi, tepat sebelum delete, supaya tidak ada celah antara
+ * pengecekan dan penghapusan. Draft tidak pernah punya isian, jadi jalur ini
+ * praktis hanya menyalakan saat admin mengubah form yang sudah tayang.
+ */
+async function pastikanFieldBolehDihapus(tx: DbTx, fields: { id: string; nama: string }[]) {
+  if (fields.length === 0) return;
+
+  const dipakai = await tx
+    .select({ fieldId: surveyEntries.fieldId, total: count() })
+    .from(surveyEntries)
+    .where(inArray(surveyEntries.fieldId, fields.map((f) => f.id)))
+    .groupBy(surveyEntries.fieldId);
+
+  if (dipakai.length === 0) return;
+
+  throw new KesalahanValidasi({
+    ok: false,
+    kode: "FIELD_TERPAKAI",
+    pesan: pesanFieldTerpakai(dipakai, new Map(fields.map((f) => [f.id, f.nama]))),
+  });
 }
 
-export async function buildFormVersion(
-  input: BuildFormVersionInput,
-): Promise<BuildFormVersionResult> {
-  const { formVersionId, sections: sectionsInput, fields: fieldsInput, actorId } = input;
-  
-  await assertVersiBisaDiubah(formVersionId);
-  
+/**
+ * Data yang butuh semua langkah build: isi versi ini dari database, apa yang
+ * berubah dari draft admin, dan cara menulis nama field.
+ *
+ * Dipakai supaya tiap langkah cuma menerima satu objek, bukan lima-enam
+ * parameter yang isinya saling terkait.
+ */
+interface KonteksBuild {
+  formVersionId: string;
+  sectionsInput: SectionInput[];
+  fieldsInput: FieldInput[];
+  /** `forms.kode` form pemilik versi ini. null = form manual. */
+  formKode: string | null;
+  /** Section dan field versi ini dari database, untuk membedakan upsert dari delete. */
+  existingSections: ExistingSection[];
+  existingFields: ExistingField[];
+  /** Section di database yang tidak ada lagi di draft. */
+  sectionsToDelete: ExistingSection[];
+  /** Field di database yang tidak ada lagi di draft. */
+  fieldsToDelete: ExistingField[];
+  /**
+   * Bentuk nama field saat ditulis ke database.
+   *
+   * Form bawaan memakai namespace `<section>::<id>`, karena id field-nya dipakai
+   * ulang antar section — `nama`, `nik`, `tglLahir` muncul di banyak section,
+   * sementara `form_fields.nama` wajib unik per versi form. `namaTanpaPrefix`
+   * dijalankan lebih dulu supaya builds berulang tidak menambah `::` ganda.
+   * Form manual tidak memakai namespace sama sekali.
+   */
+  namaTersimpan: (nama: string, sectionNama: string) => string;
+  /** Waktu tulis untuk kolom `updatedAt`, satu nilai untuk semua baris. */
+  now: Date;
+}
+
+/**
+ * Susun {@link KonteksBuild} dari draft dan isi database.
+ *
+ * Dua query read saja, keduanya di luar transaksi: yang di sini hanya
+ * memutuskan apa yang perlu ditulis, tidak menulis apa pun.
+ */
+async function susunKonteks(input: BuildFormVersionInput): Promise<KonteksBuild> {
+  const { formVersionId, sections: sectionsInput, fields: fieldsInput } = input;
   const { existingSections, existingFields } = await loadExisting(db, formVersionId);
-  
-  const existingSectionIds = new Set(existingSections.map((s) => s.id));
-  const existingFieldIds = new Set(existingFields.map((f) => f.id));
-  
+  const formKode = await ambilKodeFormVersi(db, formVersionId);
+
   const incomingSectionIds = new Set(sectionsInput.filter((s) => s.id).map((s) => s.id!));
   const incomingFieldIds = new Set(fieldsInput.filter((f) => f.id).map((f) => f.id!));
-  
-  const sectionsToDelete = existingSections.filter((s) => !incomingSectionIds.has(s.id));
-  const fieldsToDelete = existingFields.filter((f) => !incomingFieldIds.has(f.id));
-  
-// `forms.kode` menentukan apakah draft ini boleh diubah bentuknya atau tidak.
-  // `null` berarti form manual: seluruh strukturnya bebas.
-  const formKode = await ambilKodeFormVersi(db, formVersionId);
+
+  return {
+    formVersionId,
+    sectionsInput,
+    fieldsInput,
+    formKode,
+    existingSections,
+    existingFields,
+    sectionsToDelete: existingSections.filter((s) => !incomingSectionIds.has(s.id)),
+    fieldsToDelete: existingFields.filter((f) => !incomingFieldIds.has(f.id)),
+    namaTersimpan:
+      formKode !== null
+        ? (nama: string, sectionNama: string) => namaDenganPrefix(sectionNama, namaTanpaPrefix(nama))
+        : (nama: string) => nama,
+    now: new Date(),
+  };
+}
+
+/**
+ * Validasi draft sebelum ada satu baris pun ditulis.
+ *
+ * Semuanya selesai di sini supaya transaksi tidak pernah mulai kalau build-nya
+ * pasti ditolak: Postgres membatalkan seluruh transaksi saat error, jadi validasi
+ * yang telat harus membatalkan semua edit lain di versi yang sama.
+ */
+function validasiDraft(ctx: KonteksBuild): void {
+  const { sectionsInput, fieldsInput, existingFields, formKode } = ctx;
   const bawaan = formKode !== null;
+  const existingFieldIds = new Set(existingFields.map((f) => f.id));
 
-  // Nama field form bawaan disimpan ber-namespace: `<section>::<id>`. Kedua form
-  // bawaan (kunjungan rumah dan kegiatan) memakai skema ini karena id field-nya
-  // dipakai ulang antar section — `nama`, `nik`, `tglLahir` muncul di banyak
-  // section, sementara `form_fields.nama` wajib unik per versi form.
-  //
   // Pola nama field menolak `::`, jadi yang divalidasi adalah bentuk pendeknya
-  // sementara yang ditulis ke database memakai namespace. Form manual tidak
-  // memakai namespace sama sekali, jadi bentuk keduanya sama dan pemanggil lain
-  // tidak ikut berubah.
+  // sementara yang ditulis ke database memakai namespace.
   const normalisasiNama = bawaan ? namaTanpaPrefix : undefined;
-  // Prefix ditulis sekali saja di sini: di kolom `nama`, bukan di nama section.
-  // Field yang sudah ber-prefix tetap aman karena `namaTanpaPrefix` dijalankan
-  // lebih dulu, jadi builds berulang tidak menambah `::` ganda.
-  const namaTersimpan = (nama: string, sectionNama: string): string =>
-    bawaan ? namaDenganPrefix(sectionNama, namaTanpaPrefix(nama)) : nama;
 
-  pastikan(validateAllSections(sectionsInput, existingSectionIds));
-  pastikan(validateAllFields(fieldsInput, sectionsInput, existingFieldIds, normalisasiNama, bawaan));
-  pastikan(validateParentRelations(sectionsInput, formVersionId));
-  pastikan(validateRules(fieldsInput));
+  pastikan(validateAllSections(sectionsInput));
+  pastikan(validateAllFields(fieldsInput, sectionsInput, existingFieldIds, { normalisasiNama, bawaan }));
 
-  // Form bawaan (kunjungan rumah) bentuknya dipetakan balik ke form kader lewat
-  // nama section, prefix nama field, dan bucket. Validator di atas hanya melihat
-  // keabilitas editor; yang satu ini melihat apa akibatnya ke form kader.
+  // Form bawaan bentuknya dipetakan balik ke UI-nya lewat nama section, prefix
+  // nama field, dan bucket. Validator di atas hanya melihat apa yang boleh diedit;
+  // yang satu ini melihat akibatnya ke UI form. `aturanForm` yang memilih
+  // aturannya, jadi pemanggil tidak perlu tahu kode form mana yang dikunci.
   const sectionClientIdKeId = new Map(sectionsInput.map((s) => [s.clientId, s.id ?? null]));
   pastikan(
-    validasiStrukturBawaan({
-      formKode,
+    aturanForm(formKode).validasiDraft({
       sections: sectionsInput.map((s) => ({ id: s.id, nama: s.nama })),
       fields: fieldsInput.map((f) => ({
         id: f.id,
@@ -301,204 +358,267 @@ export async function buildFormVersion(
         optionSourceType: f.optionSourceType,
         optionSourceKey: f.optionSourceKey,
       })),
-      sectionsLama: existingSections.map((s) => ({ id: s.id, nama: s.nama })),
+      sectionsLama: ctx.existingSections.map((s) => ({ id: s.id, nama: s.nama })),
       fieldsLama: existingFields.map((f) => ({
         id: f.id,
         sectionId: f.sectionId,
         nama: f.nama,
         optionSourceKey: f.optionSourceKey,
       })),
-      // Aturan yang disimpan builder semuanya bertipe `visibility` (lihat
-      // `sisipkanAturanVisibility`), jadi satu flag sudah cukup.
-      adaAturanVisibility: fieldsInput.some((f) => f.aturan.length > 0),
     }),
   );
-  
-  const now = new Date();
-  
-  const result = await db.transaction(async (tx) => {
-    // Step 1: Upsert sections level-per-level (root dulu, lalu anak).
-    // Urutan input tidak bisa diandalkan untuk sarang 3+ level.
-    const sectionClientIdToId = new Map<string, string>();
-    const byClientId = new Map(sectionsInput.map((s) => [s.clientId, s]));
-    const depthOf = (clientId: string, seen = new Set<string>()): number => {
-      const s = byClientId.get(clientId);
-      if (!s || !s.parentClientId) return 0;
-      if (seen.has(clientId)) return 0;
-      seen.add(clientId);
-      if (!byClientId.has(s.parentClientId)) return 1;
-      return depthOf(s.parentClientId, seen) + 1;
-    };
-    const ordered = [...sectionsInput].sort((a, b) => depthOf(a.clientId) - depthOf(b.clientId));
+}
 
-    for (const s of ordered) {
-      const urutan = sectionsInput.findIndex((x) => x.clientId === s.clientId);
-      let parentId: string | null = null;
-      if (s.parentClientId) {
-        const resolved = sectionClientIdToId.get(s.parentClientId);
-        if (!resolved) {
-          throw new KesalahanValidasi({ ok: false, kode: "PARENT_BEDA_VERSI", pesan: `Parent ${s.parentClientId} tidak ditemukan.` });
-        }
-        parentId = resolved;
-      }
+/**
+ * Langkah 1 — tulis section.
+ *
+ * `urutan` diambil dari posisi di payload, jadi urutan di editor langsung jadi
+ * urutan tampil. Section harus ditulis lebih dulu karena field menunjuk
+ * `sectionId` yang harus sudah ada.
+ *
+ * @returns peta `clientId` payload -> `id` database, dipakai langkah 2.
+ */
+async function tulisSections(
+  tx: DbTx,
+  ctx: KonteksBuild,
+): Promise<Map<string, string>> {
+  const { formVersionId, sectionsInput, existingSections, now } = ctx;
+  const sectionClientIdToId = new Map<string, string>();
 
-      const existing = s.id ? existingSections.find((es) => es.id === s.id) : undefined;
+  for (const [urutan, s] of sectionsInput.entries()) {
+    const existing = s.id ? existingSections.find((es) => es.id === s.id) : undefined;
+    if (existing) {
+      const [updated] = await tx
+        .update(formSections)
+        .set({
+          nama: s.nama,
+          deskripsi: s.deskripsi,
+          urutan,
+          aktif: s.aktif,
+          updatedAt: now,
+        })
+        .where(eq(formSections.id, existing.id))
+        .returning({ id: formSections.id });
+
+      if (updated) sectionClientIdToId.set(s.clientId, updated.id);
+    } else {
+      const [inserted] = await tx
+        .insert(formSections)
+        .values({
+          formVersionId,
+          nama: s.nama,
+          deskripsi: s.deskripsi,
+          urutan,
+          aktif: s.aktif,
+        })
+        .returning({ id: formSections.id });
+
+      if (inserted) sectionClientIdToId.set(s.clientId, inserted.id);
+    }
+  }
+
+  // Setiap section wajib punya id asli sebelum field ditulis, jadi sisipan yang
+  // gagal ketahuan di sini, bukan saat insert field menggagalkan seluruh
+  // transaksi dengan pesan yang tidak menjelaskan penyebabnya.
+  for (const section of sectionsInput) {
+    if (!sectionClientIdToId.has(section.clientId)) {
+      throw new KesalahanValidasi({
+        ok: false,
+        kode: "VERSI_TIDAK_ADA",
+        pesan: `Section ${section.clientId} gagal disimpan.`,
+      });
+    }
+  }
+
+  return sectionClientIdToId;
+}
+
+/**
+ * Langkah 2 — tulis field dengan `sectionId` yang baru.
+ *
+ * Field yang pindah section tetap satu baris: `sectionId` di-update, bukan
+ * dihapus lalu disisipkan, supaya `survey_entries` yang menunjuk field itu tidak
+ * ikut hilang.
+ *
+ * @returns peta `clientId` payload -> `id` database, dipakai langkah 4.
+ */
+async function tulisFields(
+  tx: DbTx,
+  ctx: KonteksBuild,
+  sectionClientIdToId: Map<string, string>,
+): Promise<Map<string, string>> {
+  const { formVersionId, sectionsInput, fieldsInput, existingFields, namaTersimpan, now } = ctx;
+  const fieldClientIdToId = new Map<string, string>();
+
+  for (const section of sectionsInput) {
+    const sectionId = sectionClientIdToId.get(section.clientId)!;
+    const sectionFields = fieldsInput.filter((f) => f.sectionClientId === section.clientId);
+
+    for (const [i, field] of sectionFields.entries()) {
+      const existing = field.id ? existingFields.find((ef) => ef.id === field.id) : undefined;
+
+      const fieldData = {
+        formVersionId,
+        sectionId,
+        nama: namaTersimpan(field.nama, section.nama),
+        label: field.label,
+        tipe: field.tipe,
+        // Ditulis apa adanya dari payload, bukan diturunkan dari `opsi`.
+        // Versi lama menurunkan optionSourceType dari panjang `opsi` dan
+        // selalu mengosongkan optionSourceKey, sehingga pilihan dari sumber
+        // data yang sudah ada hilang begitu admin Build.
+        optionSourceType: field.optionSourceType,
+        optionSourceKey: field.optionSourceKey,
+        deskripsi: field.deskripsi,
+        placeholder: field.placeholder,
+        wajib: field.wajib,
+        urutan: i,
+        jumlahKolom: field.tipe === "group" ? field.jumlahKolom : null,
+        aktif: field.aktif,
+        updatedAt: now,
+      };
+
       if (existing) {
         const [updated] = await tx
-          .update(formSections)
-          .set({
-            nama: s.nama,
-            deskripsi: s.deskripsi,
-            urutan,
-            aktif: s.aktif,
-            parentId,
-            updatedAt: now,
-          })
-          .where(eq(formSections.id, existing.id))
-          .returning({ id: formSections.id });
+          .update(formFields)
+          .set(fieldData)
+          .where(eq(formFields.id, existing.id))
+          .returning({ id: formFields.id });
 
-        if (updated) sectionClientIdToId.set(s.clientId, updated.id);
+        if (!updated) {
+          throw new KesalahanValidasi({
+            ok: false,
+            kode: "FIELD_TIDAK_ADA",
+            pesan: `Field ${field.nama} gagal diupdate.`,
+          });
+        }
+        fieldClientIdToId.set(field.clientId, updated.id);
       } else {
         const [inserted] = await tx
-          .insert(formSections)
-          .values({
-            formVersionId,
-            parentId,
-            nama: s.nama,
-            deskripsi: s.deskripsi,
-            urutan,
-            aktif: s.aktif,
-          })
-          .returning({ id: formSections.id });
+          .insert(formFields)
+          .values(fieldData)
+          .returning({ id: formFields.id });
 
-        if (inserted) sectionClientIdToId.set(s.clientId, inserted.id);
-      }
-    }
-    
-    // Verify all sections have real IDs
-    for (const section of sectionsInput) {
-      if (!sectionClientIdToId.has(section.clientId)) {
-        throw new KesalahanValidasi({ ok: false, kode: "VERSI_TIDAK_ADA", pesan: `Section ${section.clientId} gagal disimpan.` });
-      }
-    }
-    
-    // Step 2: Upsert ALL fields with their NEW sectionId (build fieldClientId -> real DB id map)
-    const fieldClientIdToId = new Map<string, string>();
-    
-    for (const section of sectionsInput) {
-      const sectionId = sectionClientIdToId.get(section.clientId)!;
-      const sectionFields = fieldsInput.filter((f) => f.sectionClientId === section.clientId);
-      
-      for (const [i, field] of sectionFields.entries()) {
-        const existing = existingFields.find((ef) => ef.id === field.id);
-        let fieldId: string;
-        
-        const fieldData = {
-          formVersionId,
-          sectionId,
-          nama: namaTersimpan(field.nama, section.nama),
-          label: field.label,
-          tipe: field.tipe,
-          // Ditulis apa adanya dari payload, bukan diturunkan dari `opsi`.
-          // Versi lama menurunkan optionSourceType dari panjang `opsi` dan
-          // selalu mengosongkan optionSourceKey, sehingga pilihan dari sumber
-          // data yang sudah ada hilang begitu admin Build.
-          optionSourceType: field.optionSourceType,
-          optionSourceKey: field.optionSourceKey,
-          deskripsi: field.deskripsi,
-          placeholder: field.placeholder,
-          wajib: field.wajib,
-          urutan: i,
-          jumlahKolom: field.tipe === "group" ? field.jumlahKolom : null,
-          aktif: field.aktif,
-          updatedAt: now,
-        };
-        
-        if (existing) {
-          const [updated] = await tx
-            .update(formFields)
-            .set(fieldData)
-            .where(eq(formFields.id, existing.id))
-            .returning({ id: formFields.id });
-          
-          if (!updated) {
-            throw new KesalahanValidasi({ ok: false, kode: "FIELD_TIDAK_ADA", pesan: `Field ${field.nama} gagal diupdate.` });
-          }
-          fieldId = updated.id;
-        } else {
-          const [inserted] = await tx
-            .insert(formFields)
-            .values(fieldData)
-            .returning({ id: formFields.id });
-          
-          if (!inserted) {
-            throw new KesalahanValidasi({ ok: false, kode: "VERSI_TIDAK_ADA", pesan: `Field ${field.nama} gagal disimpan.` });
-          }
-          fieldId = inserted.id;
+        if (!inserted) {
+          throw new KesalahanValidasi({
+            ok: false,
+            kode: "VERSI_TIDAK_ADA",
+            pesan: `Field ${field.nama} gagal disimpan.`,
+          });
         }
-        
-        fieldClientIdToId.set(field.clientId, fieldId);
+        fieldClientIdToId.set(field.clientId, inserted.id);
       }
     }
-    
-    // Step 3: Delete fields that are in DB but NOT in payload (truly removed, not moved)
-    for (const existingField of existingFields) {
-      // Check if this field exists in payload (by DB id for existing, or by clientId for new)
-      const inPayload = fieldsInput.some((f) => f.id === existingField.id);
-      if (!inPayload) {
-        await tx.delete(formFields).where(eq(formFields.id, existingField.id));
-      }
-    }
-    
-    // Step 4: Upsert rules for all fields (options + visibility) using REAL field IDs
-    for (const field of fieldsInput) {
-      const fieldId = fieldClientIdToId.get(field.clientId);
-      if (!fieldId) continue; // should not happen
-      
-      // Options
-      await tx
-        .delete(formFieldRules)
-        .where(and(eq(formFieldRules.fieldId, fieldId), eq(formFieldRules.tipe, "option")));
-      if (field.opsi.length > 0) {
-        await sisipkanOpsi(tx, fieldId, field.opsi);
-      }
-      
-      // Visibility rules - now we have REAL field IDs for all source fields
-      await tx
-        .delete(formFieldRules)
-        .where(and(eq(formFieldRules.fieldId, fieldId), eq(formFieldRules.tipe, "visibility")));
-      
-      const rulesWithRealSource: AturanInput[] = [];
-      for (const a of field.aturan) {
-        const sourceFieldId = fieldClientIdToId.get(a.sourceClientId);
-        // validateRules menjamin sumber ada; skip defensif agar tak kirim null ke DB.
-        if (!sourceFieldId) continue;
-        rulesWithRealSource.push({
-          sourceFieldId,
-          operator: a.operator,
-          value: a.value,
-          urutan: a.urutan,
-          aktif: a.aktif,
-        });
-      }
+  }
 
-      if (rulesWithRealSource.length > 0) {
-        await sisipkanAturanVisibility(tx, fieldId, rulesWithRealSource);
-      }
+  return fieldClientIdToId;
+}
+
+/**
+ * Langkah 3 — hapus field yang tidak ada lagi di draft.
+ *
+ * Field hilang karena dua sebab: tidak ada di payload, atau section-nya dihapus
+ * (ikut cascade di langkah 5). Section ikut diperiksa karena menghapus satu
+ * section bisa menjatuhkan banyak field yang belum pernah dicek satu per satu.
+ *
+ * Pengecekan "punya isian atau tidak" dijalankan SEBELUM loop delete, sekaligus
+ * untuk semua field yang hilang, supaya admin mendapat satu pesan berisi semua
+ * field bermasalah — bukan baru tahu field berikutnya setelah menyimpan ulang.
+ */
+async function hapusFieldHilang(tx: DbTx, ctx: KonteksBuild): Promise<void> {
+  const { fieldsInput, existingFields, sectionsToDelete } = ctx;
+
+  const sectionIdsDihapus = new Set(sectionsToDelete.map((s) => s.id));
+  const fieldsDihapus = new Map<string, { id: string; nama: string }>();
+  for (const f of ctx.fieldsToDelete) fieldsDihapus.set(f.id, { id: f.id, nama: f.nama });
+  for (const f of existingFields) {
+    if (sectionIdsDihapus.has(f.sectionId)) fieldsDihapus.set(f.id, { id: f.id, nama: f.nama });
+  }
+  await pastikanFieldBolehDihapus(tx, [...fieldsDihapus.values()]);
+
+  for (const existing of existingFields) {
+    const masihDiDraft = fieldsInput.some((f) => f.id === existing.id);
+    if (!masihDiDraft) {
+      await tx.delete(formFields).where(eq(formFields.id, existing.id));
     }
-    
-    // Step 5: Delete sections that are being removed (cascade handles any orphaned fields)
-    for (const s of sectionsToDelete) {
-      await tx.delete(formSections).where(eq(formSections.id, s.id));
-    }
-    
+  }
+}
+
+/**
+ * Langkah 4 — tulis ulang pilihan jawaban tiap field.
+ *
+ * Baris lama dihapus dulu per field, lalu yang baru disisipkan. Menulis ulang
+ * seluruh baris (bukan meny-matching per nilai) adalah pilihan yang disengaja:
+ * urutan opsi ikut berperan di render, dan mencocokkan baris lama per nilai
+ * membuat urutan yang berubah-ubah sulit dilacak.
+ */
+async function tulisOpsi(
+  tx: DbTx,
+  ctx: KonteksBuild,
+  fieldClientIdToId: Map<string, string>,
+): Promise<void> {
+  for (const field of ctx.fieldsInput) {
+    const fieldId = fieldClientIdToId.get(field.clientId);
+    if (!fieldId) continue;
+
+    await tx.delete(formFieldOptions).where(eq(formFieldOptions.fieldId, fieldId));
+    await sisipkanOpsi(tx, fieldId, field.opsi);
+  }
+}
+
+/**
+ * Langkah 5 — hapus section yang tidak ada lagi di draft.
+ *
+ * Field milik section yang dihapus sudah hilang di langkah 3, dan yang masih
+ * tertinggal ikut hilang lewat cascade di sini. Karena itu langkah 5 wajib
+ * setelah langkah 3: kalau dibalik, cascade ikut menghapus field tanpa pernah
+ * melewati pengecekan "punya isian atau tidak".
+ */
+async function hapusSections(tx: DbTx, ctx: KonteksBuild): Promise<void> {
+  for (const s of ctx.sectionsToDelete) {
+    await tx.delete(formSections).where(eq(formSections.id, s.id));
+  }
+}
+
+/**
+ * Bangun satu versi form dari draft admin.
+ *
+ * Lima langkah, semuanya dalam satu transaksi dan dalam urutan ini:
+ *   1. Tulis section — field butuh `sectionId` yang asli
+ *   2. Tulis field — butuh `fieldId` asli untuk menimpa baris jawabannya
+ *   3. Hapus field yang hilang, setelah dicek tidak punya isian
+ *   4. Tulis ulang pilihan jawaban tiap field
+ *   5. Hapus section yang hilang — field-nya ikut cascade, makanya setelah langkah 3
+ *
+ * Urutannya tidak boleh diacak: menukar langkah 1 dan 2 membuat field menunjuk
+ * section yang belum ada, dan menukar langkah 3 dan 5 membuat field ikut terhapus
+ * sebelum sempat dicek apakah isiannya ada.
+ */
+export async function buildFormVersion(
+  input: BuildFormVersionInput,
+): Promise<BuildFormVersionResult> {
+  const { formVersionId, actorId } = input;
+
+  await assertVersiBisaDiubah(formVersionId);
+
+  const ctx = await susunKonteks(input);
+  validasiDraft(ctx);
+
+  const result = await db.transaction(async (tx) => {
+    // Urutan lima langkah ini mengikat: lihat docstring `buildFormVersion`.
+    const sectionClientIdToId = await tulisSections(tx, ctx);
+    const fieldClientIdToId = await tulisFields(tx, ctx, sectionClientIdToId);
+    await hapusFieldHilang(tx, ctx);
+    await tulisOpsi(tx, ctx, fieldClientIdToId);
+    await hapusSections(tx, ctx);
+
     return {
-      jumlahSection: sectionsInput.length,
-      jumlahField: fieldsInput.length,
-      jumlahDihapus: sectionsToDelete.length + fieldsToDelete.length,
+      jumlahSection: ctx.sectionsInput.length,
+      jumlahField: ctx.fieldsInput.length,
+      jumlahDihapus: ctx.sectionsToDelete.length + ctx.fieldsToDelete.length,
     };
   });
-  
+
   await catatAudit({
     userId: actorId ?? null,
     aksi: "update",

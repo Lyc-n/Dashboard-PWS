@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { AppShell } from "@/components/organisms";
 import { PageHeader, SectionCard } from "@/components/molecules";
 import { Badge, EmptyState } from "@/components/atoms";
@@ -9,28 +9,17 @@ import { requireAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/form")({
   beforeLoad: requireAuth,
+  validateSearch: (search) => ({
+    jenis: search.jenis ?? "",
+  }),
   component: DaftarFormulir,
 });
 
-/**
- * `jumlahSection` dan `jumlahField` dihitung server dengan `count(*)`, dan
- * postgres-js mengirim hasil agregat itu sebagai teks. Tipe yang ditulis di
- * `BarisFormulirTerisi` tetap `number`, jadi angkanya dikonversi di sini supaya
- * tampilan tidak pernah menampilkan "13 section" untuk form yang punya 13 section.
- */
 function jumlah(nilai: number): number {
   const angka = Number(nilai);
   return Number.isFinite(angka) ? angka : 0;
 }
 
-/**
- * Daftar form yang sedang bisa diisi.
- *
- * Isinya persis "form yang tayang": `daftarFormulirTerisi` hanya mengembalikan
- * form aktif yang punya satu versi `published`, jadi form baru yang diterbitkan
- * admin langsung muncul di sini tanpa perubahan kode. Tidak ada nama form yang
- * ditulis di file ini.
- */
 function DaftarFormulir() {
   const { data: rows, loading, error } = useAsyncData(
     () => listFormulir(),
@@ -41,17 +30,33 @@ function DaftarFormulir() {
     },
   );
 
+  const { jenis } = useSearch({ from: "/form", select: (s) => s.jenis });
+
+  const filteredRows = rows.filter((row) => {
+    if (jenis === "kunjungan") return row.subjekWargaWajib === true;
+    if (jenis === "kegiatan") return row.subjekWargaWajib === false;
+    return true;
+  });
+
+  const titleMap: Record<string, string> = {
+    kunjungan: "Form Kunjungan Rumah",
+    kegiatan: "Form Kegiatan Pemberdayaan",
+    "": "Formulir",
+  };
+  const descMap: Record<string, string> = {
+    kunjungan: "Checklist kunjungan rumah. Setiap isian wajib menunjuk satu warga.",
+    kegiatan: "Catatan kegiatan pemberdayaan. Tidak menunjuk warga per-isian; daftar peserta disimpan di dalam form.",
+    "": "Form yang bisa diisi sekarang. Daftar ini mengikuti versi yang sudah diterbitkan di Kelola.",
+  };
+
   return (
     <AppShell>
-      <PageHeader
-        title="Formulir"
-        description="Form yang bisa diisi sekarang. Daftar ini mengikuti versi yang sudah diterbitkan di Kelola, jadi isinya selalu sama dengan yang ada di layar isi."
-      />
+      <PageHeader title={titleMap[jenis] ?? "Formulir"} description={descMap[jenis] ?? "Form yang bisa diisi sekarang."} />
 
       {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
       {loading ? <p className="mt-3 text-[13px] text-muted">Memuat daftar form…</p> : null}
 
-      {!loading && rows.length === 0 ? (
+      {!loading && filteredRows.length === 0 ? (
         <EmptyState title="Belum ada form yang bisa diisi." className="mt-3.5">
           <p>
             Form baru akan muncul di sini setelah Admin menyusun pertanyaannya lalu menerbitkannya di
@@ -60,10 +65,10 @@ function DaftarFormulir() {
         </EmptyState>
       ) : null}
 
-      {rows.length > 0 ? (
-        <SectionCard title="Form yang bisa diisi" sub="Pilih form untuk mulai mengisi.">
+      {filteredRows.length > 0 ? (
+        <SectionCard title={`Form yang bisa diisi${jenis ? ` (${titleMap[jenis]})` : ""}`} sub="Pilih form untuk mulai mengisi.">
           <ul className="grid gap-2">
-            {rows.map((row) => (
+            {filteredRows.map((row) => (
               <li key={row.formVersionId}>
                 <Link
                   to="/isi/$formVersionId"

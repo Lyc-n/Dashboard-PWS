@@ -48,15 +48,19 @@ begin
     raise notice 'OK  : version >= 1';
   end;
 
-  -- (3) hanya satu versi published per form (partial unique index)
+  -- (3) hanya satu versi published per form
+  --
+  -- Tidak ditegakkan database. Aturan ini dijaga `terbitkanVersiForm()` di
+  -- backend: versi published lama di-archive dalam transaksi yang sama sebelum
+  -- versi baru ditulis. Yang bisa diuji di sini hanyalah bahwa penomoran versi
+  -- unik per form, jadi dua versi published boleh ada tapi tidak boleh memakai
+  -- nomor yang sama.
   begin
-    update form_versions set status = 'published', "publishedAt" = now()
-    where id = v_ver;
     insert into form_versions ("formId", version, status, "publishedAt")
-    values (v_form, 2, 'published', now());
-    raise notice 'GAGAL: dua versi published diterima';
+    values (v_form, 1, 'published', now());
+    raise notice 'GAGAL: nomor versi dobel diterima';
   exception when unique_violation then
-    raise notice 'OK  : satu_form_satu_published';
+    raise notice 'OK  : form_versions_version_unik_per_form';
   end;
 
   -- (3b) published wajib punya publishedAt
@@ -99,51 +103,41 @@ begin
 
   select id into v_field from form_fields where nama = 'tekanan_darah' and "formVersionId" = v_ver;
 
-  -- (6) form_field_rules: visibility wajib punya sumber + operator
+  -- (6) form_field_options: satu baris = satu pilihan jawaban, `value` wajib ada
   begin
-    insert into form_field_rules ("fieldId", tipe, value)
-    values (v_field, 'visibility', 'Ya');
-    raise notice 'GAGAL: visibility tanpa sumber diterima';
-  exception when check_violation then
-    raise notice 'OK  : visibility_wajib_punya_sumber';
+    insert into form_field_options ("fieldId", value)
+    values (v_field, null);
+    raise notice 'GAGAL: opsi jawaban tanpa nilai diterima';
+  exception when not_null_violation then
+    raise notice 'OK  : opsi_jawaban_wajib_punya_nilai';
   end;
 
-  -- (7) sourceFieldId ON DELETE SET NULL, bukan CASCADE
-  insert into form_field_rules ("fieldId", tipe, "sourceFieldId", operator, value)
-  values (v_field, 'visibility', v_field, 'equals', 'Ya');
-
-  -- (7) sourceFieldId ON DELETE SET NULL, bukan CASCADE.
-  -- Field yang dihapus harus field yang BENAR-BENAR dirujuk rule-nya. Kalau
-  -- tidak, testnya salah: Aturan dengan sourceFieldId lain tidak akan tersentuh.
+  -- (7) pilihan jawaban ikut terhapus bersama field-nya (ON DELETE CASCADE)
   insert into form_fields ("formVersionId", "sectionId", nama, label, tipe)
   values (v_ver, v_sec, 'sumber_dihapus', 'Sumber', 'text')
   returning id into v_field_sumber;
 
-  -- Rule milik v_field, tapi sumbernya v_field_sumber. Id-nya disimpan supaya
-  -- pengecekan hanya menyasar rule ini — ada rule lain dengan fieldId sama yang
-  -- sourceFieldId-nya memang tidak null.
-  insert into form_field_rules ("fieldId", tipe, "sourceFieldId", operator, value)
-  values (v_field, 'visibility', v_field_sumber, 'equals', 'Ya')
+  insert into form_field_options ("fieldId", value)
+  values (v_field_sumber, 'Ya')
   returning id into v_rule;
 
   delete from form_fields where id = v_field_sumber;
 
-  if not exists (select 1 from form_field_rules where id = v_rule) then
-    raise notice 'GAGAL: rule ikut terhapus (cascade)';
-  elsif exists (
-    select 1 from form_field_rules
-    where id = v_rule and "sourceFieldId" is not null
-  ) then
-    raise notice 'GAGAL: sourceFieldId tidak jadi null';
+  if exists (select 1 from form_field_options where id = v_rule) then
+    raise notice 'GAGAL: opsi ikutnya tidak terhapus';
   else
-    raise notice 'OK  : sourceFieldId_set_null_bukan_cascade';
+    raise notice 'OK  : opsi_ikut_terhapus_bersama_field';
   end if;
 
   -- (8) users.fasKesId ON DELETE RESTRICT
+  --
+  -- `restrict_violation` hanya ada di Postgres 18 ke atas; di versi lama RESTRICT
+  -- dilaporkan sebagai `foreign_key_violation`. Tangkap keduanya supaya skrip ini
+  -- tidak gagal karena versi server, bukan karena constraint-nya.
   begin
     delete from fasilitas_kesehatan where id = v_fas;
     raise notice 'GAGAL: hapus fasilitas cascade ke user';
-  exception when foreign_key_violation then
+  exception when restrict_violation or foreign_key_violation then
     raise notice 'OK  : users_fasKesId_restrict';
   end;
 

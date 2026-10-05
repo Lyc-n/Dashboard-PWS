@@ -6,9 +6,7 @@
  * dipakai halaman isi, tanpa memanggil server dan tanpa menyentuh schema.
  *
  * Tipe diimport type-only dari `form-runtime.server.ts` supaya modul drizzle
- * tidak ikut terbawa ke bundle klien. Konsekuensinya `hitungDepth` dari sana
- * TIDAK bisa dipakai: file itu `.server.ts` dan nilai runtime-nya menarik driver
- * database. Algoritmanya ditulis ulang di bawah dengan batas rantai yang sama.
+ * tidak ikut terbawa ke bundle klien.
  *
  * `opsiDinamis` diisi untuk sumber yang bisa di-resolve tanpa database — yaitu
  * enum (agama, jenis kelamin, dst.) dan daftar saran. Sumber yang harus query
@@ -20,23 +18,17 @@
  * di dokumen draft.
  */
 import type {
-  AturanRuntime,
   FieldRuntime,
   OpsiDinamisRuntime,
   OpsiRuntime,
   SectionRuntime,
 } from '@/features/survey/services/form-runtime.server'
 import type {
-  DraftAturan,
   DraftField,
   DraftFormDocument,
   DraftOpsi,
-  DraftSection,
 } from '../types'
-import { SUMBER_SUGGEST, cariSumber, nilaiEnum } from '@/features/form-builder/services/sumber-opsi'
-
-/** Batas rantai parent, sama dengan `MAX_DEPTH` di service server. */
-const MAX_DEPTH = 5
+import { SUMBER_CARI_WARGA, SUMBER_SUGGEST, cariSumber, nilaiEnum } from '@/features/form-builder/services/sumber-opsi'
 
 export interface DefinisiPratinjau {
   sections: SectionRuntime[]
@@ -48,60 +40,12 @@ export interface DefinisiPratinjau {
   fieldYatim: FieldRuntime[]
 }
 
-/**
- * Kedalaman setiap section dari `parentClientId`.
- *
- * Rantai dihentikan di `MAX_DEPTH` dan saat id yang sama muncul dua kali, supaya
- * draft rusak (parent hilang, atau siklus dari drag-drop) menghasilkan angka yang
- * bisa dirender, bukan loop tak berujung.
- */
-export function hitungDepthClient(
-  sections: readonly DraftSection[],
-): Map<string, number> {
-  const parentOf = new Map(sections.map((s) => [s.clientId, s.parentClientId]))
-  const depth = new Map<string, number>()
-
-  for (const section of sections) {
-    let nilai = 0
-    let kursor = section.parentClientId
-    const sudahDilihat = new Set<string>()
-
-    while (
-      kursor !== null &&
-      nilai < MAX_DEPTH &&
-      parentOf.has(kursor) &&
-      !sudahDilihat.has(kursor)
-    ) {
-      sudahDilihat.add(kursor)
-      nilai += 1
-      kursor = parentOf.get(kursor) ?? null
-    }
-
-    depth.set(section.clientId, nilai)
-  }
-
-  return depth
-}
-
 function opsiKeRuntime(opsi: readonly DraftOpsi[]): OpsiRuntime[] {
   return opsi.map((o, urutan) => ({
     value: o.value.trim(),
     label: o.label.trim() || o.value.trim(),
     urutan,
     aktif: o.aktif,
-  }))
-}
-
-/** `sourceClientId` menunjuk field di draft, jadi id itu yang dibawa. */
-function aturanKeRuntime(aturan: readonly DraftAturan[]): AturanRuntime[] {
-  return aturan.map((a, urutan) => ({
-    id: a.clientId,
-    sourceFieldId: a.sourceClientId,
-    operator: a.operator,
-    value: a.value.trim() || null,
-    label: null,
-    urutan,
-    aktif: a.aktif,
   }))
 }
 
@@ -161,7 +105,10 @@ export function fieldKeRuntime(
       field.optionSourceType === SUMBER_SUGGEST
         ? opsiKeRuntime(field.opsi).map((o) => o.label ?? o.value)
         : [],
-    aturan: aturanKeRuntime(field.aturan),
+    cariWarga:
+      field.optionSourceType === SUMBER_CARI_WARGA
+        ? (cariSumber(field.optionSourceType, field.optionSourceKey)?.kolom ?? null)
+        : null,
   }
 }
 
@@ -169,40 +116,26 @@ export function fieldKeRuntime(
  * Susun definisi pratinjau dari dokumen draft.
  *
  * Section dan field nonaktif dibuang, sama seperti `muatDefinisiRuntime` di
- * service server: yang nonaktif memang tidak akan tampil saat diisi. Section
- * yatim (parent-nya menunjuk id yang tidak ada) tetap dirender sebagai root,
- * sama seperti `flattenTree` di editor.
+ * service server: yang nonaktif memang tidak akan tampil saat diisi.
  */
 export function draftKeRuntime(document: DraftFormDocument): DefinisiPratinjau {
   const sectionsAktif = document.sections.filter((s) => s.aktif)
   const idsSectionAktif = new Set(sectionsAktif.map((s) => s.clientId))
   const idsSectionAda = new Set(document.sections.map((s) => s.clientId))
 
-  // `depth` dihitung dari semua section, bukan hanya yang aktif: anak yang aktif
-  // tetap perlu tahu levelnya kalau parent-nya sedang dimatikan.
-  const depth = hitungDepthClient(document.sections)
-
   const fieldsAktif = document.fields.filter(
     (f) => f.aktif && idsSectionAktif.has(f.sectionClientId),
   )
 
-  const sections: SectionRuntime[] = sectionsAktif.map((s, urutan) => {
-    const yatim =
-      s.parentClientId !== null && !idsSectionAda.has(s.parentClientId)
-    const fields = fieldsAktif
+  const sections: SectionRuntime[] = sectionsAktif.map((s, urutan) => ({
+    id: s.clientId,
+    nama: s.nama.trim() || '(section tanpa nama)',
+    deskripsi: s.deskripsi?.trim() ?? null,
+    urutan,
+    fields: fieldsAktif
       .filter((f) => f.sectionClientId === s.clientId)
-      .map((f, i) => fieldKeRuntime(f, i))
-
-    return {
-      id: s.clientId,
-      nama: s.nama.trim() || '(section tanpa nama)',
-      deskripsi: s.deskripsi?.trim() ?? null,
-      urutan,
-      parentId: yatim ? null : s.parentClientId,
-      depth: depth.get(s.clientId) ?? 0,
-      fields,
-    }
-  })
+      .map((f, i) => fieldKeRuntime(f, i)),
+  }))
 
   const fieldYatim = document.fields
     .filter((f) => f.aktif && !idsSectionAda.has(f.sectionClientId))

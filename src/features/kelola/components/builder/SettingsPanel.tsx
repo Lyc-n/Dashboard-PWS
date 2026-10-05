@@ -3,7 +3,7 @@ import { Button } from "@/components/atoms/Button";
 import { Input, Textarea, Select, Checkbox } from "@/components/atoms";
 import { StatusBadge } from "@/components/atoms/StatusBadge";
 import { X, Settings, FolderOpen, AlertTriangle, Database, Lightbulb } from "lucide-react";
-import type { DraftField, DraftSection, DraftOpsi, DraftAturan, TipeFieldEditor, SelectedItem } from "./types";
+import type { DraftField, DraftSection, DraftOpsi, TipeFieldEditor, SelectedItem } from "./types";
 import { TIPE_FIELD_LABELS, TIPE_BUTUH_OPSI, SEMUA_TIPE_FIELD } from "./types";
 import {
   SUMBER_SUGGEST,
@@ -12,7 +12,6 @@ import {
   sumberOpsiPerKelompok,
   tipeBolehPakaiSumber,
 } from "@/features/form-builder/services/sumber-opsi";
-import { kunciEditorForm } from "@/features/form-builder/lib/kode-bawaan";
 import type { KunciEditor } from "@/features/form-builder/lib/kode-bawaan";
 
 interface Props {
@@ -20,10 +19,12 @@ interface Props {
   onClose: () => void;
   document: { sections: DraftSection[]; fields: DraftField[] } | null;
   /**
-   * `forms.kode` form yang sedang disunting. Menentukan kontrol mana yang dikunci;
-   * `null` berarti form manual dan tidak ada yang dikunci.
+   * Bagian editor yang form ini larang, dari `aturanForm(forms.kode)`.
+   *
+   * Diteruskan sebagai prop supaya panel ini tidak memanggil registry sendiri:
+   * pemanggil sudah menyelesaikannya sekali untuk seluruh editor.
    */
-  kodeForm: string | null;
+  kunci: KunciEditor;
   updateSection: (clientId: string, patch: Partial<DraftSection>) => void;
   deleteSection: (clientId: string) => void;
   updateField: (clientId: string, patch: Partial<DraftField>) => void;
@@ -32,16 +33,13 @@ interface Props {
   updateOpsi: (fieldClientId: string, opsiClientId: string, patch: Partial<DraftOpsi>) => void;
   deleteOpsi: (fieldClientId: string, opsiClientId: string) => void;
   setSumberOpsi: (fieldClientId: string, type: string | null, key: string | null) => void;
-  addAturan: (fieldClientId: string, sourceClientId: string) => void;
-  updateAturan: (fieldClientId: string, aturanClientId: string, patch: Partial<DraftAturan>) => void;
-  deleteAturan: (fieldClientId: string, aturanClientId: string) => void;
 }
 
 export function SettingsPanel({ 
   selectedItem, 
   onClose, 
   document,
-  kodeForm,
+  kunci,
   updateSection,
   deleteSection,
   updateField,
@@ -50,12 +48,7 @@ export function SettingsPanel({
   updateOpsi,
   deleteOpsi,
   setSumberOpsi,
-  addAturan,
-  updateAturan,
-  deleteAturan,
 }: Props) {
-  const kunci = kunciEditorForm(kodeForm);
-  
   if (!selectedItem) {
     return (
       <div className="w-[320px] shrink-0 border-l border-line bg-surface-2 p-3 overflow-y-auto h-full min-h-0">
@@ -93,9 +86,6 @@ export function SettingsPanel({
     updateOpsi={updateOpsi}
     deleteOpsi={deleteOpsi}
     setSumberOpsi={setSumberOpsi}
-    addAturan={addAturan}
-    updateAturan={updateAturan}
-    deleteAturan={deleteAturan}
   />;
 }
 
@@ -188,9 +178,6 @@ function FieldSettings({
   updateOpsi,
   deleteOpsi,
   setSumberOpsi,
-  addAturan,
-  updateAturan,
-  deleteAturan,
 }: { 
   fieldClientId: string; 
   onClose: () => void;
@@ -202,9 +189,6 @@ function FieldSettings({
   updateOpsi: (fieldClientId: string, opsiClientId: string, patch: Partial<DraftOpsi>) => void;
   deleteOpsi: (fieldClientId: string, opsiClientId: string) => void;
   setSumberOpsi: (fieldClientId: string, type: string | null, key: string | null) => void;
-  addAturan: (fieldClientId: string, sourceClientId: string) => void;
-  updateAturan: (fieldClientId: string, aturanClientId: string, patch: Partial<DraftAturan>) => void;
-  deleteAturan: (fieldClientId: string, aturanClientId: string) => void;
 }) {
   const field = document?.fields.find((f) => f.clientId === fieldClientId);
   if (!field) return null;
@@ -240,12 +224,6 @@ function FieldSettings({
             .filter((g) => g.daftar.length > 0),
     [field.tipe, kunci.optionSource],
   );
-  const availableSources = useMemo(() => 
-    document?.fields
-      .filter((f) => f.clientId !== fieldClientId && ["select", "radio", "checkbox"].includes(f.tipe))
-      .map((f) => ({ id: f.clientId, label: f.label || f.nama }))
-    ?? [], [document, fieldClientId]);
-  
   return (
     <div className="w-95 shrink-0 border-l border-line bg-surface-2 p-3 overflow-y-auto h-full min-h-0">
       <div className="flex items-center justify-between mb-4">
@@ -489,62 +467,6 @@ function FieldSettings({
                 mengetik sendiri.
               </p>
             )}
-          </fieldset>
-        )}
-
-        {/* Aturan visibility disimpan untuk form generik saja. Form kunjungan rumah
-            menentukan kondisi tampilnya di dalam aplikasi, jadi aturan yang
-            ditulis di sini tidak akan pernah dijalankan — konfigurasi yang
-            hanya terlihat di editor tapi tidak berefek apa pun. */}
-        {kunci.aturanVisibility ? (
-          <p className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-[11px] text-muted">
-            Form ini tidak memakai aturan tampil/sembunyi. Kondisi soal sudah ditentukan di dalam aplikasi.
-          </p>
-        ) : (
-          <fieldset className="rounded-lg border border-line p-3">
-          <legend className="px-1 text-xs font-semibold text-ink-2">Tampilkan hanya bila… (aturan visibility)</legend>
-          {field.aturan.length === 0 ? (
-            <p className="text-sm text-muted text-center py-2">Tanpa aturan, pertanyaan ini selalu tampil.</p>
-          ) : (
-            <div className="grid gap-2">
-              {field.aturan.map((a) => (
-                <div key={a.clientId} className="grid grid-cols-[1fr_auto_auto] gap-2">
-                  <Select
-                    value={a.sourceClientId}
-                    onChange={(e) => updateAturan(fieldClientId, a.clientId, { sourceClientId: e.target.value })}
-                  >
-                    <option value="">Pilih pertanyaan sumber…</option>
-                    {availableSources.map((s) => (
-                      <option key={s.id} value={s.id}>{s.label}</option>
-                    ))}
-                  </Select>
-                  <Select
-                    value={a.operator}
-                    onChange={(e) => updateAturan(fieldClientId, a.clientId, { operator: e.target.value as "equals" | "not_equals" })}
-                  >
-                    <option value="equals">sama dengan</option>
-                    <option value="not_equals">tidak sama dengan</option>
-                  </Select>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive"
-                    onClick={() => deleteAturan(fieldClientId, a.clientId)}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-          {availableSources.length > 0 && (
-            <Button size="sm" variant="ghost" className="w-full mt-2" onClick={() => { const src = availableSources[0]; if (src) addAturan(fieldClientId, src.id); }}>
-              + Tambah aturan
-            </Button>
-          )}
-          {availableSources.length === 0 && field.aturan.length === 0 && (
-            <p className="text-xs text-muted text-center mt-2">Butuh field select/radio/checkbox lain sebagai sumber</p>
-          )}
           </fieldset>
         )}
 

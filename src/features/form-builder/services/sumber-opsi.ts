@@ -1,7 +1,7 @@
 /**
  * Katalog sumber pilihan jawaban untuk Form Builder.
  *
- * Sebagian field tidak menyimpan pilihan jawabannya di `form_field_rules`,
+ * Sebagian field tidak menyimpan pilihan jawabannya di `form_field_options`,
  * melainkan menunjuk ke data yang sudah ada lewat
  * `form_fields.optionSourceType` + `optionSourceKey`. Jadi admin tidak perlu
  * mengetik ulang pilihan yang isinya sudah jelas: agama, jenis kelamin,
@@ -21,9 +21,12 @@
  * `optionSourceType` = `faskes` → key `nama` (baris tabel) atau `jenis` (enum)
  * `optionSourceType` = `warga`  → `optionSourceKey` = kolom sumber distinct
  * `optionSourceType` = `suggest` → daftar sarannya disimpan sebagai baris
- *   `form_field_rules` bertipe `option` milik field itu sendiri (pola yang sama
- *   dengan prefix `bucket=` di `src/lib/utils.server.ts`), jadi ikut terhapus
- *   bersama field dan ikut ter-backup bersama form.
+ *   `form_field_options` milik field itu sendiri (pola yang sama dengan prefix
+ *   `bucket=` di `src/lib/utils.server.ts`), jadi ikut terhapus bersama field dan
+ *   ikut ter-backup bersama form.
+ * `optionSourceType` = `cari_warga` → `optionSourceKey` = kolom Data Sasaran yang
+ *   dipakai mengisi field. TIDAK ada daftar jawaban: pencarian jalan saat petugas
+ *   mengetik, dan memilih satu baris mengisi field ini saja.
  *
  * CATATAN: `optionSourceKey` juga dipakai prefix `bucket=` untuk field bucket
  * Form Kunjungan Rumah. Builder hanya menyentuh form tanpa `kode` (lihat
@@ -60,11 +63,28 @@ export interface SumberOpsi {
    */
   perluServer: boolean
   /**
-   * Saran hanya boleh untuk field teks: `<datalist>` hanya berlaku untuk input
-   * teks di browser, jadi menempelkannya di select/checkbox tidak berguna.
+   * Field yang boleh memakai sumber ini. Tidak diisi = hanya select, radio,
+   * checkbox (lihat `TIPE_BUTUH_OPSI`).
+   *
+   * `suggest` dan `cari_warga` diisi karena keduanya hanya berguna di field teks:
+   * `<datalist>` dan dropdown pencarian tidak berlaku di select/checkbox.
    */
   tipeField?: readonly string[]
+  /**
+   * Kolom yang diambil dari baris Data Sasaran untuk mengisi field, hanya untuk
+   * `cari_warga`.
+   *
+   * Begini "pilih satu baris mengisi field ini saja" bisa tanpa mapping
+   * tambahan: field "Nama warga" diisi `row.namaArt`, field "NIK" diisi
+   * `row.nik`, dan seterusnya.
+   */
+  kolom?: KolomWarga
 }
+
+/** Kolom Data Sasaran yang bisa mengisi satu field. */
+export type KolomWarga = 'nama_art' | 'nama_kk' | 'nik'
+
+export const SUMBER_CARI_WARGA = 'cari_warga'
 
 /**
  * Kolom data warga/riwayat yang bisa jadi daftar pilihan.
@@ -169,6 +189,37 @@ export const SUMBER_OPSI: readonly SumberOpsi[] = [
     perluServer: true,
   },
 
+  // --- Pencarian warga: satu baris Data Sasaran yang dipilih mengisi field ini
+  //     saja. Daftar jawabannya TIDAK dikirim ke form — pencarian terjadi saat
+  //     petugas mengetik, bukan sekali saat form dibuka. Lihat `SaranWargaDropdown`.
+  {
+    type: SUMBER_CARI_WARGA,
+    key: 'nama_art',
+    label: 'Cari nama di Data Sasaran',
+    kelompok: 'Data warga',
+    perluServer: true,
+    tipeField: ['text'],
+    kolom: 'nama_art',
+  },
+  {
+    type: SUMBER_CARI_WARGA,
+    key: 'nama_kk',
+    label: 'Cari nama KK di Data Sasaran',
+    kelompok: 'Data warga',
+    perluServer: true,
+    tipeField: ['text'],
+    kolom: 'nama_kk',
+  },
+  {
+    type: SUMBER_CARI_WARGA,
+    key: 'nik',
+    label: 'Cari NIK di Data Sasaran',
+    kelompok: 'Data warga',
+    perluServer: true,
+    tipeField: ['text'],
+    kolom: 'nik',
+  },
+
   // --- Data warga: nilai distinct yang benar-benar ada di tabel.
   {
     type: 'warga',
@@ -246,7 +297,7 @@ export function sumberOpsiPerKelompok(): Array<{
  * Sumber yang terpasang pada satu field.
  *
  * `suggest` dicocokkan hanya dari `type`: field-nya tidak butuh key, daftar
- * sarannya ada di baris `form_field_rules` milik field itu sendiri.
+ * sarannya ada di baris `form_field_options` milik field itu sendiri.
  */
 export function cariSumber(
   type: string | null | undefined,
@@ -304,8 +355,20 @@ export function tipeBolehPakaiSumber(params: {
 }): boolean {
   const { tipe, type, key } = params
   if (!type) return true
+
+  // Dua sumber khusus field teks: keduanya cuma saran dan tidak membatasi jawaban.
   if (type === SUMBER_SUGGEST)
     return (typeSumber(SUMBER_SUGGEST)?.tipeField ?? []).includes(tipe)
+
+  // `cari_warga` juga wajib cocok di katalog, bukan cuma cocok tipenya: `key`
+  // menentukan kolom mana yang mengisi field saat satu baris dipilih, jadi key
+  // tak dikenal berarti form tidak punya cara tahu apa yang harus diisi.
+  if (type === SUMBER_CARI_WARGA) {
+    const source = cariSumber(type, key)
+    if (!source) return false
+    return (source.tipeField ?? []).includes(tipe)
+  }
+
   if (!TIPE_BUTUH_OPSI.includes(tipe)) return false
   return cariSumber(type, key) !== null
 }

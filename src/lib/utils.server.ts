@@ -1,5 +1,5 @@
 import { db } from './db.server'
-import { dataWargaTable, formFieldRules, formFields, formSections, formVersions, forms, surveyEntries, surveys, validSession } from './schema/schema'
+import { dataWargaTable, formFieldOptions, formFields, formSections, formVersions, forms, surveyEntries, surveys, validSession } from './schema/schema'
 import { listPetugasOpsi, pastikanPetugasValid } from './user-registry.server'
 import { jwtVerify, SignJWT } from 'jose'
 import { createHash, randomBytes } from 'node:crypto';
@@ -207,7 +207,7 @@ function cleanFotos(fotos: unknown): Array<Record<string, unknown>> {
 
 // ---- definisi form kunjungan rumah dari DB ----
 // Definisi form (section + field + opsi) dibaca dari tabel v2: `form_sections`,
-// `form_fields`, `form_field_rules`. Record jawaban ditulis ke `surveys` +
+// `form_fields`, `form_field_options`. Record jawaban ditulis ke `surveys` +
 // `survey_entries`; lihat catatan mapping di `saveKunjunganRumahRecord`.
 
 /**
@@ -287,20 +287,17 @@ export async function getKunjunganRumahTemplateRows() {
         .where(inArray(formFields.sectionId, sectionIds))
         .orderBy(formFields.urutan)
 
-    // Opsi = form_field_rules bertipe 'option' milik field. Satu query untuk semua
-    // field lalu di-group di memory supaya tidak jadi N+1. Baris nonaktif ikut
-    // diambil supaya urutan opsi tidak berubah kalau admin menonaktifkan lalu
+    // Opsi = baris `form_field_options` milik field. Satu query untuk semua field
+    // lalu di-group di memory supaya tidak jadi N+1. Baris nonaktif ikut diambil
+    // supaya urutan opsi tidak berubah kalau admin menonaktifkan lalu
     // mengaktifkan lagi lewat Form Builder; penyingkirannya dilakukan di bawah.
     const optionRows = fieldRows.length === 0
         ? []
         : await db
-            .select({ fieldId: formFieldRules.fieldId, value: formFieldRules.value, aktif: formFieldRules.aktif })
-            .from(formFieldRules)
-            .where(and(
-                inArray(formFieldRules.fieldId, fieldRows.map((row) => row.id)),
-                eq(formFieldRules.tipe, "option"),
-            ))
-            .orderBy(formFieldRules.urutan)
+            .select({ fieldId: formFieldOptions.fieldId, value: formFieldOptions.value, aktif: formFieldOptions.aktif })
+            .from(formFieldOptions)
+            .where(inArray(formFieldOptions.fieldId, fieldRows.map((row) => row.id)))
+            .orderBy(formFieldOptions.urutan)
 
     const opsiByField = new Map<string, string[]>()
     for (const row of optionRows) {
@@ -1140,7 +1137,7 @@ export interface BarisJawabanSubmit {
     urutan: number
     /** Bentuk jsonb apa adanya; diformat di klien lewat `formatNilaiJawapan`. */
     value: JsonNilai
-    /** Baris `form_field_rules` bertipe `option`, untuk memetakan value ke label. */
+    /** Baris `form_field_options`, untuk memetakan value ke label. */
     opsi: Array<{ value: string; label: string | null }>
 }
 
@@ -1189,7 +1186,7 @@ export async function queryRiwayatSubmit(params: {
 /**
  * Jawaban satu submit, lengkap dengan label field dan opsi pilihannya.
  *
- * Opsi diambil terpisah dari `form_field_rules` karena satu field bisa punya
+ * Opsi diambil terpisah dari `form_field_options` karena satu field bisa punya
  * puluhan baris opsi; join langsung ke `survey_entries` akan mengalikan baris
  * jawaban dan membuat jumlah jawaban tidak jujur.
  */
@@ -1211,24 +1208,18 @@ export async function queryJawabanSubmit(surveyId: string): Promise<BarisJawaban
 
     const opsi = await db
         .select({
-            fieldId: formFieldRules.fieldId,
-            value: formFieldRules.value,
-            label: formFieldRules.label,
+            fieldId: formFieldOptions.fieldId,
+            value: formFieldOptions.value,
+            label: formFieldOptions.label,
         })
-        .from(formFieldRules)
-        .where(
-            and(
-                eq(formFieldRules.tipe, 'option'),
-                inArray(
-                    formFieldRules.fieldId,
-                    jawaban.map((j) => j.fieldId),
-                ),
-            ),
-        )
+        .from(formFieldOptions)
+        .where(inArray(
+            formFieldOptions.fieldId,
+            jawaban.map((j) => j.fieldId),
+        ))
 
     const opsiByField = new Map<string, Array<{ value: string; label: string | null }>>()
     for (const o of opsi) {
-        if (o.value === null) continue
         const list = opsiByField.get(o.fieldId) ?? []
         list.push({ value: o.value, label: o.label })
         opsiByField.set(o.fieldId, list)

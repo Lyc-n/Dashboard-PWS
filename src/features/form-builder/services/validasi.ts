@@ -6,28 +6,23 @@
  * setelah data diambil.
  *
  * Kenapa validasi versi tidak dijamin database: composite FK untuk
- * `form_sections.parentId` dan `survey_entries.fieldId` butuh trigger supaya
- * pesannya bisa dibaca petugas, dan trigger itu sulit dirawat. Partial unique
- * index untuk "satu form satu versi published" tetap dipakai di database karena
- * murah dicek dan berguna menahan race condition saat dua request publish paralel.
+ * `survey_entries.fieldId` butuh trigger supaya pesannya bisa dibaca petugas, dan
+ * trigger itu sulit dirawat. Aturan "satu form satu versi published" juga dijaga
+ * di `terbitkanVersiForm()`, di dalam transaksi publish.
  */
 
 import { isValidNik } from "@/lib/utils";
-import { cariSumber, SUMBER_SUGGEST } from "@/features/form-builder/services/sumber-opsi";
+import { cariSumber, SUMBER_CARI_WARGA, SUMBER_SUGGEST } from "@/features/form-builder/services/sumber-opsi";
 
 export type KodeValidasi =
-  | 'PARENT_BEDA_VERSI'
-  | 'PARENT_SAMA_DIRI'
-  | 'PARENT_SIKLUS'
   | 'OPSI_KOSONG'
   | 'OPSI_TIDAK_VALID'
-  | 'ATURAN_TIDAK_LENGKAP'
-  | 'ATURAN_SUMBER_BEDA_VERSI'
   | 'VERSI_BUKAN_DRAFT'
   | 'VERSI_SUDAH_TERBIT'
   | 'VERSI_TIDAK_ADA'
   | 'SURVEI_TIDAK_ADA'
   | 'FIELD_TIDAK_ADA'
+  | 'FIELD_TERPAKAI'
   | 'NILAI_TIDAK_COCOK'
   | 'NIK_TIDAK_VALID'
   | 'GROUP_BARIS_SISIP'
@@ -173,7 +168,7 @@ export interface OpsiField {
  * melihat pertanyaan yang mustahil dijawab. Divalidasi saat simpan, bukan saat render.
  *
  * Pengecualian: field yang optsinya datang dari sumber dinamis (mis. daftar
- * petugas dari tabel `users`) memang tidak punya baris di `form_field_rules`.
+ * petugas dari tabel `users`) memang tidak punya baris di `form_field_options`.
  * Untuk field itu aturan "wajib punya opsi" tidak berlaku, karena opsinya dibaca
  * dari database saat render dan saat penyimpanan. Yang tetap diperiksa adalah
  * value-nya: apakah nilai yang dikirim benar-benar salah satu opsi yang berlaku
@@ -285,6 +280,26 @@ export function validasiSumberOpsi(params: {
       return gagal(
         'SUMBER_OPSI_TIPE_SALAH',
         `Daftar saran hanya bisa dipakai pada field ${source.tipeField?.join(', ') ?? 'teks'}.`,
+      )
+    }
+    return lolos
+  }
+
+  // `cari_warga` juga khusus field teks: hasilnya dropdown yang diisi sambil
+  // mengetik, bukan daftar jawaban. Opsi statis yang terisi di sini akan
+  // ditolak dengan pesan "pilihan jawaban manual harus dikosongkan" di bawah,
+  // sama seperti sumber lain — jadi baris `opsi` tidak perlu diperiksa ulang.
+  if (optionSourceType === SUMBER_CARI_WARGA) {
+    if (!source.tipeField?.includes(tipe)) {
+      return gagal(
+        'SUMBER_OPSI_TIPE_SALAH',
+        `Pencarian warga hanya bisa dipakai pada field ${source.tipeField?.join(', ') ?? 'teks'}.`,
+      )
+    }
+    if (opsi.some((o) => o.value.trim() !== '')) {
+      return gagal(
+        'SUMBER_OPSI_TIDAK_DIKENAL',
+        `Field ini memakai "${source.label}", jadi pilihan jawaban manual harus dikosongkan.`,
       )
     }
     return lolos
@@ -481,95 +496,6 @@ export function validasiNilaiOpsiTerpilih(params: {
   return lolos
 }
 
-/**
- * Section dengan parent dari versi form lain akan membuat hierarki form rusak:
- * field anak ikut terhapus bersama form yang salah.
- */
-export function validasiParentSection(params: {
-  formVersionId: string
-  /** null = section ini jadi root. */
-  parentId: string | null
-  /** Id section yang sedang disimpan; null saat create. */
-  sectionId: string | null
-  /** formVersionId milik parent, null kalau parent tidak ada. */
-  parentFormVersionId: string | null
-  /** Rantai ancestor dari parent ke root, root terakhir. */
-  ancestorIds?: readonly string[]
-}): HasilValidasi {
-  const { formVersionId, parentId, sectionId, parentFormVersionId, ancestorIds } = params
-
-  if (parentId === null) return lolos
-
-  if (parentFormVersionId === null) {
-    return gagal('PARENT_BEDA_VERSI', 'Section parent tidak ditemukan.')
-  }
-  if (parentFormVersionId !== formVersionId) {
-    return gagal(
-      'PARENT_BEDA_VERSI',
-      'Section parent harus berasal dari form versi yang sama.',
-    )
-  }
-  if (sectionId !== null && parentId === sectionId) {
-    return gagal('PARENT_SAMA_DIRI', 'Section tidak boleh jadi parent dirinya sendiri.')
-  }
-  if (sectionId !== null && ancestorIds?.includes(sectionId)) {
-    return gagal(
-      'PARENT_SIKLUS',
-      'Hierarki akan berputar. Section ini sudah menjadi ancestor-nya.',
-    )
-  }
-  return lolos
-}
-
-export interface AturanVisibility {
-  tipe: 'option' | 'visibility'
-  sourceFieldId: string | null
-  operator: 'equals' | 'not_equals' | null
-  value: string | null
-  /** formVersionId milik field sumber, null kalau field sumber tidak ada. */
-  sourceFormVersionId?: string | null
-  /** formVersionId milik field yang jadi target aturan. */
-  fieldFormVersionId: string
-}
-
-/**
- * Aturan visibility dan opsi jawaban dijejak di tabel yang sama, jadi tiap tipe
- * punya syarat isinya sendiri. Yang ditegakkan di sini: sumber aturan harus ada,
- * punya operator, dan berada di versi form yang sama dengan field targetnya.
- */
-export function validasiAturanField(aturan: AturanVisibility): HasilValidasi {
-  if (aturan.tipe === 'option') {
-    if (aturan.value === null || aturan.value.trim() === '') {
-      return gagal('ATURAN_TIDAK_LENGKAP', 'Opsi jawaban wajib punya nilai yang disimpan.')
-    }
-    return lolos
-  }
-
-  if (aturan.sourceFieldId === null) {
-    return gagal('ATURAN_TIDAK_LENGKAP', 'Aturan visibility wajib punya field sumber.')
-  }
-  if (aturan.operator === null) {
-    return gagal('ATURAN_TIDAK_LENGKAP', 'Aturan visibility wajib punya operator.')
-  }
-  if (aturan.value === null) {
-    return gagal('ATURAN_TIDAK_LENGKAP', 'Aturan visibility wajib punya nilai pembanding.')
-  }
-  if (aturan.sourceFieldId === 'SAMA_DENGAN_FIELD_TARGET') {
-    return gagal('ATURAN_TIDAK_LENGKAP', 'Field tidak boleh jadi sumber aturannya sendiri.')
-  }
-  if (
-    aturan.sourceFormVersionId !== null &&
-    aturan.sourceFormVersionId !== undefined &&
-    aturan.sourceFormVersionId !== aturan.fieldFormVersionId
-  ) {
-    return gagal(
-      'ATURAN_SUMBER_BEDA_VERSI',
-      'Field sumber aturan harus berasal dari form versi yang sama.',
-    )
-  }
-  return lolos
-}
-
 /** Versi yang sudah published atau archived tidak boleh diedit strukturnya. */
 export function validasiEdisiVersi(status: string | null): HasilValidasi {
   if (status === null) {
@@ -624,8 +550,8 @@ function tanggalNyata(nilai: string): boolean {
  * Bentuk jawaban dicek per tipe supaya data sampah tidak masuk. Kolom `value`
  * bertipe jsonb, jadi tanpa ini database menerima apa saja dan rekap rusak diam-diam.
  *
- * Field `image` dan `file` tidak divalidasi di sini: lampirannya hidup di
- * survey_files, bukan survey_entries.
+ * Field `image` dan `file` tidak divalidasi di sini: lampirannya belum
+ * didukung, jadi belum punya kolom di database.
  *
  * `opsi` undefined berarti pemanggil tidak memuat daftar opsi, dan pengecekan
  * keanggotaan opsi dilewati. `opsi` yang ada tapi kosong atau seluruhnya nonaktif
@@ -733,8 +659,6 @@ export interface RingkasanHapusForm {
   jumlahSubmit: number
   /** Baris `survey_entries` dari submit-submit itu. */
   jumlahJawaban: number
-  /** Baris `survey_files` dari submit-submit itu. */
-  jumlahLampiran: number
   /** NIK berbeda yang ikut tercatat pada submit-submit itu. */
   jumlahWarga: number
   /** Tanggal isian terakhir, `YYYY-MM-DD`; null kalau belum pernah diisi. */

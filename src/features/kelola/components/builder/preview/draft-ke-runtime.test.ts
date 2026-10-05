@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { draftKeRuntime, hitungDepthClient } from './draft-ke-runtime'
+import { draftKeRuntime } from './draft-ke-runtime'
 import type { DraftField, DraftFormDocument, DraftSection } from '../types'
 
 function section(
@@ -7,7 +7,6 @@ function section(
 ): DraftSection {
   return {
     id: null,
-    parentClientId: null,
     nama: 'Section',
     deskripsi: null,
     aktif: true,
@@ -32,7 +31,6 @@ function field(
     optionSourceType: null,
     optionSourceKey: null,
     opsi: [],
-    aturan: [],
     ...partial,
   }
 }
@@ -43,49 +41,6 @@ function documentOf(
 ): DraftFormDocument {
   return { formVersionId: 'v1', sections, fields }
 }
-
-describe('hitungDepthClient', () => {
-  it('root depth 0, anak 1, cucu 2', () => {
-    const depth = hitungDepthClient([
-      section({ clientId: 'a' }),
-      section({ clientId: 'b', parentClientId: 'a' }),
-      section({ clientId: 'c', parentClientId: 'b' }),
-    ])
-
-    expect(depth.get('a')).toBe(0)
-    expect(depth.get('b')).toBe(1)
-    expect(depth.get('c')).toBe(2)
-  })
-
-  it('parent yang tidak ada dihitung sebagai root', () => {
-    const depth = hitungDepthClient([
-      section({ clientId: 'a', parentClientId: 'hilang' }),
-    ])
-    expect(depth.get('a')).toBe(0)
-  })
-
-  it('siklus parent berhenti, tidak loop tak berujung', () => {
-    const depth = hitungDepthClient([
-      section({ clientId: 'a', parentClientId: 'b' }),
-      section({ clientId: 'b', parentClientId: 'a' }),
-    ])
-
-    // Rantai berhenti saat id yang sama muncul dua kali; yang penting selesai.
-    expect(depth.get('a')).toBeGreaterThanOrEqual(0)
-    expect(depth.get('b')).toBeGreaterThanOrEqual(0)
-  })
-
-  it('rantai panjang dipotong di batas kedalaman', () => {
-    const sections = Array.from({ length: 12 }, (_, i) =>
-      section({
-        clientId: `s${i}`,
-        parentClientId: i === 0 ? null : `s${i - 1}`,
-      }),
-    )
-    const depth = hitungDepthClient(sections)
-    expect(depth.get('s11')).toBe(5)
-  })
-})
 
 describe('draftKeRuntime', () => {
   it('section dan field nonaktif dibuang', () => {
@@ -108,10 +63,10 @@ describe('draftKeRuntime', () => {
     expect(hasil.fieldYatim).toHaveLength(0)
   })
 
-  it('field tanpa section dipisah, section tanpa parent jadi root', () => {
+  it('field tanpa section dipisah ke daftar sendiri', () => {
     const hasil = draftKeRuntime(
       documentOf(
-        [section({ clientId: 's1', parentClientId: 'hilang' })],
+        [section({ clientId: 's1' })],
         [
           field({ clientId: 'f1', sectionClientId: 's1' }),
           field({ clientId: 'f9', sectionClientId: 's9' }),
@@ -119,9 +74,25 @@ describe('draftKeRuntime', () => {
       ),
     )
 
-    expect(hasil.sections[0]!.parentId).toBeNull()
-    expect(hasil.sections[0]!.depth).toBe(0)
+    expect(hasil.sections).toHaveLength(1)
     expect(hasil.fieldYatim.map((f) => f.id)).toEqual(['f9'])
+  })
+
+  it('section diurutkan sesuai urutan di draft', () => {
+    const hasil = draftKeRuntime(
+      documentOf(
+        [
+          section({ clientId: 's1', nama: 'Pertama' }),
+          section({ clientId: 's2', nama: 'Kedua' }),
+        ],
+        [
+          field({ clientId: 'f1', sectionClientId: 's1' }),
+          field({ clientId: 'f2', sectionClientId: 's2' }),
+        ],
+      ),
+    )
+
+    expect(hasil.sections.map((s) => s.nama)).toEqual(['Pertama', 'Kedua'])
   })
 
   it('id field memakai clientId dan urutannya indeks', () => {
@@ -196,67 +167,6 @@ describe('draftKeRuntime', () => {
     expect(hasil.sections[0]!.nama).toBe('(section tanpa nama)')
     expect(hasil.sections[0]!.fields[0]!.nama).toBe('')
     expect(hasil.sections[0]!.fields[0]!.label).toBe('(tanpa label)')
-  })
-
-  it('aturan visibility membawa sourceClientId sebagai sourceFieldId', () => {
-    const hasil = draftKeRuntime(
-      documentOf(
-        [section({ clientId: 's1' })],
-        [
-          field({ clientId: 'f1', sectionClientId: 's1' }),
-          field({
-            clientId: 'f2',
-            sectionClientId: 's1',
-            aturan: [
-              {
-                clientId: 'r1',
-                sourceClientId: 'f1',
-                operator: 'equals',
-                value: ' ya ',
-                aktif: true,
-              },
-            ],
-          }),
-        ],
-      ),
-    )
-
-    expect(hasil.sections[0]!.fields[1]!.aturan).toEqual([
-      {
-        id: 'r1',
-        sourceFieldId: 'f1',
-        operator: 'equals',
-        value: 'ya',
-        label: null,
-        urutan: 0,
-        aktif: true,
-      },
-    ])
-  })
-
-  it('nilai aturan kosong jadi null', () => {
-    const hasil = draftKeRuntime(
-      documentOf(
-        [section({ clientId: 's1' })],
-        [
-          field({
-            clientId: 'f1',
-            sectionClientId: 's1',
-            aturan: [
-              {
-                clientId: 'r1',
-                sourceClientId: 'f1',
-                operator: 'not_equals',
-                value: '  ',
-                aktif: true,
-              },
-            ],
-          }),
-        ],
-      ),
-    )
-
-    expect(hasil.sections[0]!.fields[0]!.aturan[0]!.value).toBeNull()
   })
 
   it('jumlah kolom group diteruskan', () => {

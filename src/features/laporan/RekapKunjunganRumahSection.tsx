@@ -24,6 +24,10 @@ interface Props {
   setTtdNama: (v: string) => void;
   ttdJabatan: string;
   setTtdJabatan: (v: string) => void;
+  defaultPeriod?: string;
+  defaultKel?: string;
+  defaultPosy?: string;
+  defaultKader?: string;
 }
 
 const DEFAULT_MONTH = new Date().toISOString().slice(0, 7);
@@ -42,6 +46,10 @@ export function RekapKunjunganRumahSection({
   setTtdNama,
   ttdJabatan,
   setTtdJabatan,
+  defaultPeriod,
+  defaultKel,
+  defaultPosy,
+  defaultKader,
 }: Props) {
   const { user } = useAuth();
   const toast = useToast();
@@ -50,10 +58,10 @@ export function RekapKunjunganRumahSection({
   // dipakai /kelola. `listKaderAktif()` sudah menyaring, jadi tidak perlu filter peran lagi.
   const { staff } = useKaderAktif();
 
-  const [period, setPeriod] = useState(DEFAULT_MONTH);
-  const [kel, setKel] = useState("all");
-  const [posy, setPosy] = useState("all");
-  const [kader, setKader] = useState("all");
+  const [period, setPeriod] = useState(defaultPeriod ?? DEFAULT_MONTH);
+  const [kel, setKel] = useState(defaultKel ?? "all");
+  const [posy, setPosy] = useState(defaultPosy ?? "all");
+  const [kader, setKader] = useState(defaultKader ?? "all");
 
   // Non-admin: wilayah & kader terkunci ke dirinya
   const effKel = admin ? kel : (user?.kel ?? "all");

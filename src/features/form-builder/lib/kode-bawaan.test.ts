@@ -2,13 +2,12 @@ import { describe, expect, it } from "vitest";
 import { SEMUA_TIPE_FIELD } from "../services/validasi";
 import {
   FIELD_RECORD_LEGACY,
-  kunciEditorForm,
-  SECTION_PENYIMPANAN,
-  SECTION_TERLINDUNGI,
   kunciBucket,
   namaDenganPrefix,
   namaTanpaPrefix,
-  validasiStrukturBawaan,
+  aturanForm,
+  SECTION_PENYIMPANAN,
+  SECTION_TERLINDUNGI,
 } from "./kode-bawaan";
 import type { FieldBawaan, SectionBawaan } from "./kode-bawaan";
 import { KODE_FORM_BAWAAN } from "@/lib/constants";
@@ -85,15 +84,18 @@ function snapshot(d: Draft): Snap {
   };
 }
 
-function jalankan(d: Draft & Snap, formKode: string | null = KR, adaAturanVisibility = false) {
-  return validasiStrukturBawaan({
-    formKode,
+function jalankan(d: Draft & Snap, formKode: string | null = KR) {
+  return aturanForm(formKode).validasiDraft({
     sections: d.sections,
     fields: d.fields,
     sectionsLama: d.sectionsLama,
     fieldsLama: d.fieldsLama,
-    adaAturanVisibility,
   });
+}
+
+/** Kunci editor untuk satu form, lewat registry yang sama seperti produksi. */
+function kunci(formKode: string | null) {
+  return aturanForm(formKode).kunciEditor;
 }
 
 function pesanDari(hasil: ReturnType<typeof jalankan>): string {
@@ -101,7 +103,7 @@ function pesanDari(hasil: ReturnType<typeof jalankan>): string {
   return hasil.pesan;
 }
 
-describe("validasiStrukturBawaan", () => {
+describe("aturanForm(...).validasiDraft", () => {
   it("meloloskan draft form kunjungan rumah yang utuh", () => {
     expect(jalankan(draftKr())).toEqual({ ok: true });
   });
@@ -273,22 +275,17 @@ describe("validasiStrukturBawaan", () => {
     });
   });
 
-  it("menolak aturan tampil/sembunyi yang tidak dijalankan form kader", () => {
-    expect(pesanDari(jalankan(draftKr(), KR, true))).toMatch(/tampil\/sembunyi/);
-  });
-
-  describe("kunciEditorForm", () => {
+  describe("aturanForm(...).kunciEditor", () => {
   it("mengunci seluruh struktur form kunjungan rumah", () => {
-    const k = kunciEditorForm(KODE_FORM_BAWAAN.kunjunganRumah);
+    const k = kunci(KODE_FORM_BAWAAN.kunjunganRumah);
     expect(k.namaSection).toBe(true);
     expect(k.strukturSection).toBe(true);
     expect(k.optionSource).toBe(true);
-    expect(k.aturanVisibility).toBe(true);
     expect([...(k.tipe ?? [])].sort()).toEqual(["checkbox", "date", "number", "select", "text"]);
   });
 
   it("menandai field penyimpan data sebagai tidak boleh dihapus", () => {
-    const k = kunciEditorForm(KODE_FORM_BAWAAN.kunjunganRumah);
+    const k = kunci(KODE_FORM_BAWAAN.kunjunganRumah);
     expect(k.namaFieldTidakBolehDihapus("record_legacy")).toBe(true);
     // Editor menerima nama dalam bentuk pendek (Fase 2), tapi database menyimpan
     // bentuk ber-prefix. Dua-duanya harus dikenali.
@@ -297,11 +294,10 @@ describe("validasiStrukturBawaan", () => {
   });
 
   it("melepas semua kunci untuk form manual", () => {
-    const k = kunciEditorForm(null);
+    const k = kunci(null);
     expect(k.namaSection).toBe(false);
     expect(k.strukturSection).toBe(false);
     expect(k.optionSource).toBe(false);
-    expect(k.aturanVisibility).toBe(false);
     expect(k.tipe).toBeNull();
     expect(k.namaFieldTidakBolehDihapus("apaSaja")).toBe(false);
   });
@@ -309,15 +305,15 @@ describe("validasiStrukturBawaan", () => {
   it("melepas semua kunci untuk kegiatan karena aturannya belum dipetakan", () => {
     // Kegiatan masih memakai image, textarea, dan time, jadi mengunci tipenya di
     // editor akan memblokir perubahan yang sebenarnya sah.
-    expect(kunciEditorForm(KODE_FORM_BAWAAN.kegiatan)).toEqual(kunciEditorForm(null));
+    expect(kunci(KODE_FORM_BAWAAN.kegiatan)).toEqual(kunci(null));
   });
 
   it("daftar tipe di editor sama persis dengan yang diterima server", () => {
-    // Penjaga utama: `kunciEditorForm` hanya boleh menyembunyikan tipe yang
-    // `validasiStrukturBawaan` memang tolak. Kalau daftar ini melebar, admin
+    // Penjaga utama: kunci editor hanya boleh menyembunyikan tipe yang
+    // `validasiDraft` memang tolak. Kalau daftar ini melebar, admin
     // bisa memilih tipe yang build-nya pasti gagal; kalau menyempit, perubahan
     // yang sah jadi terkunci tanpa alasan.
-    const k = kunciEditorForm(KODE_FORM_BAWAAN.kunjunganRumah);
+    const k = kunci(KODE_FORM_BAWAAN.kunjunganRumah);
     for (const tipe of SEMUA_TIPE_FIELD) {
       // Field baru di section sasaran supaya tipe satu-satunya aturan yang diuji.
       const d = draftKr((x) => {

@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db.server'
-import { formFieldRules, formFields, formSections, formVersions } from '@/lib/schema/schema'
+import { formFieldOptions, formFields, formSections, formVersions } from '@/lib/schema/schema'
 import {
   validasiEdisiVersi,
   validasiTerbitkanVersi
@@ -55,7 +55,7 @@ async function ambilStatusVersi(
 }
 
 /**
- * Dipanggil sebelum setiap perubahan struktur (section, field, aturan).
+ * Dipanggil sebelum setiap perubahan struktur (section, field, pilihan jawaban).
  * Ini penjaga utama "versi published tidak diedit langsung": begitu published,
  * struktur form membeku dan perubahan harus lewat versi baru.
  */
@@ -69,15 +69,21 @@ export async function assertVersiBisaDiubah(
 /**
  * Terbitkan satu versi form.
  *
- * Satu form hanya boleh punya satu versi `published`, dan itu dijamin database
- * lewat partial unique index `form_versions_one_published_per_form`. Service ini
- * karena itu WAJIB mengarsipkan versi published lama di transaksi yang sama,
- * kalau tidak publish kedua akan gagal dengan error unique yang tidak jelas
- * untuk petugas.
+ * Satu form hanya boleh punya satu versi `published`. Aturan itu dijaga di sini:
+ * versi published lama DIARSIPKAN lebih dulu, lalu versi baru ditulis, dan
+ * keduanya dalam satu transaksi. Kalau archiving tidak dilakukan, form punya
+ * dua versi published dan pemanggil seperti `daftarFormulirTerisi()` akan
+ * menampilkan form yang sama dua kali.
  *
  * Transaksi dipakai karena archiving lalu publishing harus atomik: kalau tidak,
  * ada celah di mana form tidak punya versi published sama sekali dan petugas
  * yang sedang mengisi survei tidak bisa memuat definisi form.
+ *
+ * Kunci baris `for update` di bawah mencegah dua publish paralel mengarsipkan
+ * versi published yang sama. Kalau nanti aturan ini perlu ditegakkan database
+ * juga, partial unique index-nya satu baris: `create unique index
+ * form_versions_one_published_per_form on form_versions (formId) where status =
+ * 'published';`
  */
 export async function terbitkanVersiForm(
   formVersionId: string,
@@ -88,6 +94,7 @@ export async function terbitkanVersiForm(
   const hasil = await db.transaction(async (tx) => {
     // Kunci baris versi dulu supaya dua publish paralel tidak sama-sama membaca
     // status lama lalu sama-sama memutuskan untuk mengarsipkan versi yang sama.
+    // Satu-satunya tempat publish dilindungi dari konkurensi.
     await tx.execute(sql`select 1 from form_versions where id = ${formVersionId} for update`)
 
     const target = await tx
@@ -176,12 +183,12 @@ async function cariVersiAsal(
 }
 
 /**
- * Salin struktur (section, field, aturan) dari satu versi ke versi baru.
+ * Salin struktur (section, field, pilihan jawaban) dari satu versi ke versi baru.
  *
  * Semuanya bulk insert: form nyata punya ratusan field, jadi insert per baris
  * akan jadi ratusan round-trip ke database. Id baru dipetakan ke id lama
- * karena `parentId` section dan `sourceFieldId` aturan menunjuk ke baris versi
- * asal, sedangkan versi baru harus hanya menunjuk baris versi baru.
+ * karena `form_fields.sectionId` menunjuk baris versi asal, sedangkan versi baru
+ * harus hanya menunjuk baris versi baru.
  */
 async function salinStruktur(
   executor: Executor,
@@ -191,7 +198,6 @@ async function salinStruktur(
   const asalSection = await executor
     .select({
       id: formSections.id,
-      parentId: formSections.parentId,
       nama: formSections.nama,
       deskripsi: formSections.deskripsi,
       urutan: formSections.urutan,
@@ -203,14 +209,11 @@ async function salinStruktur(
 
   if (asalSection.length === 0) return
 
-  // Tahap satu: parentId sengaja null. Menyalin nilai parent mentah berarti
-  // menunjuk id section versi lain, dan aturan backend melarang itu.
   const baruSection = await executor
     .insert(formSections)
     .values(
       asalSection.map((baris) => ({
         formVersionId: formVersionIdBaru,
-        parentId: null,
         nama: baris.nama,
         deskripsi: baris.deskripsi,
         urutan: baris.urutan,
@@ -226,19 +229,6 @@ async function salinStruktur(
     const baru = baruSection[i]
     if (baru) petaSection.set(asal.id, baru.id)
   })
-
-  // Tahap dua: parent dipasang setelah semua section versi baru ada, karena
-  // `parentId` menunjuk `form_sections.id` (FK self-referencing).
-  for (const [i, asal] of asalSection.entries()) {
-    const baru = baruSection[i]
-    if (!asal.parentId || !baru) continue
-    const parentBaru = petaSection.get(asal.parentId)
-    if (!parentBaru) continue
-    await executor
-      .update(formSections)
-      .set({ parentId: parentBaru })
-      .where(eq(formSections.id, baru.id))
-  }
 
   const asalField = await executor
     .select({
@@ -295,51 +285,36 @@ async function salinStruktur(
     if (baru) petaField.set(asal.id, baru.id)
   })
 
-  const asalRule = await executor
+  const asalOpsi = await executor
     .select({
-      fieldId: formFieldRules.fieldId,
-      tipe: formFieldRules.tipe,
-      operator: formFieldRules.operator,
-      value: formFieldRules.value,
-      label: formFieldRules.label,
-      urutan: formFieldRules.urutan,
-      aktif: formFieldRules.aktif,
-      sourceFieldId: formFieldRules.sourceFieldId,
+      fieldId: formFieldOptions.fieldId,
+      value: formFieldOptions.value,
+      label: formFieldOptions.label,
+      urutan: formFieldOptions.urutan,
+      aktif: formFieldOptions.aktif,
     })
-    .from(formFieldRules)
-    .where(inArray(formFieldRules.fieldId, [...petaField.keys()]))
-    .orderBy(asc(formFieldRules.urutan))
+    .from(formFieldOptions)
+    .where(inArray(formFieldOptions.fieldId, [...petaField.keys()]))
+    .orderBy(asc(formFieldOptions.urutan))
 
-  // `sourceFieldId` boleh null atau yatim di versi asal (schema mengizinkan),
-  // jadi sumber yang tidak ada di peta disalin jadi null, bukan ditolak.
-  const ruleTersalin = asalRule.flatMap((asal) => {
+  const opsiTersalin = asalOpsi.flatMap((asal) => {
     const fieldBaru = petaField.get(asal.fieldId)
-    if (!fieldBaru) return []
-    return [
-      {
-        asal,
-        fieldBaru,
-        sourceBaru: asal.sourceFieldId ? petaField.get(asal.sourceFieldId) ?? null : null,
-      },
-    ]
+    return fieldBaru ? [{ asal, fieldBaru }] : []
   })
-  if (ruleTersalin.length === 0) return
+  if (opsiTersalin.length === 0) return
 
   await executor
-    .insert(formFieldRules)
+    .insert(formFieldOptions)
     .values(
-      ruleTersalin.map(({ asal, fieldBaru, sourceBaru }) => ({
+      opsiTersalin.map(({ asal, fieldBaru }) => ({
         fieldId: fieldBaru,
-        tipe: asal.tipe,
-        operator: asal.operator,
         value: asal.value,
         label: asal.label,
         urutan: asal.urutan,
         aktif: asal.aktif,
-        sourceFieldId: sourceBaru,
       })),
     )
-    .returning({ id: formFieldRules.id })
+    .returning({ id: formFieldOptions.id })
 }
 
 /**

@@ -14,21 +14,7 @@
  *-satunya kunci yang aman. Tidak ada nama field, `forms.kode`, atau nama form
  * yang ditulis di file ini.
  *
- * VISIBILITY DIJALANKAN ULANG DI KLIEN, SENGAJA
- * ---------------------------------------------
- * `simpanFormulir` membuang jawaban field yang tersembunyi, jadi petugas yang
- * mengubah jawaban sumber tidak boleh unknowingly mengirim isian yang sudah tidak
- * berlaku. Aturannya dievaluasi ulang di sini dengan predikat yang sama dengan
- * `aturanTerpenuhi()` di `form-runtime.server.ts`: field dengan aturan AKTIF yang
- * tidak terpenuhi disembunyikan, dan jawabannya dibuang dari state supaya tidak
- * ada sisa yang terkirim. Server tetap mengevaluasi ulang sendiri dari definisi
- * yang dimuat ulang; yang di sini supaya tampilan dan isi yang dikirim tidak
- * berbeda.
- *
- * `equals` dengan sumber kosong tidak pernah terpenuhi dan `not_equals` dengan
- * sumber kosong selalu terpenuhi — itu hasil membandingkan daftar teks kosong
- * dengan nilai pembanding, persis seperti di server.
- *
+
  * JAWABAN KOSONG TETAP DISIMPAN DI STATE
  * --------------------------------------
  * Nilai `null`, `undefined`, `""`, atau `[]` dibuang hanya saat payload dirakit,
@@ -41,7 +27,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { simpanFormulir, cariSasaranWarga } from "@/lib/utils.functions";
 import { hariIni, pesanError } from "@/lib/utils";
 import type {
-  AturanRuntime,
   DefinisiRuntime,
   FieldRuntime,
   HasilSimpanFormulir,
@@ -66,7 +51,6 @@ const CARI_KOSONG = "";
 const TANGGAL_AWAL = hariIni();
 const SARAN_KOSONG: SasaranSuggestion[] = [];
 const ANSWER_KOSONG: Record<string, unknown> = {};
-const HIDE_KOSONG: ReadonlySet<string> = new Set<string>();
 const SECTION_KOSONG: SectionRuntime[] = [];
 
 /**
@@ -80,64 +64,6 @@ export function nilaiKosong(value: unknown): boolean {
   if (typeof value === "string") return value.trim() === "";
   if (Array.isArray(value)) return value.length === 0;
   return false;
-}
-
-/**
- * Bandingkan jawaban sumber aturan sebagai daftar teks.
- *
- * `survey_entries.value` jsonb bisa berisi apa saja, jadi hanya teks, angka,
- * boolean, dan daftar dari ketiganya yang bisa dibandingkan; nilai lain
- * diperlakukan sebagai tidak ada. Daftar ikut dibaca karena field `checkbox`
- * mengirim array — untuk checkbox "sama dengan Y" berarti "Y ada di daftarnya".
- * Cermin `teksPembanding()` di service server.
- */
-function teksPembanding(nilai: unknown): string[] {
-  if (nilai === null || nilai === undefined) return [];
-  if (typeof nilai === "string") {
-    const teks = nilai.trim()
-    return teks === "" ? [] : [teks]
-  }
-  if (typeof nilai === "number" || typeof nilai === "boolean") return [String(nilai)]
-  if (Array.isArray(nilai)) {
-    const keluar: string[] = []
-    for (const isi of nilai as unknown[]) keluar.push(...teksPembanding(isi))
-    return keluar
-  }
-  return []
-}
-
-/**
- * Apakah satu aturan visibility terpenuhi. Cermin `aturanTerpenuhi()` di service
- * server: sumber yang sudah dihapus, operator kosong, atau nilai pembanding
- * kosong berarti aturan tidak bisa dievaluasi, dan semuanya dianggap terpenuhi
- * supaya satu baris rusak di editor tidak menyembunyikan field-nya selamanya —
- * petugas tidak punya jalan lain untuk memperbaikinya dari layar isi.
- */
-export function aturanTerpenuhi(aturan: AturanRuntime, nilai: ReadonlyMap<string, unknown>): boolean {
-  if (aturan.sourceFieldId === null) return true
-  if (aturan.operator === null) return true
-
-  const target = (aturan.value ?? '').trim()
-  if (target === '') return true
-
-  const isi = teksPembanding(nilai.get(aturan.sourceFieldId))
-  return aturan.operator === 'equals' ? isi.includes(target) : !isi.includes(target)
-}
-
-/**
- * Field yang harus disembunyikan, dihitung dalam SATU lintasan atas jawaban yang
- * akan dikirim — sama seperti langkah 6 di `simpanFormulir`, supaya kedua sisi
- * menghitung atas peta jawaban yang sama.
- */function hitungTersembunyi(
-  fields: readonly FieldRuntime[],
-  terkirim: ReadonlyMap<string, unknown>,
-): ReadonlySet<string> {
-  const tersembunyi = new Set<string>()
-  for (const field of fields) {
-    const adaAturan = field.aturan.some((aturan) => aturan.aktif && !aturanTerpenuhi(aturan, terkirim))
-    if (adaAturan) tersembunyi.add(field.id)
-  }
-  return tersembunyi
 }
 
 /** Berapa field wajib yang masih kosong. `0` dan `false` dihitung terisi. */
@@ -195,52 +121,23 @@ export function useFormRuntime({ formVersionId, definisi, onSaved }: UseFormRunt
     return peta
   }, [allFields, answers])
 
-  const hiddenFieldIds = useMemo(
-    () => (allFields.length === 0 ? HIDE_KOSONG : hitungTersembunyi(allFields, terkirim)),
-    [allFields, terkirim],
-  )
-
   /**
-   * Buang jawaban field yang jadi tersembunyi.
-   *
-   * Tanpa ini isian lama tetap ada di state dan barisnya tetap ikut dirakit,
-   * lalu `simpanFormulir` membuangnya di server tanpa memberi tahu petugas.
-   */
-  useEffect(() => {
-    if (hiddenFieldIds.size === 0) return
-    setAnswers((prev) => {
-      const next: Record<string, unknown> = { ...prev }
-      let berubah = false
-      for (const id of hiddenFieldIds) {
-        if (id in next) {
-          delete next[id]
-          berubah = true
-        }
-      }
-      return berubah ? next : prev
-    })
-  }, [hiddenFieldIds])
-
-  /**
-   * Section yang isinya masih ada. Section yang semua fieldnya tersembunyi tidak
-   * dirender sama sekali, jadi petugas tidak lewat judul section yang kosong.
+   * Section yang punya pertanyaan. Section kosong tidak dirender, jadi petugas
+   * tidak lewat judul section yang tidak berisi apa pun.
    */
   const visibleSections = useMemo<SectionRuntime[]>(() => {
     if (sections.length === 0) return SECTION_KOSONG
     const hasil = sections
       .map((section) => ({
         ...section,
-        fields: section.fields.filter((f) => !hiddenFieldIds.has(f.id)),
+        fields: section.fields.filter((f) => f.aktif),
       }))
       .filter((section) => section.fields.length > 0)
     return hasil.length === 0 ? SECTION_KOSONG : hasil
-  }, [sections, hiddenFieldIds])
+  }, [sections])
 
-  /** Field wajib yang sedang terlihat; field tersembunyi tidak pernah ditanyakan. */
-  const fieldsWajib = useMemo(
-    () => allFields.filter((f) => f.wajib && !hiddenFieldIds.has(f.id)),
-    [allFields, hiddenFieldIds],
-  )
+  /** Field wajib yang sedang terlihat. */
+  const fieldsWajib = useMemo(() => allFields.filter((f) => f.wajib), [allFields])
 
   const kosongWajib = useMemo(() => hitungKosong(fieldsWajib, answers), [fieldsWajib, answers])
 
@@ -313,10 +210,8 @@ export function useFormRuntime({ formVersionId, definisi, onSaved }: UseFormRunt
   // --- kirim ---------------------------------------------------------------
   const jawaban = useMemo(
     () =>
-      [...terkirim.entries()]
-        .filter(([fieldId]) => !hiddenFieldIds.has(fieldId))
-        .map(([fieldId, value]) => ({ fieldId, value })),
-    [terkirim, hiddenFieldIds],
+      [...terkirim.entries()].map(([fieldId, value]) => ({ fieldId, value })),
+    [terkirim],
   )
 
   /**
@@ -389,8 +284,6 @@ export function useFormRuntime({ formVersionId, definisi, onSaved }: UseFormRunt
     /** Jawaban lokal per `fieldId`; nilai kosong sengaja tetap ada di sini. */
     answers,
     setAnswer,
-    /** Field yang tidak lolos aturan visibility: tidak dirender dan tidak dikirim. */
-    hiddenFieldIds,
     visibleSections,
     fieldsWajib,
     /** `null` kalau semua field wajib yang terlihat sudah terisi. */

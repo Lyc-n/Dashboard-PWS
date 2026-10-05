@@ -1,43 +1,24 @@
 import { eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db.server'
-import { formFieldRules, formFields, formSections, formVersions, forms } from '@/lib/schema/schema'
+import { formFieldOptions, formFields, formSections, formVersions, forms } from '@/lib/schema/schema'
 import { KesalahanValidasi } from './form-version.server'
 import { namaTanpaPrefix } from '../lib/kode-bawaan'
 
-/** Baris `form_field_rules` bertipe 'option' yang sudah dipisah dari aturan. */
+/** Satu pilihan jawaban milik satu field. */
 export interface OpsiDefinisiField {
   id: string
   fieldId: string
-  value: string | null
+  value: string
   label: string | null
   urutan: number
   aktif: boolean
 }
 
 /**
- * Baris `form_field_rules` bertipe 'visibility'. `sourceFieldId` boleh null
- * kalau field sumbernya sudah dihapus, jadi editor harus menandai aturan ini
- * sendiri, bukan menganggapnya error.
- */
-export interface AturanDefinisiField {
-  id: string
-  fieldId: string
-  sourceFieldId: string | null
-  operator: 'equals' | 'not_equals' | null
-  value: string | null
-  label: string | null
-  urutan: number
-  aktif: boolean
-}
-
-/**
- * Versi form beserta section, field, opsi, dan aturan visibility-nya, untuk
- * render editor.
+ * Versi form beserta section, field, dan pilihan jawabannya, untuk render editor.
  *
- * Field dan aturan diambil satu query per tabel memakai `inArray`, lalu
- * dikelompokkan di memori. Opsi dan aturan sama-sama tabelnya
- * (`form_field_rules`), jadi dipisah berdasarkan kolom `tipe` supaya totalnya
- * tetap empat query dan tidak N+1 per section.
+ * Field dan opsi diambil satu query per tabel memakai `inArray`, lalu
+ * dikelompokkan di memori. Total tiga query, tidak N+1 per section.
  *
  * Nama field form bawaan dikembalikan dalam bentuk pendeknya. Database menyimpan
  * `<section>::<id>` supaya nama tetap unik per versi form walau id-nya dipakai
@@ -85,7 +66,6 @@ export async function ambilDefinisiVersi(formVersionId: string) {
     .select({
       id: formSections.id,
       formVersionId: formSections.formVersionId,
-      parentId: formSections.parentId,
       nama: formSections.nama,
       deskripsi: formSections.deskripsi,
       urutan: formSections.urutan,
@@ -94,7 +74,7 @@ export async function ambilDefinisiVersi(formVersionId: string) {
     .from(formSections)
     .where(eq(formSections.formVersionId, formVersionId))
 
-  // Versi tanpa section tidak punya field, jadi query field dan aturan dilewati
+  // Versi tanpa section tidak punya field, jadi query field dan opsi dilewati
   // saja. `inArray` dengan daftar kosong justru tetap memindai tabel.
   if (sections.length === 0) {
     return { ...versi[0], sections: [] }
@@ -134,56 +114,24 @@ export async function ambilDefinisiVersi(formVersionId: string) {
     }
   }
 
-  const ruleRows = await db
+  const opsiRows = await db
     .select({
-      id: formFieldRules.id,
-      fieldId: formFieldRules.fieldId,
-      tipe: formFieldRules.tipe,
-      value: formFieldRules.value,
-      label: formFieldRules.label,
-      sourceFieldId: formFieldRules.sourceFieldId,
-      operator: formFieldRules.operator,
-      urutan: formFieldRules.urutan,
-      aktif: formFieldRules.aktif,
+      id: formFieldOptions.id,
+      fieldId: formFieldOptions.fieldId,
+      value: formFieldOptions.value,
+      label: formFieldOptions.label,
+      urutan: formFieldOptions.urutan,
+      aktif: formFieldOptions.aktif,
     })
-    .from(formFieldRules)
-    .where(inArray(formFieldRules.fieldId, fieldRows.map((f) => f.id)))
-    .orderBy(formFieldRules.urutan)
+    .from(formFieldOptions)
+    .where(inArray(formFieldOptions.fieldId, fieldRows.map((f) => f.id)))
+    .orderBy(formFieldOptions.urutan)
 
   const opsiByField = new Map<string, OpsiDefinisiField[]>()
-  const aturanByField = new Map<string, AturanDefinisiField[]>()
-
-  for (const rule of ruleRows) {
-    if (rule.tipe === 'option') {
-      const list = opsiByField.get(rule.fieldId)
-      const opsi: OpsiDefinisiField = {
-        id: rule.id,
-        fieldId: rule.fieldId,
-        value: rule.value,
-        label: rule.label,
-        urutan: rule.urutan,
-        aktif: rule.aktif,
-      }
-      if (list) list.push(opsi)
-      else opsiByField.set(rule.fieldId, [opsi])
-      continue
-    }
-
-    // `formFieldRuleType` hanya punya dua nilai, jadi selain 'option' pasti
-    // 'visibility'; tidak perlu guard tipe ketiga.
-    const list = aturanByField.get(rule.fieldId)
-    const aturan: AturanDefinisiField = {
-      id: rule.id,
-      fieldId: rule.fieldId,
-      sourceFieldId: rule.sourceFieldId,
-      operator: rule.operator,
-      value: rule.value,
-      label: rule.label,
-      urutan: rule.urutan,
-      aktif: rule.aktif,
-    }
-    if (list) list.push(aturan)
-    else aturanByField.set(rule.fieldId, [aturan])
+  for (const baris of opsiRows) {
+    const list = opsiByField.get(baris.fieldId)
+    if (list) list.push(baris)
+    else opsiByField.set(baris.fieldId, [baris])
   }
 
   return {
@@ -194,7 +142,6 @@ export async function ambilDefinisiVersi(formVersionId: string) {
         ...field,
         nama: namaUntukEditor(field.nama),
         opsi: opsiByField.get(field.id) ?? [],
-        aturan: aturanByField.get(field.id) ?? [],
       })),
     })),
   }

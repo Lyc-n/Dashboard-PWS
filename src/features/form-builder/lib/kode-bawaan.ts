@@ -76,6 +76,20 @@ export interface FieldBawaan {
   optionSourceKey: string | null;
 }
 
+/**
+ * Bentuk draft yang diperiksa satu form bawaan sebelum ditulis.
+ *
+ * `sectionsLama` dan `fieldsLama` adalah isi versi ini sebelum draft disimpan.
+ * Keduanya dipakai untuk menolak rename dan penghapusan: nama section dan nama
+ * field adalah kunci yang dibaca form kader, bukan label yang bebas diubah.
+ */
+export interface DraftBawaan {
+  sections: SectionBawaan[];
+  fields: FieldBawaan[];
+  sectionsLama: { id: string; nama: string }[];
+  fieldsLama: { id: string; sectionId: string; nama: string; optionSourceKey: string | null }[];
+}
+
 /** Nama field tanpa prefix `<section>::`, sama seperti yang dibaca `templateFromRows()`. */
 export function namaTanpaPrefix(nama: string): string {
   const found = nama.indexOf(PEMBATAS_NAMA_FIELD);
@@ -103,42 +117,12 @@ function gagal(pesan: string): HasilValidasi {
 }
 
 /**
- * Periksa draft form bawaan sebelum ditulis.
+ * Periksa draft form kunjungan rumah sebelum ditulis.
  *
- * `formKode` null berarti form manual, dan ini bukan urusannya — pemanggilnya
- * sudah tahu itu lewat `isNull(forms.kode)` saat membuat form.
+ * Dipanggil lewat {@link aturanForm}, bukan langsung: pemanggil tidak perlu tahu
+ * kode form mana yang punya aturan apa.
  */
-export function validasiStrukturBawaan(params: {
-  formKode: string | null;
-  sections: SectionBawaan[];
-  fields: FieldBawaan[];
-  /** Section yang ada di versi ini sebelum draft ini disimpan, untuk deteksi hapus/rename. */
-  sectionsLama: { id: string; nama: string }[];
-  fieldsLama: { id: string; sectionId: string; nama: string; optionSourceKey: string | null }[];
-  /** Aturan visibility yang ikut tersimpan, dicek supaya form KR tidak punya config mati. */
-  adaAturanVisibility?: boolean;
-}): HasilValidasi {
-  const { formKode, sections, fields, sectionsLama, fieldsLama } = params;
-  if (formKode === null) return { ok: true };
-
-  if (formKode === KODE_FORM_BAWAAN.kunjunganRumah) {
-    return validasiKunjunganRumah({ sections, fields, sectionsLama, fieldsLama, adaAturanVisibility: params.adaAturanVisibility });
-  }
-
-  // Form bawaan lain (kegiatan) belum punya pemetaan balik seperti KR, jadi
-  // strukturnya belum dikunci. Tambah aturan di sini saat kegiatan punya UI sendiri.
-  return { ok: true };
-}
-
-interface Payload {
-  sections: SectionBawaan[];
-  fields: FieldBawaan[];
-  sectionsLama: { id: string; nama: string }[];
-  fieldsLama: { id: string; sectionId: string; nama: string; optionSourceKey: string | null }[];
-  adaAturanVisibility?: boolean;
-}
-
-function validasiKunjunganRumah({ sections, fields, sectionsLama, fieldsLama, adaAturanVisibility }: Payload): HasilValidasi {
+function validasiKunjunganRumah({ sections, fields, sectionsLama, fieldsLama }: DraftBawaan): HasilValidasi {
   // --- Section: nama tetap, tidak boleh rename, tambah, atau hapus ---
   const namaSectionBaru = new Map<string, string>();
   for (const s of sections) {
@@ -220,7 +204,7 @@ function validasiKunjunganRumah({ sections, fields, sectionsLama, fieldsLama, ad
     }
 
     // Sumber opsi. Tidak ada sumber dinamis di form ini: opsi field select
-    // disimpan sebagai `form_field_rules`, bukan dari option source.
+    // disimpan sebagai `form_field_options`, bukan dari option source.
     if (f.optionSourceType !== null) {
       return gagal(`Field "${label}" tidak boleh memakai sumber pilihan dari data. Pilihan form kunjungan rumah ditulis manual.`);
     }
@@ -249,27 +233,20 @@ function validasiKunjunganRumah({ sections, fields, sectionsLama, fieldsLama, ad
     );
   }
 
-  // --- Aturan visibility tidak berlaku di form ini ---
-  if (adaAturanVisibility) {
-    return gagal(
-      "Aturan tampil/sembunyi tidak dipakai form kunjungan rumah. Kondisi form ini sudah ditentukan di dalam aplikasi, jadi aturan yang disimpan di sini tidak akan dijalankan.",
-    );
-  }
-
   return { ok: true };
 }
 
-/**
- * Ringkasan aturan yang sudah pasti ditolak server, untuk dipakai editor.
+/** Ringkasan aturan yang sudah pasti ditolak server, untuk dipakai editor.
  *
  * Tujuannya satu: jangan menawarkan kontrol yang kalau dipakai pasti berakhir
- * dengan build gagal. Penegakan sebenarnya tetap di `validasiStrukturBawaan()`
- * — UI yang lupa mengunci kontrol hanya jadi tidak ramah, bukan jadi tidak aman.
+ * dengan build gagal. Penegakan sebenarnya tetap di `validasiDraft` milik tiap
+ * form bawaan — UI yang lupa menonaktifkan kontrol hanya jadi tidak ramah, bukan
+ * jadi tidak aman.
  *
  * Karena itu sumbernya sama: apa yang ditulis di sini harus persis apa yang
- * diterima `validasiStrukturBawaan()`. Form yang aturannya belum dipetakan
- * balik (kegiatan) mendapat {@link BEBAS_BUTUH_DIEDIT} supaya editor tidak
- * membatasi sesuatu yang sebenarnya boleh diubah.
+ * diterima `validasiDraft`. Form yang aturannya belum dipetakan balik
+ * (kegiatan) mendapat {@link BEBAS_BUTUH_DIEDIT} supaya editor tidak membatasi
+ * sesuatu yang sebenarnya boleh diubah.
  */
 export interface KunciEditor {
   /** Nama section tidak boleh diubah. */
@@ -278,8 +255,6 @@ export interface KunciEditor {
   strukturSection: boolean;
   /** Sumber pilihan jawaban dari data tidak boleh dipasang. */
   optionSource: boolean;
-  /** Aturan visibility tidak dijalankan form ini, jadi jangan pernah dibuat. */
-  aturanVisibility: boolean;
   /** Tipe yang boleh dipilih di palette dan dropdown. null = semua bebas. */
   tipe: ReadonlySet<string> | null;
   /** Field dengan nama ini tidak boleh dihapus. */
@@ -291,7 +266,6 @@ const BEBAS_BUTUH_DIEDIT: KunciEditor = {
   namaSection: false,
   strukturSection: false,
   optionSource: false,
-  aturanVisibility: false,
   tipe: null,
   namaFieldTidakBolehDihapus: () => false,
 };
@@ -300,13 +274,52 @@ const KUNCI_KUNJUNGAN_RUMAH: KunciEditor = {
   namaSection: true,
   strukturSection: true,
   optionSource: true,
-  aturanVisibility: true,
   tipe: TIPE_KADER,
   namaFieldTidakBolehDihapus: (nama) => namaTanpaPrefix(nama) === FIELD_RECORD_LEGACY,
 };
 
-/** Aturan kunci editor untuk satu form. `formKode` null berarti form manual. */
-export function kunciEditorForm(formKode: string | null): KunciEditor {
-  if (formKode === KODE_FORM_BAWAAN.kunjunganRumah) return KUNCI_KUNJUNGAN_RUMAH;
-  return BEBAS_BUTUH_DIEDIT;
+/**
+ * Aturan satu form bawaan: apa yang ditolak saat Build, dan apa yang dikunci di
+ * editor.
+ *
+ * Satu tempat untuk menambah form bawaan baru — tinggal satu entri di
+ * {@link ATURAN_BAWAAN}, bukan satu cabang di dua fungsi.
+ */
+export interface AturanFormBawaan {
+  /** Tolak draft yang bentuknya akan membuat form ini gagal render. */
+  validasiDraft: (draft: DraftBawaan) => HasilValidasi;
+  /** Bagian editor yang form ini larang. */
+  kunciEditor: KunciEditor;
+}
+
+const ATURAN_BAWAAN: Record<string, AturanFormBawaan> = {
+  [KODE_FORM_BAWAAN.kunjunganRumah]: {
+    validasiDraft: validasiKunjunganRumah,
+    kunciEditor: KUNCI_KUNJUNGAN_RUMAH,
+  },
+  // Form bawaan berikutnya (kegiatan) belum punya UI sendiri, jadi strukturnya
+  // belum dikunci. Tambahkan entri di sini saat kegiatan punya UI sendiri.
+};
+
+/**
+ * Aturan form bebas: draft apa pun lolos, seluruh editor terbuka.
+ *
+ * Dipakai untuk form manual (`forms.kode` null) dan untuk kode form bawaan yang
+ * belum punya entri di {@link ATURAN_BAWAAN}. Default bebas supaya form yang
+ * baru punya UI sendiri tidak terkunci total tanpa disengaja.
+ */
+const ATURAN_BEBAS: AturanFormBawaan = {
+  validasiDraft: () => ({ ok: true }),
+  kunciEditor: BEBAS_BUTUH_DIEDIT,
+};
+
+/**
+ * Aturan untuk satu form, dihitung dari `forms.kode`.
+ *
+ * Satu-satunya tempat yang perlu diganti kalau ada form bawaan baru. `null`
+ * berarti form manual: tidak ada penjaga, editor terbuka penuh.
+ */
+export function aturanForm(formKode: string | null): AturanFormBawaan {
+  if (formKode === null) return ATURAN_BEBAS;
+  return ATURAN_BAWAAN[formKode] ?? ATURAN_BEBAS;
 }

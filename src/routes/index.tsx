@@ -9,6 +9,8 @@ import type { SummaryCardData } from "@/components/organisms";
 import { PageHeader, SectionCard, StatCard, Toolbar } from "@/components/molecules";
 import { Select, StatusBadge } from "@/components/atoms";
 import { paginate } from "@/features/laporan/components/report-shared";
+import { useKegiatanTrend } from "@/features/dashboard/useKegiatanTrend";
+import { KegiatanTrendChart } from "@/features/dashboard/KegiatanTrendChart";
 
 export const Route = createFileRoute("/")({
   beforeLoad: requireAuth,
@@ -19,6 +21,7 @@ export const Route = createFileRoute("/")({
 
 function Dashboard() {
   const data = Route.useLoaderData();
+  const { data: trendData, loading: trendLoading } = useKegiatanTrend();
 
   const [statusF, setStatusF] = useState("all");
   const [sortKey, setSortKey] = useState<string | null>("tgl");
@@ -78,6 +81,13 @@ function Dashboard() {
       <KelurahanSection items={items} />
 
       <SectionCard
+        title="Trend Kegiatan Pemberdayaan (12 Bulan Terakhir)"
+        sub="Klik titik pada grafik untuk melihat laporan kegiatan bulan tersebut di halaman Laporan."
+      >
+        <KegiatanTrendChart data={trendData} loading={trendLoading} />
+      </SectionCard>
+
+      <SectionCard
         title="Isian Form Terbaru"
         sub="50 isian terakhir dari database, dari semua form. Nama form diambil dari form asalnya."
       >
@@ -86,105 +96,105 @@ function Dashboard() {
             Belum ada isian form di database. Isi lewat halaman Isi Formulir atau jalankan seed.
           </p>
         ) : (
-          <DataTable
-            className="mt-3.5"
-            columns={[
-              { key: "tgl", label: "Tanggal", sortable: true },
-              { key: "form", label: "Form" },
-              { key: "kel", label: "Kelurahan" },
-              { key: "nama", label: "Sasaran" },
-              { key: "petugas", label: "Petugas" },
-              { key: "status", label: "Status" },
-              { key: "aksi", label: "Aksi" },
-            ]}
-            rows={pageRows}
-            renderRow={(row) => (
-              <tr key={row.id} className="border-b border-surface-2 last:border-none hover:bg-surface-2">
-                <td className="whitespace-nowrap px-3 py-2.5">{fmtDate(row.tanggal)}</td>
-                <td className="px-3 py-2.5">
-                  <div className="font-semibold text-ink">{row.formNama}</div>
-                  <div className="text-muted">Kel. {row.kelurahan}</div>
-                </td>
-                <td className="px-3 py-2.5">
-                  <div className="font-semibold text-ink">{row.nama}</div>
-                  <div className="text-[11px] text-muted">
-                    {row.nik ? `NIK ${row.nik}` : "Tanpa warga"}
-                  </div>
-                </td>
-                <td className="px-3 py-2.5 text-muted">{row.petugas}</td>
-                <td className="px-3 py-2.5">
-                  <StatusBadge value="Selesai" />
-                </td>
-                <td className="px-3 py-2.5">
-                  {row.nik ? (
-                    <Link
-                      to="/sasaran/$id"
-                      params={{ id: row.nik }}
-                      className="text-[11px] font-semibold text-accent hover:text-accent-hover"
-                    >
-                      Lihat
-                    </Link>
-                  ) : (
-                    <span className="text-[11px] text-muted">—</span>
-                  )}
-                </td>
-              </tr>
-            )}
-            renderMobileRow={(row) => (
-              <div key={row.id} className="border-b border-surface-2 last:border-none px-3.5 py-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="font-semibold text-ink">{row.nama}</div>
-                    <div className="text-[11px] text-muted">Kel. {row.kelurahan}</div>
-                  </div>
-                  <StatusBadge value="Selesai" />
+        <DataTable
+          className="mt-3.5"
+          columns={[
+            { key: "tgl", label: "Tanggal", sortable: true },
+            { key: "form", label: "Form" },
+            { key: "kel", label: "Kelurahan" },
+            { key: "nama", label: "Sasaran" },
+            { key: "petugas", label: "Petugas" },
+            { key: "status", label: "Status" },
+            { key: "aksi", label: "Aksi" },
+          ]}
+          rows={pageRows}
+          renderRow={(row) => (
+            <tr key={row.id} className="border-b border-surface-2 last:border-none hover:bg-surface-2">
+              <td className="whitespace-nowrap px-3 py-2.5">{fmtDate(row.tanggal)}</td>
+              <td className="px-3 py-2.5">
+                <div className="font-semibold text-ink">{row.formNama}</div>
+                <div className="text-muted">Kel. {row.kelurahan}</div>
+              </td>
+              <td className="px-3 py-2.5">
+                <div className="font-semibold text-ink">{row.nama}</div>
+                <div className="text-[11px] text-muted">
+                  {row.nik ? `NIK ${row.nik}` : "Tanpa warga"}
                 </div>
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] text-muted">{fmtDate(row.tanggal)}</span>
-                  <span className="text-[11px] text-muted">· {row.petugas}</span>
-                </div>
+              </td>
+              <td className="px-3 py-2.5 text-muted">{row.petugas}</td>
+              <td className="px-3 py-2.5">
+                <StatusBadge value="Selesai" />
+              </td>
+              <td className="px-3 py-2.5">
                 {row.nik ? (
                   <Link
                     to="/sasaran/$id"
                     params={{ id: row.nik }}
-                    className="mt-2 inline-flex text-[11px] font-semibold text-accent hover:text-accent-hover"
+                    className="text-[11px] font-semibold text-accent hover:text-accent-hover"
                   >
-                    Lihat Detail
+                    Lihat
                   </Link>
-                ) : null}
+                ) : (
+                  <span className="text-[11px] text-muted">—</span>
+                )}
+              </td>
+            </tr>
+          )}
+          renderMobileRow={(row) => (
+            <div key={row.id} className="border-b border-surface-2 last:border-none px-3.5 py-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-semibold text-ink">{row.nama}</div>
+                  <div className="text-[11px] text-muted">Kel. {row.kelurahan}</div>
+                </div>
+                <StatusBadge value="Selesai" />
               </div>
-            )}
-            sortKey={sortKey}
-            sortDir={sortDir}
-            onSort={handleSort}
-            toolbar={
-              <Toolbar>
-                <Select
-                  value={statusF}
-                  onChange={(e) => {
-                    setStatusF(e.target.value);
-                    setPage(1);
-                  }}
-                  aria-label="Filter petugas"
-                  className="max-w-52.5"
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] text-muted">{fmtDate(row.tanggal)}</span>
+                <span className="text-[11px] text-muted">· {row.petugas}</span>
+              </div>
+              {row.nik ? (
+                <Link
+                  to="/sasaran/$id"
+                  params={{ id: row.nik }}
+                  className="mt-2 inline-flex text-[11px] font-semibold text-accent hover:text-accent-hover"
                 >
-                  <option value="all">Semua petugas</option>
-                  {[...new Set(data.recent.map((r) => r.petugas))].map((p) => (
-                    <option key={p}>{p}</option>
-                  ))}
-                </Select>
-                <span className="ml-auto text-xs font-semibold text-muted">
-                  {filtered.length} isian form
-                </span>
-              </Toolbar>
-            }
-            info={info}
-            page={pageClamped}
-            canPrev={pageClamped > 1}
-            canNext={pageClamped < maxPage}
-            onPrev={() => setPage((p) => Math.max(1, p - 1))}
-            onNext={() => setPage((p) => Math.min(maxPage, p + 1))}
-          />
+                  Lihat Detail
+                </Link>
+              ) : null}
+            </div>
+          )}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={handleSort}
+          toolbar={
+            <Toolbar>
+              <Select
+                value={statusF}
+                onChange={(e) => {
+                  setStatusF(e.target.value);
+                  setPage(1);
+                }}
+                aria-label="Filter petugas"
+                className="max-w-52.5"
+              >
+                <option value="all">Semua petugas</option>
+                {[...new Set(data.recent.map((r) => r.petugas))].map((p) => (
+                  <option key={p}>{p}</option>
+                ))}
+              </Select>
+              <span className="ml-auto text-xs font-semibold text-muted">
+                {filtered.length} isian form
+              </span>
+            </Toolbar>
+          }
+          info={info}
+          page={pageClamped}
+          canPrev={pageClamped > 1}
+          canNext={pageClamped < maxPage}
+          onPrev={() => setPage((p) => Math.max(1, p - 1))}
+          onNext={() => setPage((p) => Math.min(maxPage, p + 1))}
+        />
         )}
       </SectionCard>
     </AppShell>

@@ -6,7 +6,7 @@ const STAGES = [
   { key: "validate", label: "Memvalidasi struktur form..." },
   { key: "sections", label: "Menyimpan section..." },
   { key: "fields", label: "Menyimpan pertanyaan..." },
-  { key: "rules", label: "Menyimpan opsi & aturan..." },
+  { key: "rules", label: "Menyimpan pilihan jawaban..." },
   { key: "done", label: "Selesai" },
 ] as const;
 

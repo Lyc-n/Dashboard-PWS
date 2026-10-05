@@ -21,9 +21,8 @@
  *     satu pun yang dicentang (itu sah, bukan error).
  *   - `group` mengirim array of object datar `{ kolom1, kolom2, ... }` — bentuk
  *     yang diterima `validasiNilaiGroup`. Selnya teks, angka, atau boolean.
- *   - `image`/`file` TIDAK mengirim apa pun. Lampiran hidup di `survey_files`,
- *     belum ada upload di fase ini, dan `simpanFormulir` menolak jawaban
- *     tidak kosong untuk kedua tipe itu.
+ *   - `image`/`file` TIDAK mengirim apa pun. Belum ada upload di fase ini dan
+ *     `simpanFormulir` menolak jawaban tidak kosong untuk kedua tipe itu.
  *
  * Opsi dibaca dari `opsiDinamis` kalau tidak null, kalau tidak dari `opsi` yang
  * `aktif !== false`. Urutan dan sumbernya sama persis dengan `opsiSah()` di
@@ -37,6 +36,7 @@ import { memo, useCallback } from "react";
 import { Button, Checkbox, Input, RadioCard, Select, Textarea } from "@/components/atoms";
 import { FormField } from "@/components/molecules";
 import { MAX_BARIS_GROUP } from "@/features/form-builder/services/validasi";
+import { FieldCariWarga } from "@/features/survey/components/FieldCariWarga";
 import type { FieldRuntime } from "@/features/survey/services/form-runtime.server";
 import { cn } from "@/lib/utils";
 import { daftarTeks, teksNilai } from "@/features/survey/lib/format-jawaban";
@@ -354,6 +354,30 @@ function DynamicFieldImpl({
 
   switch (field.tipe) {
     case "text": {
+      // Field yang menunjuk Data Sasaran: pencarian jalan di browser tiap
+      // diketik, jadi state-nya di subkomponen — `DynamicField` sendiri tetap
+      // tanpa `useState` supaya `memo`-nya berguna untuk form yang punya ratusan
+      // field.
+      //
+      // `readOnly` (pratinjau Form Builder) sengaja jatuh ke jalur biasa di
+      // bawah: pratinjau tidak boleh memanggil server, dan penanda wajibnya
+      // sudah dimatikan.
+      if (field.cariWarga && !readOnly) {
+        return (
+          <FieldCariWarga
+            kolom={field.cariWarga}
+            label={field.label}
+            value={value}
+            onChange={onChange}
+            hint={hint}
+            error={error}
+            invalid={invalid}
+            placeholder={placeholder}
+            required={field.wajib}
+          />
+        );
+      }
+
       // Saran hanya untuk field teks: `<datalist>` memang hanya berlaku untuk
       // input teks di browser. Isian tetap bebas — daftar ini suggestion, bukan
       // daftar jawaban wajib (sifat itu datang dari `validasiNilaiOpsiTerpilih`

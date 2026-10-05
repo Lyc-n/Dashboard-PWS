@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  SUMBER_CARI_WARGA,
   SUMBER_OPSI,
   SUMBER_SUGGEST,
   WARGA_KEYS,
@@ -83,7 +84,7 @@ describe('tipeBolehPakaiSumber', () => {
     ).toBe(true)
   })
 
-  it('field teks hanya boleh memakai daftar saran', () => {
+  it('field teks hanya boleh memakai daftar saran atau pencarian warga', () => {
     expect(
       tipeBolehPakaiSumber({ tipe: 'text', type: SUMBER_SUGGEST, key: 'text' }),
     ).toBe(true)
@@ -95,6 +96,28 @@ describe('tipeBolehPakaiSumber', () => {
     ).toBe(false)
   })
 
+  it('pencarian warga hanya boleh dipakai pada field teks', () => {
+    for (const key of ['nama_art', 'nama_kk', 'nik']) {
+      expect(
+        tipeBolehPakaiSumber({ tipe: 'text', type: SUMBER_CARI_WARGA, key }),
+        key,
+      ).toBe(true)
+      // Dropdown dan `<datalist>` tidak berlaku di select, jadi offering
+      // sumber ini di sana akan表现为 dropdown kosong tanpa penjelasan.
+      expect(
+        tipeBolehPakaiSumber({ tipe: 'select', type: SUMBER_CARI_WARGA, key }),
+        key,
+      ).toBe(false)
+    }
+    // Field dengan kolom bukan teks: input tanggal/number tidak punya dropdown.
+    expect(
+      tipeBolehPakaiSumber({ tipe: 'number', type: SUMBER_CARI_WARGA, key: 'nik' }),
+    ).toBe(false)
+    expect(
+      tipeBolehPakaiSumber({ tipe: 'date', type: SUMBER_CARI_WARGA, key: 'nama_art' }),
+    ).toBe(false)
+  })
+
   it('select tidak boleh memakai daftar saran', () => {
     expect(
       tipeBolehPakaiSumber({
@@ -102,6 +125,14 @@ describe('tipeBolehPakaiSumber', () => {
         type: SUMBER_SUGGEST,
         key: 'text',
       }),
+    ).toBe(false)
+  })
+
+  it('pencarian warga dengan kolom tak dikenal tidak boleh dipasang', () => {
+    // Key menentukan kolom mana yang mengisi field, jadi key yang tidak dikenal
+    // berarti form tidak punya cara tahu apa yang harus diisi.
+    expect(
+      tipeBolehPakaiSumber({ tipe: 'text', type: SUMBER_CARI_WARGA, key: 'entah' }),
     ).toBe(false)
   })
 

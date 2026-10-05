@@ -5,7 +5,7 @@ import type { KunjunganRumahTemplates } from "@/lib/kunjungan-rumah-templates";
  * Definisi form kunjungan rumah dibaca dari database, bukan localStorage.
  *
  * Definisinya hanya-baca di sini: seluruh perubahan lewat Form Builder, yang
- * menyunting tabel `forms`/`form_sections`/`form_fields`/`form_field_rules`
+ * menyunting tabel `forms`/`form_sections`/`form_fields`/`form_field_options`
  * lewat siklus draft-publish. Jadi hook ini tidak lagi mengekspos jalur tulis
  * (`setTemplates`, `resetTemplates`, `importJson`) maupun ekspor JSON — semua
  * ikut hilang bersama tab "Form Kunjungan Rumah". Export memang masih berguna

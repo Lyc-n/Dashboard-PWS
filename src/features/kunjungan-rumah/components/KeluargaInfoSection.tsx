@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { KunjunganRumahTemplates } from "@/lib/kunjungan-rumah-templates";
 import { Input } from "@/components/atoms/Input";
 import { Select } from "@/components/atoms/Select";
 import { FormField } from "@/components/molecules/FormField";
 import { listSurveyors, cariSasaranWarga } from "@/lib/utils.functions";
+import { SaranWargaDropdown } from "@/features/survey/components/SaranWargaDropdown";
 import type { SasaranSuggestion } from "@/features/kunjungan-rumah/lib/warga-row";
 import { cn, normalkanNik } from "@/lib/utils";
 import type { KunjunganRumahAction, KunjunganRumahState } from "@/features/kunjungan-rumah/store/kunjunganRumahReducer";
@@ -24,56 +25,6 @@ interface Props {
   state: KunjunganRumahState;
   templates: KunjunganRumahTemplates;
   dispatch: React.Dispatch<KunjunganRumahAction>;
-}
-
-/** Dropdown suggestion warga sasaran: dari `data_warga` (sudah tersimpan) dan
- *  `data_warga_import` (belum tersimpan; baris yang NIK-nya sudah ada di
- *  `data_warga` dibuang server supaya tidak duplikat). */
-function SaranDropdown({
-  rows,
-  busy,
-  onPilih,
-  onTutup,
-}: {
-  rows: SasaranSuggestion[];
-  busy: boolean;
-  onPilih: (row: SasaranSuggestion) => void;
-  onTutup: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const klik = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onTutup();
-    };
-    document.addEventListener("mousedown", klik);
-    return () => document.removeEventListener("mousedown", klik);
-  }, [onTutup]);
-
-  return (
-    <div
-      ref={ref}
-      className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-line bg-surface shadow-lg"
-    >
-      {busy ? <p className="px-3 py-2 text-[11px] text-muted">Mencari data sasaran…</p> : null}
-      {!busy && rows.length === 0 ? (
-        <p className="px-3 py-2 text-[11px] text-muted">Tidak ada di Data Sasaran. Isi manual.</p>
-      ) : null}
-      {rows.map((r) => (
-        <button
-          key={r.rawId}
-          type="button"
-          onClick={() => onPilih(r)}
-          className="block w-full px-3 py-2 text-left hover:bg-[var(--color-accent-light)]"
-        >
-          <span className="block text-[12px] font-semibold text-ink">{r.namaArt || r.namaKk || "—"}</span>
-          <span className="block text-[11px] text-muted">
-            {r.nik ? `NIK ${r.nik}` : "NIK belum ada"} · KK {r.namaKk || "—"}
-          </span>
-          {r.alamat ? <span className="block text-[11px] text-muted">{r.alamat}</span> : null}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 export function KeluargaInfoSection({ state, templates, dispatch }: Props) {
@@ -210,11 +161,12 @@ export function KeluargaInfoSection({ state, templates, dispatch }: Props) {
                   aria-describedby={invalid ? errorId : undefined}
                 />
                 {rows ? (
-                  <SaranDropdown
+                  <SaranWargaDropdown
                     rows={rows}
                     busy={saranBusy}
                     onPilih={pilihSaran}
                     onTutup={tutupSaran}
+                    tampilkanAlamat
                   />
                 ) : null}
               </div>

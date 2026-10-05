@@ -1,13 +1,13 @@
 /**
  * Resolver sumber opsi dinamis untuk Form Builder.
  *
- * Sebagian field tidak menyimpan pilihan jawabannya di `form_field_rules`,
+ * Sebagian field tidak menyimpan pilihan jawabannya di `form_field_options`,
  * melainkan menunjuk ke data yang sudah ada lewat `form_fields.optionSourceType`
  * / `optionSourceKey` (lihat `form_fields` di `src/lib/schema/schema.ts`).
  * Contohnya field "Petugas" di Form Kegiatan Pemberождения, yang opsinya adalah
  * akun `users` yang aktif dan berperan staff atau kader.
  *
- * Kenapa begini, bukan menyimpan pilihan jawaban di `form_field_rules`:
+ * Kenapa begini, bukan menyimpan pilihan jawaban di `form_field_options`:
  * daftar petugas dan daftar fasilitas berubah setiap kali admin menambah atau
  * menonaktifkan data di /kelola. Kalau opsinya ikut disimpan, setiap perubahan
  * ikut mengubah isi form, dan form yang sudah pernah diisi jadi tidak konsisten
@@ -26,15 +26,17 @@
  * berlaku. `pastikanPetugasValid()` menutup celah itu di sisi server, jadi form
  * yang terlanjur terbuka tidak bisa menyimpan petugas yang sudah dinonaktifkan.
  */
-import { and, eq, isNotNull } from 'drizzle-orm'
+import { eq, isNotNull } from 'drizzle-orm'
 import { db } from '@/lib/db.server'
 import { listPetugasOpsi } from '@/lib/user-registry.server'
-import { fasilitasKesehatan, formFieldRules, dataWargaTable, wilayahKerja } from '@/lib/schema/schema'
+import { fasilitasKesehatan, formFieldOptions, dataWargaTable, wilayahKerja } from '@/lib/schema/schema'
 import { riwayatKsImport } from '@/lib/schema/data-import'
 import {
   BATAS_NILAI_DISTINCT,
   cariSumber,
   nilaiEnum,
+  SUMBER_CARI_WARGA,
+  SUMBER_SUGGEST,
 } from '@/features/form-builder/services/sumber-opsi'
 
 export interface OpsiDinamis {
@@ -141,32 +143,30 @@ async function opsiWarga(key: string): Promise<OpsiDinamis[]> {
 }
 
 /**
- * Daftar saran milik satu field: baris `form_field_rules` bertipe `option`.
+ * Daftar saran milik satu field: baris `form_field_options` miliknya.
  *
  * Bentuknya sama seperti opsi statis — sengaja, supaya terhapus dan ter-backup
- * bersama form. Bedanya hanya di sisi render: sarannyashown sebagai
+ * bersama form. Bedanya hanya di sisi render: sarannya shown sebagai
  * auto-complete dan tidak membatasi jawaban petugas.
  */
 async function opsiSuggest(fieldId: string | null): Promise<OpsiDinamis[]> {
   if (!fieldId) return []
 
   const baris = await db
-    .select({ value: formFieldRules.value, label: formFieldRules.label })
-    .from(formFieldRules)
-    .where(and(eq(formFieldRules.fieldId, fieldId), eq(formFieldRules.tipe, 'option')))
-    .orderBy(formFieldRules.urutan)
+    .select({ value: formFieldOptions.value, label: formFieldOptions.label })
+    .from(formFieldOptions)
+    .where(eq(formFieldOptions.fieldId, fieldId))
+    .orderBy(formFieldOptions.urutan)
 
-  return baris
-    .filter((b): b is { value: string; label: string | null } => b.value !== null)
-    .map((b) => ({ value: b.value, label: b.label || b.value }))
+  return baris.map((b) => ({ value: b.value, label: b.label || b.value }))
 }
 
 /**
  * Ambil pilihan untuk satu field.
  *
  * `optionSourceType` null atau kosong berarti field ini memakai opsi statis dari
- * `form_field_rules`; hasilnya kosong dan pemanggil harus pakai baris
- * `form_field_rules`, bukan hasil fungsi ini.
+ * `form_field_options`; hasilnya kosong dan pemanggil harus pakai baris
+ * `form_field_options`, bukan hasil fungsi ini.
  *
  * `fasKesId` membatasi pilihan ke satu fasilitas. null berarti semua fasilitas,
  * dan itu dipakai ketika pemanggil tidak tahu fasilitas mana yang relevan —
@@ -205,8 +205,21 @@ export async function resolveOpsiDinamis(params: {
     case 'warga':
       opsi = await opsiWarga(optionSourceKey ?? '')
       break
-    case 'suggest':
+    case SUMBER_SUGGEST:
       opsi = await opsiSuggest(params.fieldId ?? null)
+      break
+    case SUMBER_CARI_WARGA:
+      // Sengaja tanpa query. Pencarian terjadi di browser tiap kali petugas
+      // mengetik, bukan sekali saat form dibuka — jadi tidak ada daftar yang bisa
+      // dikirim ke sini.
+      //
+      // Konsekuensi yang harus dijaga: `opsi` TIDAK BOLEH diisi hasil pencarian.
+      // Kalau nanti diisi, `opsiSah()` di form-runtime.server.ts akan
+      // memperlakukannya sebagai daftar jawaban dan menolak nilai yang diketik
+      // manual saat simpan.
+      // Karena kosong, `validasiNilaiOpsiTerpilih` meloloskan tipe `text` apa
+      // pun — saran tidak membatasi jawaban, sama seperti `suggest`.
+      opsi = []
       break
     default:
       // Seharusnya tidak terjadi: `validasiSumberOpsi` menolak type tak dikenal saat build.
@@ -215,15 +228,16 @@ export async function resolveOpsiDinamis(params: {
 
   // Daftar kosong dianggap sumber tidak dikenali, sama perlakuan dengan
   // `users`: dropdown kosong tanpa penjelasan lebih membingungkan daripada
-  // banner "perbaiki di Kelola". Pengecualiannya `suggest` — daftar saran
-  // boleh kosong, karena petugas tetap boleh mengisi bebas.
-  const adalahSaran = optionSourceType === 'suggest'
+  // banner "perbaiki di Kelola". Pengecualiannya dua sumber yang memang tidak
+  // punya daftar: `suggest` (daftar sarannya boleh kosong karena petugas tetap
+  // boleh mengisi bebas) dan `cari_warga` (pencariannya nanti saat mengetik).
+  const tanpaDaftar = optionSourceType === SUMBER_SUGGEST || optionSourceType === SUMBER_CARI_WARGA
 
   return {
     opsi,
-    sumberTidakDikenali: opsi.length === 0 && !adalahSaran,
+    sumberTidakDikenali: opsi.length === 0 && !tanpaDaftar,
     label: source.label,
-    saran: adalahSaran ? opsi.map((o) => o.label) : [],
+    saran: optionSourceType === SUMBER_SUGGEST ? opsi.map((o) => o.label) : [],
   }
 }
 

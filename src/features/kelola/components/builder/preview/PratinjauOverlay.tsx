@@ -22,7 +22,6 @@ import { DynamicField } from '@/features/survey/components/DynamicField'
 import type { FieldRuntime } from '@/features/survey/services/form-runtime.server'
 import type { DraftFormDocument } from '../types'
 import { draftKeRuntime } from './draft-ke-runtime'
-import { cn } from '@/lib/utils'
 
 export interface PratinjauOverlayProps {
   isOpen: boolean
@@ -30,45 +29,8 @@ export interface PratinjauOverlayProps {
   onClose: () => void
 }
 
-/**
- * Level section dari `depth`, gaya sama dengan halaman isi supaya bentuk nesting
- * di pratinjau sama dengan yang dilihat petugas.
- */
-function gayaSection(depth: number): string {
-  if (depth <= 0) return ''
-  return cn('border-l-2 border-dashed border-line pl-3', depth >= 2 && 'ml-2')
-}
-
 /** `onChange` sekali, dibuat stabil supaya `memo` di `DynamicField` menahan render. */
 function abaikanPerubahan(): void {}
-
-/**
- * Field dengan aturan visibility tidak bisa dievaluasi di pratinjau: aturan
- * butuh jawaban field sumber, sedangkan pratinjau tidak punya jawaban. Jadi
- * fieldnya tetap ditampilkan, dengan chip yang menyebut sumber aturannya.
- */
-function chipAturan(field: FieldRuntime, labelSumber: Map<string, string>) {
-  const aturan = field.aturan.filter((a) => a.aktif)
-  if (aturan.length === 0) return null
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {aturan.map((a) => {
-        const nama = a.sourceFieldId ? labelSumber.get(a.sourceFieldId) : null
-        return (
-          <span
-            key={a.id}
-            className="rounded-full border border-line bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-muted"
-          >
-            Bersyarat: tampil bila {nama ?? 'field sumber tidak ada'}{' '}
-            {a.operator === 'equals' ? 'sama dengan' : 'tidak sama dengan'}{' '}
-            {a.value ?? '(nilai kosong)'}
-          </span>
-        )
-      })}
-    </div>
-  )
-}
 
 export function PratinjauOverlay({
   isOpen,
@@ -79,15 +41,6 @@ export function PratinjauOverlay({
     () => (document ? draftKeRuntime(document) : null),
     [document],
   )
-
-  /** Nama field sumber untuk chip aturan: id (clientId) → label yang tampil. */
-  const labelSumber = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const section of definisi?.sections ?? []) {
-      for (const field of section.fields) map.set(field.id, field.label)
-    }
-    return map
-  }, [definisi])
 
   // Esc menutup pratinjau, dan halaman di belakangnya tidak ikut tergulir.
   useEffect(() => {
@@ -119,7 +72,6 @@ export function PratinjauOverlay({
         onChange={abaikanPerubahan}
         readOnly
       />
-      {chipAturan(field, labelSumber)}
     </div>
   )
 
@@ -178,10 +130,7 @@ export function PratinjauOverlay({
             key={section.id}
             title={
               <span>
-                {index + 1}.{' '}
-                <span className={gayaSection(section.depth)}>
-                  {section.nama}
-                </span>
+                {index + 1}. {section.nama}
               </span>
             }
             sub={section.deskripsi}

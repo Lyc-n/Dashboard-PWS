@@ -69,14 +69,7 @@ export const formFieldType = pgEnum("form_field_type", [
     // tidak dibatasi database; validasi batasnya ada di backend.
     "group",
 ]);
-export const formFieldRuleType = pgEnum("form_field_rule_type", [
-  "option",
-  "visibility",
-]);
-export const formFieldRuleOperator = pgEnum("form_field_rule_operator", [
-  "equals",
-  "not_equals",
-]);
+
 
 // Aksi yang dicatat di audit_logs. Sengaja enum, bukan varchar bebas: supaya query
 // "tampilkan semua yang menghapus data" tidak bergantung pada ejaan. Penulis perlu

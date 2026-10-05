@@ -37,15 +37,14 @@ export function FieldNode({
     index,
     group: field.sectionClientId,
     type: "field",
-    accept: ["palette", "field"],
+    accept: ["palette", "template", "field"],
     data: { kind: "field", clientId: fieldClientId },
     disabled,
   });
   
   const needsOptions = TIPE_BUTUH_OPSI.includes(field.tipe);
   const hasOptions = field.opsi.some((o) => o.value.trim() && o.aktif);
-  const hasRules = field.aturan.length > 0;
-  // Field yang memakai sumber tidak punya baris opsi di form_field_rules, jadi
+  // Field yang memakai sumber tidak punya baris opsi di form_field_options, jadi
   // "butuh opsi jawaban" tidak boleh menyala hanya karena `opsi` kosong.
   const source = cariSumber(field.optionSourceType, field.optionSourceKey);
   const sumberDipakai = field.optionSourceType === SUMBER_SUGGEST || source !== null;
@@ -109,7 +108,6 @@ export function FieldNode({
           {hasOptions && !sumberDipakai && (
             <span>☑ {field.opsi.filter((o) => o.aktif && o.value).length} opsi</span>
           )}
-          {hasRules && <span>🔗 {field.aturan.filter((a) => a.aktif).length} aturan</span>}
           {field.placeholder && <span className="italic">"{field.placeholder}"</span>}
         </div>
         
