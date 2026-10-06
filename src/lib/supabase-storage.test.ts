@@ -29,9 +29,10 @@ describe("uploadDataUrl (mocked fetch)", () => {
     const url = await uploadDataUrl(DATA_URL_JPEG, "kunjungan-rumah");
     expect(url).toContain("/storage/v1/object/public/foto/kunjungan-rumah/");
     expect(url).not.toContain(FAKE_KEY);
-    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    // `init` opsional di signature `fetch`, jadi dibiarkan mungkin undefined.
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit | undefined];
     expect(init?.method).toBe("POST");
-    expect((init?.headers as Record<string, string>)["Content-Type"]).toBe("image/jpeg");
+    expect((init?.headers as Record<string, string> | undefined)?.["Content-Type"]).toBe("image/jpeg");
   });
 
   it("HTTP error JSON → detail Supabase masuk pesan error", async () => {

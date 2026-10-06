@@ -858,7 +858,8 @@ export async function querySasaranListPaged(p: QuerySasaranParams): Promise<{ ro
         tgl_lahir: String(r.tgl_lahir ?? ""),
         jenis_kelamin: String(r.jenis_kelamin ?? ""),
     }))
-    const total = rowsOut.length ? Number((rows[0] as { total?: unknown })?.total ?? rowsOut.length) : rowsOut.length
+    const first = rows[0] as { total?: unknown } | undefined
+    const total = rowsOut.length ? Number(first?.total ?? rowsOut.length) : rowsOut.length
     return { rows: rowsOut, total }
 }
 

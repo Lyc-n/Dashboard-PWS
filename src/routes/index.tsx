@@ -145,7 +145,7 @@ function Dashboard() {
                     setPage(1);
                   }}
                   aria-label="Filter petugas"
-                  className="max-w-52.5"
+                  className="max-w-52.5 max-md:max-w-none"
                 >
                   <option value="all">Semua petugas</option>
                   {[...new Set(data.recent.map((r) => r.petugas))].map((p) => (

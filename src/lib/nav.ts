@@ -4,18 +4,19 @@ import type { AuthUser } from "@/lib/auth";
 
 export interface NavItem {
   label: string;
+  shortLabel?: string;
   to: string;
   Icon: typeof LayoutDashboard;
   adminOnly?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", to: "/", Icon: LayoutDashboard },
-  { label: "Data Sasaran", to: "/sasaran", Icon: FileText },
-  { label: "Kunjungan Rumah", to: "/kunjungan-rumah", Icon: ClipboardCheck },
-  { label: "Laporan", to: "/laporan", Icon: ScrollText },
-  { label: "Kegiatan", to: "/kegiatan", Icon: PersonStanding },
-  { label: "Kelola", to: "/kelola", Icon: Settings, adminOnly: true },
+  { label: "Dashboard", shortLabel: "Beranda", to: "/", Icon: LayoutDashboard },
+  { label: "Data Sasaran", shortLabel: "Sasaran", to: "/sasaran", Icon: FileText },
+  { label: "Kunjungan Rumah", shortLabel: "Kunjungan", to: "/kunjungan-rumah", Icon: ClipboardCheck },
+  { label: "Laporan", shortLabel: "Laporan", to: "/laporan", Icon: ScrollText },
+  { label: "Kegiatan", shortLabel: "Kegiatan", to: "/kegiatan", Icon: PersonStanding },
+  { label: "Kelola", shortLabel: "Kelola", to: "/kelola", Icon: Settings, adminOnly: true },
 ] as const;
 
 export function navItemsForUser(user: AuthUser | null): NavItem[] {

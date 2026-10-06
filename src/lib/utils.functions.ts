@@ -197,7 +197,7 @@ export const getSasaranDetail = createServerFn({ method: "GET" })
             // — pencariannya per NIK (bukan scan daftar penuh seperti sebelumnya).
             const found = warga
             if (!found) return { warga: null, surveys: [] as SurveyRow[] }
-            const riwayat = await queryRiwayatKsUntukNik(found.rawId ?? data.nik)
+            const riwayat = await queryRiwayatKsUntukNik(found.rawId)
             return {
                 warga: { ...found, ...riwayat },
                 surveys: surveys.filter((s) => s.nik === found.nik || s.nik === data.nik),

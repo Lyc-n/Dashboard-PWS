@@ -269,7 +269,7 @@ export function FormKunjunganRumahSection({ templates, setTemplates, resetTempla
                     const v = e.target.value;
                     setTemplates((t) => ({ ...t, sasaran: { ...t.sasaran, [curSasaran]: { ...t.sasaran[curSasaran], label: v } } }));
                   }}
-                  className="max-w-[260px]"
+                  className="max-w-[260px] max-md:max-w-none"
                   placeholder="Label sasaran"
                 />
                 <span className="text-xs text-muted">{templates.sasaran[curSasaran].fields.length} field</span>
@@ -313,11 +313,18 @@ export function FormKunjunganRumahSection({ templates, setTemplates, resetTempla
               </Button>
             </Toolbar>
             {templates.hasilOpsi.map((opsi, idx) => (
-              <div key={idx} className="flex items-center gap-2 rounded-[10px] border border-line bg-surface p-3">
-                <b className="flex-1 text-[13px]">{opsi}</b>
+              <div
+                key={idx}
+                className="flex flex-wrap items-center gap-2 rounded-[10px] border border-line bg-surface p-3"
+              >
+                <b className="min-w-0 flex-1 text-[13px]">{opsi}</b>
                 {hasilEditIdx === idx ? (
                   <>
-                    <Input value={hasilEditVal} onChange={(e) => setHasilEditVal(e.target.value)} className="max-w-50" />
+                    <Input
+                      value={hasilEditVal}
+                      onChange={(e) => setHasilEditVal(e.target.value)}
+                      className="max-w-50 max-md:max-w-none"
+                    />
                     <Button
                       size="sm"
                       variant="primary"
@@ -403,7 +410,10 @@ export function FormKunjunganRumahSection({ templates, setTemplates, resetTempla
               const fields = [...getFields()].sort((a, b) => a.order - b.order);
               if (fields.length === 0) return <EmptyState>Belum ada field — klik Tambah field.</EmptyState>;
               return fields.map((f) => (
-                <div key={f.id} className={`flex items-start gap-3 rounded-[10px] border border-line p-3 ${!f.active ? "bg-surface-2 opacity-60" : "bg-surface"}`}>
+                <div
+                  key={f.id}
+                  className={`flex items-start gap-3 rounded-[10px] border border-line p-3 max-md:flex-col ${!f.active ? "bg-surface-2 opacity-60" : "bg-surface"}`}
+                >
                   <div className="min-w-0 flex-1">
                     <b className="block text-[13px]">
                       {f.label} {f.required ? <span className="text-danger">*</span> : null}
@@ -414,7 +424,7 @@ export function FormKunjunganRumahSection({ templates, setTemplates, resetTempla
                       {f.hint ? ` · hint: ${f.hint}` : ""}
                     </small>
                   </div>
-                  <div className="flex flex-none flex-wrap items-center justify-end gap-1.5">
+                  <div className="flex flex-wrap items-center justify-end gap-1.5 max-md:w-full max-md:justify-start">
                     <Button size="sm" onClick={() => moveField(f.id, -1)}>
                       ↑
                     </Button>
