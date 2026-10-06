@@ -140,13 +140,13 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
             onChange={(e) => setQ(e.target.value)}
             placeholder="Cari nama atau fasilitas…"
             aria-label="Cari akun"
-            className="max-w-55"
+            className="max-w-55 max-md:max-w-none"
           />
           <Select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             aria-label="Filter status akun"
-            className="max-w-45"
+            className="max-w-45 max-md:max-w-none"
           >
             <option value="all">Semua status</option>
             <option value="on">Aktif</option>

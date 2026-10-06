@@ -36,7 +36,10 @@ export function PesertaPanel({ participants, onAdd, onToggle, onRemove }: Pesert
       {participants.length > 0 ? (
         <div className="mt-2.5 grid gap-2">
           {participants.map((p, i) => (
-            <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-center gap-2">
+            <div
+              key={i}
+              className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-center gap-2 max-md:grid-cols-1"
+            >
               <input value={p.nama} className={INPUT_CLS} readOnly />
               <Select value={p.kel} className="py-2 text-xs" aria-label={`Kelurahan peserta ${i + 1}`}>
                 <option>{p.kel}</option>
@@ -61,7 +64,7 @@ export function PesertaPanel({ participants, onAdd, onToggle, onRemove }: Pesert
         <p className="mt-2 text-xs text-muted">Belum ada peserta.</p>
       )}
 
-      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(0,110px)] gap-2">
+      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(0,110px)] gap-2 max-md:grid-cols-1">
         <input
           value={nama}
           placeholder="Nama peserta"

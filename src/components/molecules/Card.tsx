@@ -11,7 +11,7 @@ export function Card({ padded = true, bordered = true, className, ...props }: Ca
     <div
       className={cn(
         "rounded-[10px] bg-surface",
-        bordered && "border border-[var(--color-line-2)] shadow-card",
+        bordered && "border border-line-2 shadow-card",
         padded && "p-4",
         className,
       )}

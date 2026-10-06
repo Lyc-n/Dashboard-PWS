@@ -21,8 +21,12 @@ export class StorageUploadError extends Error {
   }
 }
 
+/** Ambil env var. `import.meta.env` hanya di-fill Vite untuk akses statis
+ *  (`import.meta.env.X`), sedangkan akses dinamis `env[name]` kosong di luar
+ *  dev server — jadi `process.env` (yang dipakai Vitest) jadi cadangan. */
 function env(name: string): string {
-  const v = (import.meta as unknown as { env: Record<string, string> }).env[name];
+  const meta = import.meta as unknown as { env?: Record<string, string | undefined> };
+  const v = meta.env?.[name] ?? process.env[name];
   if (!v) throw new Error(`${name} belum diisi`);
   return v;
 }

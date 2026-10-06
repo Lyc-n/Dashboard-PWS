@@ -233,12 +233,13 @@ export function RekapKunjunganRumahSection({
             </div>
           )}
 
-          <TandaTangan
-            nama={ttdNama}
-            jabatan={ttdJabatan}
-            boxClassName="w-72 text-center text-[11px]"
-            namaClassName="mt-8 font-semibold text-ink"
-          />
+          <div className="mt-6 grid justify-items-end">
+            <div className="w-full max-w-72 text-center text-[11px]">
+              <div className="text-muted">Kota Pasuruan, {TODAY}</div>
+              <div className="mt-8 font-semibold text-ink">{ttdNama}</div>
+              <div className="mt-0.5 text-muted">{ttdJabatan}</div>
+            </div>
+          </div>
         </div>
       </SectionCard>
     </>

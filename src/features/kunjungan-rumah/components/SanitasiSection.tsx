@@ -37,7 +37,7 @@ export function SanitasiSection({ state, templates, dispatch }: Props) {
         })}
         {sanitasiSelects.map((f) => (
             <label key={f.id} className="flex items-center gap-2 text-[13px]">
-              <Select value={String(sanField(state.sanitasi, f.id))} onChange={(e) => dispatch({ type: "SET_SAN_FIELD", key: f.id, value: e.target.value })} className="max-w-44 py-1 text-xs">
+              <Select value={String(sanField(state.sanitasi, f.id))} onChange={(e) => dispatch({ type: "SET_SAN_FIELD", key: f.id, value: e.target.value })} className="max-w-44 max-md:max-w-none py-1 text-xs">
                 <option value="">{f.label || "— Pilih —"}</option>
                 {(f.options ?? []).map((o) => (
                   <option key={o}>{o}</option>

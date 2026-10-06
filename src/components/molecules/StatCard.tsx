@@ -20,7 +20,12 @@ export function StatCard({ caption, value, valueClassName, sub, badge, progress,
         <span className="text-xs font-medium text-muted">{caption}</span>
         {badge}
       </div>
-      <span className={cn("block text-[26px] font-extrabold tracking-tight text-[var(--color-ink-strong)]", valueClassName)}>
+      <span
+        className={cn(
+          "block text-[26px] font-extrabold tracking-tight text-[var(--color-ink-strong)] max-sm:text-[22px]",
+          valueClassName,
+        )}
+      >
         {value}
       </span>
       {sub ? <div className="mt-1 text-right text-[11px] text-muted">{sub}</div> : null}
