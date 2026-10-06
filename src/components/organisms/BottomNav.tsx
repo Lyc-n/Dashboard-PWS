@@ -1,10 +1,16 @@
 import { Link } from "@tanstack/react-router";
 import { bottomNavItemsForUser } from "@/lib/nav";
 import { useAuth } from "@/providers/auth";
+import { LogOut } from "lucide-react";
 
 export function BottomNav() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const items = bottomNavItemsForUser(user);
+
+  const handleLogout = async () => {
+    await logout();
+  };
+
   return (
     <nav
       aria-label="Navigasi bawah"
@@ -26,7 +32,14 @@ export function BottomNav() {
           </Link>
         );
       })}
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="flex flex-1 flex-col items-center justify-center gap-[3px] rounded-lg py-1.5 text-[10px] font-semibold text-danger hover:bg-danger/10 transition-colors"
+      >
+        <LogOut size={20} strokeWidth={1.7} />
+        <span className="truncate">Keluar</span>
+      </button>
     </nav>
   );
 }
-

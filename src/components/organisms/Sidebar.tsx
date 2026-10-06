@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, ClipboardList } from "lucide-react";
+import { ChevronDown, ClipboardList, LogOut } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { APP_BRAND } from "@/lib/constants";
@@ -220,11 +220,16 @@ function FormulirDropdownTrigger({
 }
 
 export function Sidebar({ collapsed = false }: SidebarProps) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const items = navItemsForUser(user);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [navForms, setNavForms] = useState<BarisFormulirTerisi[]>([]);
   const [loadingForms, setLoadingForms] = useState(true);
+
+  const handleLogout = async () => {
+    await logout();
+    // The logout function already handles navigation to /pin
+  };
 
   const loadForms = useCallback(() => {
     let cancelled = false;
@@ -316,6 +321,18 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           );
         })}
       </nav>
+      {!collapsed && (
+        <div className="p-3 border-t border-line">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium text-danger hover:bg-danger/10 transition-colors"
+          >
+            <LogOut size={16} className="shrink-0" />
+            <span className="truncate">Keluar</span>
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

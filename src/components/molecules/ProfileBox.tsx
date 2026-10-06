@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Avatar } from "@/components/atoms/Avatar";
-import ThemeToggle from "@/components/ThemeToggle";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 export interface ProfileBoxProps {
   name?: string;
@@ -10,7 +9,20 @@ export interface ProfileBoxProps {
   onLogout?: () => void;
 }
 
+function useIsMobile(breakpoint = 768): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    setIsMobile(mql.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 export function ProfileBox({ name = "A. Jubaidi", avatarSrc = "https://i.pravatar.cc/100?img=12", onLogout }: ProfileBoxProps) {
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -25,35 +37,28 @@ export function ProfileBox({ name = "A. Jubaidi", avatarSrc = "https://i.pravata
     return () => document.removeEventListener("mousedown", handle);
   }, [open]);
 
+  if (!isMobile) {
+    return (
+      <div className="flex items-center gap-2.5">
+        <span className="text-[13px] font-semibold text-ink">{name}</span>
+        <Avatar src={avatarSrc} size="sm" />
+      </div>
+    );
+  }
+
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2.5 max-md:gap-0 cursor-pointer"
+        className="flex items-center gap-2 cursor-pointer"
         aria-label="Profil pengguna"
       >
-        <span className="text-[13px] font-semibold text-ink max-md:hidden">{name}</span>
         <Avatar src={avatarSrc} size="sm" />
       </button>
 
-      {open ? (
+      {open && (
         <div className="absolute right-0 top-full z-50 mt-2 w-42 overflow-hidden rounded-xl border border-line bg-surface shadow-elev">
-          <div className="flex items-center gap-2.5 px-4 py-3 border-b border-line">
-            <span className="text-sm font-semibold text-ink">{name}</span>
-          </div>
-          <div className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-ink hover:bg-surface-2 cursor-pointer">
-            <ThemeToggle plain />
-            Theme
-          </div>
-          <Link
-            to="/kelola"
-            onClick={() => setOpen(false)}
-            className="flex items-center px-4 py-2.5 text-[13px] font-medium text-ink hover:bg-surface-2 gap-2"
-          >
-            <Settings size={16} strokeWidth={1.5} className="m-1"/>
-            Kelola
-          </Link>
           {onLogout ? (
             <button
               type="button"
@@ -65,7 +70,7 @@ export function ProfileBox({ name = "A. Jubaidi", avatarSrc = "https://i.pravata
             </button>
           ) : null}
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
