@@ -16,41 +16,22 @@ import {
 } from '@/features/kunjungan-rumah/store/kunjunganRumahSelectors'
 import { KUNJUNGAN_RUMAH_SCHEMA_VERSION, createRecordId } from '@/features/kunjungan-rumah/types'
 import type { KunjunganRumahRecord } from '@/features/kunjungan-rumah/types'
-import { isAdminUser } from '@/lib/auth'
-import { useAuth } from '@/providers/auth'
-import type { AuthUser } from '@/lib/auth'
-import type { KunjunganRumahState } from '@/features/kunjungan-rumah/store/kunjunganRumahReducer'
 
 export interface UseKunjunganRumahFormOptions {
   /** Record yang sedang diedit. Saat diberikan, submit memperbarui record ini (bukan menambah baru). */
   record?: KunjunganRumahRecord | null
 }
 
-// [perbaikan] profil diambil dari useAuth() (cookie JWT via server), bukan getAuth() localStorage —
-//   expect: tak ada lagi pembacaan sesi localStorage; dengan login PIN tunggal, profil = admin
-//   jadi pra-isi kel/posy/ttd untuk kader tidak aktif (cabang admin menang), perilaku form utuh.
-function initialStateForUser(user: AuthUser | null): KunjunganRumahState {
-  const state = initialKunjunganRumahState()
-  if (!user || isAdminUser(user)) return state
-  if (user.kel) state.info.kelurahan = user.kel
-  if (user.posy) state.info.posyandu = user.posy
-  if (user.name) state.ttd = user.name
-  return state
-}
-
 export function useKunjunganRumahForm(opts?: UseKunjunganRumahFormOptions) {
   const { templates } = useKunjunganRumahTemplates()
   const toast = useToast()
-  // [perbaikan] dipanggil sebelum useReducer — expect: reducer lazy-init pakai profil dari
-  //   context (mount pertama mungkin null sampai RPC sesi selesai; cabang null = isi form default).
-  const { user } = useAuth()
   const record = opts?.record ?? null
   const editingId = record?.id ?? null
   const [state, dispatch] = useReducer(
     kunjunganRumahReducer,
     undefined,
     () => {
-      const s = initialStateForUser(user)
+      const s = initialKunjunganRumahState()
       const first = templates.hasilOpsi[0]
       if (first && s.hasil !== first) s.hasil = first
       return s

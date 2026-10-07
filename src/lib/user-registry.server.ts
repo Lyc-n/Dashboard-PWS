@@ -13,10 +13,15 @@
  * `SESSION_PROFILE` adalah konstanta hard-coded dengan role "Admin". Akibatnya:
  *
  *   - `users.pinHash` tidak pernah dipakai untuk memverifikasi siapa pun.
- *   - `requireAdmin` lolos untuk siapa saja yang punya sesi valid, karena role
- *     dibaca dari `SESSION_PROFILE`, bukan dari baris `users`.
+ *   - Tidak ada penjaga akses berbasis peran. Semua route dilindungi
+ *     `requireAuth` (punya sesi valid) dan itu saja; `users.role` hanya
+ *     mengklasifikasi jenis petugas, tidak membatasi halaman mana yang boleh
+ *     dibuka.
  *   - Tidak ada pemetaan sesi -> `users.id`, jadi `surveys.petugasId` tidak
  *     bisa diisi "otomatis dari siapa yang login".
+ *   - Tidak ada scoping data per wilayah. Kolom `kel`/`posy` yang muncul di
+ *     tabel /kelola berasal dari join `wilayah_kerja` untuk tampilan saja, dan
+ *     tidak pernah membatasi baris data yang bisa dilihat.
  *
  * Karena itu `pinHash` di sini diisi penanda yang tidak bisa dipakai login
  * (lihat `PENANDA_PIN_TIDAK_DIGUNAKAN`), dan petugas selalu dipilih manual di

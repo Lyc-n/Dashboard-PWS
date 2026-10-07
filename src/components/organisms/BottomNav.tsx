@@ -4,12 +4,8 @@ import { useAuth } from "@/providers/auth";
 import { LogOut } from "lucide-react";
 
 export function BottomNav() {
-  const { user, logout } = useAuth();
-  const items = bottomNavItemsForUser(user);
-
-  const handleLogout = async () => {
-    await logout();
-  };
+  const { logout } = useAuth();
+  const items = bottomNavItemsForUser();
 
   return (
     <nav
@@ -34,7 +30,7 @@ export function BottomNav() {
       })}
       <button
         type="button"
-        onClick={handleLogout}
+        onClick={() => void logout()}
         className="flex flex-1 flex-col items-center justify-center gap-[3px] rounded-lg py-1.5 text-[10px] font-semibold text-danger hover:bg-danger/10 transition-colors"
       >
         <LogOut size={20} strokeWidth={1.7} />

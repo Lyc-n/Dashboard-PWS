@@ -6,8 +6,6 @@ import { NUMBER_FIELDS, autoValueOf, computeRekap, rekapScopeId, SASARAN_GROUP_L
 import { useRekapKunjunganRumah } from "@/hooks/use-rekap-kunjungan-rumah";
 import type { RekapField } from "@/hooks/use-rekap-kunjungan-rumah";
 import { useKaderAktif } from "@/hooks/use-kader-aktif";
-import { useAuth } from "@/providers/auth";
-import { isAdminUser } from "@/lib/auth";
 import { useToast } from "@/providers/toast";
 import { SectionCard } from "@/components/molecules/SectionCard";
 import { Toolbar } from "@/components/molecules/Toolbar";
@@ -51,9 +49,7 @@ export function RekapKunjunganRumahSection({
   defaultPosy,
   defaultKader,
 }: Props) {
-  const { user } = useAuth();
   const toast = useToast();
-  const admin = isAdminUser(user);
   // Daftar kader dari tabel `users` (role='kader', aktif), sama dengan sumber yang
   // dipakai /kelola. `listKaderAktif()` sudah menyaring, jadi tidak perlu filter peran lagi.
   const { staff } = useKaderAktif();
@@ -63,19 +59,15 @@ export function RekapKunjunganRumahSection({
   const [posy, setPosy] = useState(defaultPosy ?? "all");
   const [kader, setKader] = useState(defaultKader ?? "all");
 
-  // Non-admin: wilayah & kader terkunci ke dirinya
-  const effKel = admin ? kel : (user?.kel ?? "all");
-  const effPosy = admin ? posy : (user?.posy ?? "all");
-  const effKader = admin ? kader : (user?.name ?? "all");
 
   const kaderList = useMemo(() => staff.map((s) => s.nama), [staff]);
 
   const { templates, records, getValue, setValue, clearScope } = useRekapKunjunganRumah();
 
   const scopeId = rekapScopeId(
-    effKel === "all" ? null : effKel,
-    effPosy === "all" ? null : effPosy,
-    effKader === "all" ? null : effKader,
+    kel === "all" ? null : kel,
+    posy === "all" ? null : posy,
+    kader === "all" ? null : kader,
   );
 
   const { rows } = useMemo(
@@ -105,32 +97,24 @@ export function RekapKunjunganRumahSection({
       <SectionCard className="no-print" title="Rekap Kunjungan Rumah" sub="Minggu dalam bulan. Angka turun otomatis dari data kunjungan rumah; sel boleh diubah manual, tersimpan per periode & wilayah.">
         <Toolbar>
           <Input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} aria-label="Periode bulan" className="max-w-42.5 max-md:max-w-none" />
-          {admin ? (
-            <>
-              <Select value={kel} onChange={(e) => setKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-42.5 max-md:max-w-none">
-                <option value="all">Semua kelurahan</option>
-                {KELS.map((k) => (
-                  <option key={k}>{k}</option>
-                ))}
-              </Select>
-              <Select value={posy} onChange={(e) => setPosy(e.target.value)} aria-label="Filter posyandu" className="max-w-42.5 max-md:max-w-none">
-                <option value="all">Semua posyandu</option>
-                {POSY.map((p) => (
-                  <option key={p}>{p}</option>
-                ))}
-              </Select>
-              <Select value={kader} onChange={(e) => setKader(e.target.value)} aria-label="Filter kader" className="max-w-50 max-md:max-w-none">
-                <option value="all">Semua kader</option>
-                {kaderList.map((k) => (
-                  <option key={k}>{k}</option>
-                ))}
-              </Select>
-            </>
-          ) : (
-            <span className="text-xs text-muted">
-              Wilayah kader: <b className="text-ink">{user?.kel ?? "—"}{user?.posy ? ` · ${user.posy}` : ""}</b>
-            </span>
-          )}
+          <Select value={kel} onChange={(e) => setKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-42.5 max-md:max-w-none">
+            <option value="all">Semua kelurahan</option>
+            {KELS.map((k) => (
+              <option key={k}>{k}</option>
+            ))}
+          </Select>
+          <Select value={posy} onChange={(e) => setPosy(e.target.value)} aria-label="Filter posyandu" className="max-w-42.5 max-md:max-w-none">
+            <option value="all">Semua posyandu</option>
+            {POSY.map((p) => (
+              <option key={p}>{p}</option>
+            ))}
+          </Select>
+          <Select value={kader} onChange={(e) => setKader(e.target.value)} aria-label="Filter kader" className="max-w-50 max-md:max-w-none">
+            <option value="all">Semua kader</option>
+            {kaderList.map((k) => (
+              <option key={k}>{k}</option>
+            ))}
+          </Select>
           <Button
             variant="ghost"
             className="ml-auto"
@@ -233,13 +217,12 @@ export function RekapKunjunganRumahSection({
             </div>
           )}
 
-          <div className="mt-6 grid justify-items-end">
-            <div className="w-full max-w-72 text-center text-[11px]">
-              <div className="text-muted">Kota Pasuruan, {TODAY}</div>
-              <div className="mt-8 font-semibold text-ink">{ttdNama}</div>
-              <div className="mt-0.5 text-muted">{ttdJabatan}</div>
-            </div>
-          </div>
+          <TandaTangan
+            nama={ttdNama}
+            jabatan={ttdJabatan}
+            boxClassName="w-72 text-center text-[11px]"
+            namaClassName="mt-8 font-semibold text-ink"
+          />
         </div>
       </SectionCard>
     </>

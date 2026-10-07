@@ -6,16 +6,14 @@ import { useKunjunganRumahTemplates } from "@/hooks/use-kunjungan-rumah-template
 import { AppShell } from "@/components/organisms";
 import { PageHeader, StatCard } from "@/components/molecules";
 import { Tab } from "@/components/atoms";
-// [perbaikan] guard pindah ke requireAdmin (verifikasi cookie+JWT di server, role dari payload) —
-//   expect: tanpa sesi → /pin; sesi non-admin → /laporan; localStorage auth tak dipakai lagi.
-import { requireAdmin } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 import { TABS } from "@/features/kelola/types";
 import type { KelolaTab } from "@/features/kelola/types";
 import { FormBuilderSection } from "@/features/kelola/components/FormBuilderSection";
 import { UserSection } from "@/features/kelola/components/UserSection";
 
 export const Route = createFileRoute("/kelola")({
-  beforeLoad: requireAdmin,
+  beforeLoad: requireAuth,
   component: Kelola,
 });
 

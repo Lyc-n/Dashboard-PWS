@@ -1,33 +1,24 @@
 import { ClipboardCheck, ClipboardList, FileText, LayoutDashboard, ScrollText, Settings } from "lucide-react";
-import { isAdminUser } from "@/lib/auth";
-import type { AuthUser } from "@/lib/auth";
+import type { LucideIcon } from "lucide-react";
 
 export interface NavItem {
   label: string;
+  /** Label ringkas untuk nav bawah yang sempit. Falls back ke `label` kalau kosong. */
+  shortLabel?: string;
   to?: string;
-  Icon: typeof LayoutDashboard;
-  adminOnly?: boolean;
+  Icon: LucideIcon;
   children?: NavItem[];
   isDropdownTrigger?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", to: "/", Icon: LayoutDashboard },
-  { label: "Data Sasaran", to: "/sasaran", Icon: FileText },
-  { label: "Kunjungan Rumah", to: "/kunjungan-rumah", Icon: ClipboardCheck },
-  { label: "Formulir", Icon: ClipboardList, isDropdownTrigger: true, children: [] },
-  { label: "Laporan", to: "/laporan", Icon: ScrollText },
-  { label: "Kelola", to: "/kelola", Icon: Settings, adminOnly: true },
+  { label: "Dashboard", shortLabel: "Home", to: "/", Icon: LayoutDashboard },
+  { label: "Data Sasaran", shortLabel: "Sasaran", to: "/sasaran", Icon: FileText },
+  { label: "Kunjungan Rumah", shortLabel: "Kunjungan", to: "/kunjungan-rumah", Icon: ClipboardCheck },
+  { label: "Formulir", shortLabel: "Formulir", Icon: ClipboardList, isDropdownTrigger: true, children: [] },
+  { label: "Laporan", shortLabel: "Laporan", to: "/laporan", Icon: ScrollText },
+  { label: "Kelola", shortLabel: "Kelola", to: "/kelola", Icon: Settings },
 ] as const;
-
-function filterAdminOnly(items: NavItem[], user: AuthUser | null): NavItem[] {
-  return items
-    .filter((item) => !item.adminOnly || isAdminUser(user))
-    .map((item) => ({
-      ...item,
-      children: item.children ? filterAdminOnly(item.children, user) : undefined,
-    }));
-}
 
 let dynamicFormChildren: NavItem[] = [];
 
@@ -44,14 +35,21 @@ function mergeDynamicChildren(items: NavItem[]): NavItem[] {
   });
 }
 
-export function navItemsForUser(user: AuthUser | null): NavItem[] {
-  const filtered = filterAdminOnly(NAV_ITEMS, user);
-  return mergeDynamicChildren(filtered);
+/**
+ * Semua pengguna melihat menu yang sama.
+ *
+ * Sebelumnya ada `adminOnly` + `filterAdminOnly` yang menyaring berdasarkan
+ * `isAdminUser`. Karena profil sesi konstan dengan role "Admin", saringan itu
+ * selalu lolos untuk setiap item — tidak pernah menyembunyikan apa pun. Para
+ * pemanggilnya sudah kehilangan akses ke user: nav tidak lagi bergantung pada
+ * siapa yang login.
+ */
+export function navItemsForUser(): NavItem[] {
+  return mergeDynamicChildren(NAV_ITEMS);
 }
 
-export function bottomNavItemsForUser(user: AuthUser | null): NavItem[] {
-  const items = navItemsForUser(user);
-  return items
+export function bottomNavItemsForUser(): NavItem[] {
+  return navItemsForUser()
     .filter((item) => item.label !== "Formulir")
     .slice(0, 5)
     .map((item) => ({ ...item, children: undefined }));

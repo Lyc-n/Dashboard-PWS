@@ -33,7 +33,7 @@ export function Topbar({ onToggleCollapse }: TopbarProps) {
       </Button>
       <div className="ml-auto flex items-center gap-2">
         <ProfileBox name={user?.name} onLogout={handleLogout} />
-        <span className="max-md:hidden"><ThemeToggle /></span>
+        <ThemeToggle />
       </div>
     </header>
   );

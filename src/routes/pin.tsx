@@ -8,7 +8,7 @@ import brandIcon from "@/assets/brandIcon.png";
 import { Button, Input } from "@/components/atoms";
 import { FormField } from "@/components/molecules";
 import ThemeToggle from "@/components/ThemeToggle";
-import { normalkanNik } from "@/lib/utils";
+import { normalkanPin } from "@/lib/utils";
 
 /* ALUR LOGIN
 1. cek sessionToken pake beforeLoad di /laporan (form)
@@ -46,7 +46,10 @@ function RouteComponent() {
     setBusy(true);
     try {
       // expect: PIN benar → cookie sesi terpasang → pindah ke dashboard "/".
-      const ok = await pinLogin({ data: { pin: Number(pin) } });
+      // Dikirim sebagai string, bukan `Number(...)`: PIN dari env bisa
+      // berawalan nol dan `Number` akan membuangnya, sehingga PIN itu tidak
+      // akan pernah bisa dipakai login. Normalisasi ada di `isValidPin`.
+      const ok = await pinLogin({ data: { pin } });
       if (!ok) {
         setError("PIN salah.");
         return;
@@ -89,7 +92,7 @@ function RouteComponent() {
                 inputMode="numeric"
                 value={pin}
                 onChange={(e) => {
-                  setPin(normalkanNik(e.target.value));
+                  setPin(normalkanPin(e.target.value));
                   setError(null);
                 }}
                 placeholder="••••••"

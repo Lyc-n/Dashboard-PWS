@@ -1,24 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { Avatar } from "@/components/atoms/Avatar";
 import { LogOut } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-media-query";
 
 export interface ProfileBoxProps {
   name?: string;
   avatarSrc?: string;
   onLogout?: () => void;
-}
-
-function useIsMobile(breakpoint = 768): boolean {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    setIsMobile(mql.matches);
-    mql.addEventListener("change", handler);
-    return () => mql.removeEventListener("change", handler);
-  }, [breakpoint]);
-  return isMobile;
 }
 
 export function ProfileBox({ name = "A. Jubaidi", avatarSrc = "https://i.pravatar.cc/100?img=12", onLogout }: ProfileBoxProps) {
@@ -37,6 +25,7 @@ export function ProfileBox({ name = "A. Jubaidi", avatarSrc = "https://i.pravata
     return () => document.removeEventListener("mousedown", handle);
   }, [open]);
 
+  // Desktop: logout diurus Sidebar, jadi tidak perlu dropdown di sini.
   if (!isMobile) {
     return (
       <div className="flex items-center gap-2.5">

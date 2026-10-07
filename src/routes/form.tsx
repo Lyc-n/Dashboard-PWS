@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/organisms";
 import { PageHeader, SectionCard } from "@/components/molecules";
 import { Badge, EmptyState } from "@/components/atoms";
@@ -7,11 +7,15 @@ import { listFormulir } from "@/lib/utils.functions";
 import type { BarisFormulirTerisi } from "@/features/survey/services/form-runtime.server";
 import { requireAuth } from "@/lib/auth";
 
+// Search param di-narrow dari `unknown` ke `string`. Tanpa return type eksplisit,
+// `validateSearch` membuat `jenis` jadi `{}` dan pembacaan di bawah gagal.
+function opsiSearch(search: Record<string, unknown>): { jenis: string } {
+  return { jenis: typeof search.jenis === "string" ? search.jenis : "" };
+}
+
 export const Route = createFileRoute("/form")({
   beforeLoad: requireAuth,
-  validateSearch: (search) => ({
-    jenis: search.jenis ?? "",
-  }),
+  validateSearch: (search: Record<string, unknown>) => opsiSearch(search),
   component: DaftarFormulir,
 });
 
@@ -30,7 +34,7 @@ function DaftarFormulir() {
     },
   );
 
-  const { jenis } = useSearch({ from: "/form", select: (s) => s.jenis });
+  const { jenis } = Route.useSearch();
 
   const filteredRows = rows.filter((row) => {
     if (jenis === "kunjungan") return row.subjekWargaWajib === true;

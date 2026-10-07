@@ -72,7 +72,7 @@ import { SEMUA_TIPE_FIELD, TIPE_BUTUH_OPSI } from "@/features/form-builder/servi
 
 // ganti method GET → POST — expect: login tak bisa dipicu lewat link/GET
 export const pinLogin = createServerFn({ method: "POST" })
-    .validator((data: { pin: number }) => data)
+    .validator((data: { pin: string }) => data)
     .handler(
         async ({ data }) => {
             return await isValidPin(data.pin) // selalu return boolean
@@ -411,12 +411,13 @@ export const saveKegiatan = createServerFn({ method: "POST" })
     .handler(async ({ data }) => await simpanKegiatan(data.record))
 
 // ---- registry pengguna (pengganti master admin /kelola) ----
-// Penulisan hanya bisa dari /kelola, yang route-nya sudah dilindungi requireAdmin.
+// Penulisan hanya bisa dari /kelola, yang route-nya dilindungi `requireAuth`.
 //
-// CATATAN: `requireAdmin` membaca role dari `SESSION_PROFILE` yang hard-coded
-// "Admin" (lihat src/lib/auth.ts), jadi "hanya admin" di sini sama sekali belum
-// merupakan penjaga akses yang sebenarnya. Yang dicek di sini adalah data:
-// facility yang dipilih harus benar-benar ada.
+// CATATAN: di sistem ini tidak ada penjaga akses berbasis peran sama sekali.
+// Satu PIN global, satu profil sesi konstan, jadi siapa pun yang punya sesi
+// valid sudah setara dengan admin (lihat catatan di `src/lib/auth.ts`).
+// Yang divalidasi di sini murni data: fasilitas yang dipilih harus benar-benar
+// ada, dan akun petugas harus aktif.
 export const listUserRegistry = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
     .handler(async () => await listPengguna());

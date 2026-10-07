@@ -1,9 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronDown, ClipboardList, LogOut } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { APP_BRAND } from "@/lib/constants";
 import { navItemsForUser, setDynamicFormChildren } from "@/lib/nav";
+import type { NavItem } from "@/lib/nav";
 import { useAuth } from "@/providers/auth";
 import { cn } from "@/lib/utils";
 import { getNavForms, onNavFormsChange } from "@/lib/nav-forms-cache";
@@ -14,37 +14,7 @@ export interface SidebarProps {
   collapsed?: boolean;
 }
 
-type NavItemBase = {
-  label: string;
-  to?: string;
-  Icon?: LucideIcon;
-  isDropdownTrigger?: boolean;
-};
-
-type NavItemLeaf = NavItemBase & {
-  children?: never;
-  isDropdownTrigger?: false;
-};
-
-type NavItemBranch = NavItemBase & {
-  children: NavItemLeaf[];
-  isDropdownTrigger?: false;
-};
-
-type NavItemTrigger = NavItemBase & {
-  isDropdownTrigger: true;
-  children: NavItemLeaf[];
-};
-
-type NavItemType = NavItemLeaf | NavItemBranch | NavItemTrigger;
-
-function NavItemLink({
-  item,
-  collapsed,
-}: {
-  item: NavItemLeaf;
-  collapsed: boolean;
-}) {
+function NavItemLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
   const Icon = item.Icon;
 
   return (
@@ -58,7 +28,7 @@ function NavItemLink({
       )}
       activeProps={{ className: "border border-[rgba(79,214,205,0.45)] bg-accent-light font-semibold" }}
     >
-      {Icon && <Icon size={16} className="shrink-0" />}
+      <Icon size={16} className="shrink-0" />
       <span
         className={cn(
           "truncate text-ink-2 transition-opacity duration-200",
@@ -77,7 +47,7 @@ function NavItemDropdown({
   openDropdown,
   setOpenDropdown,
 }: {
-  item: NavItemBranch;
+  item: NavItem;
   collapsed: boolean;
   openDropdown: string | null;
   setOpenDropdown: (key: string | null) => void;
@@ -125,7 +95,7 @@ function NavItemDropdown({
       </button>
       {isOpen && (
         <ul className="mt-1 ml-6 space-y-1 animate-slide-down" role="menu">
-          {item.children.map((child) => (
+          {(item.children ?? []).map((child) => (
             <li key={child.to} role="none">
               <Link
                 to={child.to}
@@ -163,9 +133,10 @@ function FormulirDropdownTrigger({
 
   if (collapsed) {
     return (
-      <Link
-        to="/form"
-        className={cn(
+<Link
+                to="/form"
+                search={{ jenis: "" }}
+                className={cn(
           "flex items-center rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-400 ease-in-out hover:bg-surface-2",
           "justify-center gap-0 px-0",
         )}
@@ -220,16 +191,11 @@ function FormulirDropdownTrigger({
 }
 
 export function Sidebar({ collapsed = false }: SidebarProps) {
-  const { user, logout } = useAuth();
-  const items = navItemsForUser(user);
+  const { logout } = useAuth();
+  const items = navItemsForUser();
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [navForms, setNavForms] = useState<BarisFormulirTerisi[]>([]);
   const [loadingForms, setLoadingForms] = useState(true);
-
-  const handleLogout = async () => {
-    await logout();
-    // The logout function already handles navigation to /pin
-  };
 
   const loadForms = useCallback(() => {
     let cancelled = false;
@@ -241,6 +207,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           data.map((form) => ({
             label: form.nama,
             to: `/isi/${form.formVersionId}`,
+            Icon: ClipboardList,
           }))
         );
       }
@@ -305,7 +272,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
             return (
               <NavItemDropdown
                 key={item.to ?? item.label}
-                item={item as typeof item & { children: typeof item.children }}
+                item={item}
                 collapsed={collapsed}
                 openDropdown={openDropdown}
                 setOpenDropdown={setOpenDropdown}
@@ -321,18 +288,22 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           );
         })}
       </nav>
-      {!collapsed && (
-        <div className="p-3 border-t border-line">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium text-danger hover:bg-danger/10 transition-colors"
-          >
-            <LogOut size={16} className="shrink-0" />
-            <span className="truncate">Keluar</span>
-          </button>
-        </div>
-      )}
+      {/* `cn` di repo ini bukan tailwind-merge, jadi class px-3 vs px-0 tidak
+          bisa ditimpa andal. Collapse dibranch eksplisit, bukan override. */}
+      <div className="border-t border-line p-3">
+        <button
+          type="button"
+          onClick={() => void logout()}
+          aria-label="Keluar"
+          className={cn(
+            "flex w-full items-center rounded-lg py-2 text-[13px] font-medium text-danger transition-colors hover:bg-danger/10",
+            collapsed ? "justify-center" : "gap-2 px-3",
+          )}
+        >
+          <LogOut size={16} className="shrink-0" />
+          {collapsed ? <span className="sr-only">Keluar</span> : <span className="truncate">Keluar</span>}
+        </button>
+      </div>
     </aside>
   );
 }

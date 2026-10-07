@@ -60,6 +60,7 @@ function IsiFormulir() {
             </p>
             <Link
               to="/form"
+              search={{ jenis: "" }}
               className="inline-flex w-fit cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-[18px] py-[11px] text-[13px] font-bold text-on-accent hover:bg-accent-hover"
             >
               Kembali ke daftar formulir

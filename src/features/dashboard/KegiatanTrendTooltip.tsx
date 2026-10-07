@@ -1,10 +1,14 @@
-import type { TooltipProps, Payload } from "recharts"
-import { cn, fmtDate } from "@/lib/utils"
+import type { TooltipPayloadEntry } from "recharts"
+import { cn } from "@/lib/utils"
+import type { MonthlyKegiatanStat } from "./useKegiatanTrend"
 
-interface KegiatanTooltipProps extends TooltipProps {
+// Hanya field yang dipakai komponen ini. `TooltipContentProps` tidak dipakai
+// langsung karena ia mewajibkan `payload`/`coordinate`/`accessibilityLayer`/
+// `activeIndex` yang tidak relevan dengan isi tooltip kita.
+interface KegiatanTooltipProps {
     active?: boolean
-    payload?: Payload[]
-    label?: string
+    payload?: ReadonlyArray<TooltipPayloadEntry>
+    label?: string | number
 }
 
 export function KegiatanTooltip({ active, payload, label }: KegiatanTooltipProps) {
@@ -50,14 +54,4 @@ export function KegiatanTooltip({ active, payload, label }: KegiatanTooltipProps
             )}
         </div>
     )
-}
-
-interface MonthlyKegiatanStat {
-    month: string
-    label: string
-    totalKegiatan: number
-    totalHadir: number
-    totalPeserta: number
-    pctHadir: number
-    byJenis: Array<{ jenis: string; count: number }>
 }

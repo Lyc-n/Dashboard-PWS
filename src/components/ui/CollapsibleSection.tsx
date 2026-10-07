@@ -26,7 +26,14 @@ export function CollapsibleSection({
   const isControlled = open !== undefined;
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
   const openState = isControlled ? open : uncontrolledOpen;
-  const setOpen = isControlled ? onChange : setUncontrolledOpen;
+
+  // Controlled dan uncontrolled butuh operasi berbeda, jadi dicabang di sini
+  // alih-alih `setOpen = isControlled ? onChange : setUncontrolledOpen` — union
+  // dari keduanya tidak bisa dipanggil karena bentuk argumennya beda.
+  const toggle = () => {
+    if (isControlled) onChange?.(!openState);
+    else setUncontrolledOpen((o) => !o);
+  };
 
   return (
     <SectionCard
@@ -34,10 +41,10 @@ export function CollapsibleSection({
       title={
         <div
           className={`flex items-center justify-between gap-2 cursor-pointer ${headerClassName}`}
-          onClick={() => setOpen((o) => !o)}
+          onClick={toggle}
           role="button"
           tabIndex={0}
-          onKeyDown={(e) => e.key === "Enter" && setOpen((o) => !o)}
+          onKeyDown={(e) => e.key === "Enter" && toggle()}
         >
           <div className="flex items-center gap-2">
             <ChevronDown

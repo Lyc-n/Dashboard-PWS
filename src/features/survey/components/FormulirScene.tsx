@@ -329,7 +329,11 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
           >
             Isi formulir ini lagi
           </Button>
-          <Link to="/form" className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-[18px] py-[11px] text-[13px] font-bold text-on-accent hover:bg-accent-hover">
+          <Link
+            to="/form"
+            search={{ jenis: "" }}
+            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-[18px] py-[11px] text-[13px] font-bold text-on-accent hover:bg-accent-hover"
+          >
             Isi formulir lain
           </Link>
         </SuccessPanel>

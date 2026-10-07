@@ -120,6 +120,18 @@ export function normalkanNik(nik: string): string {
   return String(nik).replace(/\D/g, "").slice(0, 16);
 }
 
+/**
+ * Buang semua non-digit dari input PIN.
+ *
+ * Terpisah dari `normalkanNik` meski isinya sama untuk PIN: bentuk keduanya
+ * sengaja dibuat eksplisit karena maknanya berbeda. `normalkanNik` tidak boleh
+ * dipakai di sini tanpa sengaja — PIN bukan NIK, dan hanya kebetulan bahwa
+ * keduanya sama-sama deretan digit.
+ */
+export function normalkanPin(pin: string): string {
+  return String(pin).replace(/\D/g, "").slice(0, 16);
+}
+
 export function isValidNik(nik: string): boolean {
   return /^\d{16}$/.test(nik);
 }

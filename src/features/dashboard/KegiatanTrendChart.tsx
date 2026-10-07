@@ -1,6 +1,5 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Dot } from "recharts"
 import { useNavigate } from "@tanstack/react-router"
-import { cn } from "@/lib/utils"
 import { KegiatanTooltip } from "./KegiatanTrendTooltip"
 import type { MonthlyKegiatanStat } from "./useKegiatanTrend"
 
@@ -47,13 +46,13 @@ export function KegiatanTrendChart({ data, loading }: KegiatanTrendChartProps) {
             const width = rect.width
             const index = Math.round((x / width) * (data.length - 1))
             const clampedIndex = Math.max(0, Math.min(data.length - 1, index))
-            handleClick(data[clampedIndex].month)
+            const entry = data[clampedIndex]
+            if (entry) handleClick(entry.month)
         }}>
             <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                     data={data}
                     margin={{ top: 10, right: 30, left: 10, bottom: 0 }}
-                    onClick={handleClick}
                 >
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" vertical={false} />
                     <XAxis
@@ -71,9 +70,17 @@ export function KegiatanTrendChart({ data, loading }: KegiatanTrendChartProps) {
                         domain={[0, maxKegiatan * 1.3]}
                     />
                     <Tooltip
-                        content={<KegiatanTooltip />}
+                        content={(props) => (
+                            // recharts mengoper seluruh props Tooltip; spreading
+                            // semuanya membawa field yang tidak dikenal type tooltip ini.
+                            <KegiatanTooltip
+                                active={props.active}
+                                payload={props.payload}
+                                label={typeof props.label === "string" ? props.label : undefined}
+                            />
+                        )}
                         cursor={{ strokeDasharray: "3 3", stroke: "var(--color-muted)" }}
-                        formatter={(value: number) => [value, "Kegiatan"]}
+                        formatter={(value) => [value ?? 0, "Kegiatan"]}
                     />
                     <Line
                         type="monotone"
@@ -83,15 +90,15 @@ export function KegiatanTrendChart({ data, loading }: KegiatanTrendChartProps) {
                         dot={false}
                         activeDot={{ r: 6, fill: "var(--color-accent)", stroke: "var(--color-surface)", strokeWidth: 2 }}
                     />
-                    {data.map((entry, index) => (
+                    {data.map((entry) => (
                         <Dot
                             key={entry.month}
                             cx={0}
                             cy={0}
                             r={10}
                             fill="transparent"
-                            onClick={(e) => {
-                                e.stopPropagation()
+                            onClick={(_props, event) => {
+                                event.stopPropagation()
                                 handleClick(entry.month)
                             }}
                             className="cursor-pointer"

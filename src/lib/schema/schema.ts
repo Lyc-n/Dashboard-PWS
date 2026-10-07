@@ -292,3 +292,23 @@ export const validSession = pgTable("valid_session",{
     expiresAt: timestamp({ withTimezone: true }).notNull(),
 })
 
+/**
+ * Penghitung kegagalan login per alamat IP.
+ *
+ * Satu-satunya gerbang aplikasi adalah satu PIN global (lihat `isValidPin`),
+ * jadi ini yang menjaga PIN itu tidak bisa ditebak. Tanpa tabel ini, rate limit
+ * hanya bisa hidup di memory proses — di Vercel tiap instance punya memory
+ * sendiri dan restart saat cold start, jadi penghitungnya bisa direset dengan
+ * mengirim request ke instance berbeda. Disimpan di DB karena satu-satunya
+ * tempat yang benar-benar shared antar-instance.
+ *
+ * `ip` adalah kunci: tidak ada tabel user karena tidak ada user per-akun.
+ * Baris dihapus setelah tidak ada lock (lihat `bersihkanKedaluwarsa`).
+ */
+export const pinAttempts = pgTable("pin_attempts", {
+    ip: varchar({ length: 64 }).primaryKey(),
+    gagalBerturut: integer().notNull().default(0),
+    terkunciSampai: timestamp({ withTimezone: true }),
+    terakhirGagal: timestamp({ withTimezone: true }).notNull().defaultNow(),
+})
+

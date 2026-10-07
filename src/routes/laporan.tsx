@@ -7,14 +7,14 @@ import {
   listKegiatan,
 } from "@/lib/utils.functions";
 import type { KegiatanRecord } from "@/hooks/use-kegiatan";
+import { formIdOf } from "@/features/laporan/report-filter";
 import { JENIS_KEGIATAN, KELS, PAGE_SIZE, POSY } from "@/lib/constants";
 import { downloadCsv, fmtDate } from "@/lib/utils";
 import { useToast } from "@/providers/toast";
 import { AppShell, DataTable } from "@/components/organisms";
 import { PageHeader, SectionCard, StatCard } from "@/components/molecules";
 import { Input, Select, StatusBadge } from "@/components/atoms";
-import { requireAuth, isAdminUser } from "@/lib/auth";
-import { useAuth } from "@/providers/auth";
+import { requireAuth } from "@/lib/auth";
 import { RekapKunjunganRumahSection } from "@/features/laporan/RekapKunjunganRumahSection";
 import { RiwayatSubmitSection } from "@/features/laporan/RiwayatSubmitSection";
 import { FilterToolbar } from "@/features/laporan/components/FilterToolbar";
@@ -25,12 +25,18 @@ import { KopTable } from "@/features/laporan/components/KopTable";
 import { paginate } from "@/features/laporan/components/report-shared";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 
+// Search param di-narrow dari `unknown` ke `string`. Tanpa return type eksplisit,
+// `validateSearch` membuat `period` jadi `{}` dan `period.split` gagal.
+function opsiSearch(search: Record<string, unknown>): { period: string; section: string } {
+  return {
+    period: typeof search.period === "string" ? search.period : "",
+    section: typeof search.section === "string" ? search.section : "",
+  };
+}
+
 export const Route = createFileRoute("/laporan")({
   beforeLoad: requireAuth,
-  validateSearch: (search) => ({
-    period: search.period ?? "",
-    section: search.section ?? "",
-  }),
+  validateSearch: (search: Record<string, unknown>) => opsiSearch(search),
   loader: async () => {
     const [kunjunganRumah, kegiatan, riwayatSubmit, formAdaSubmit] = await Promise.all([
       getLaporanKunjunganRumah(),
@@ -53,20 +59,28 @@ function Laporan() {
   } = Route.useLoaderData();
   const kegiatanRows = kegiatanRaw as unknown as KegiatanRecord[];
   const toast = useToast();
-  const { user } = useAuth();
-  const admin = isAdminUser(user);
   const { period, section } = Route.useSearch();
 
   // Compute date range from period (YYYY-MM) if provided
   const hasPeriod = period !== "";
-  const periodDari = hasPeriod ? `${period}-01` : "2026-01-01";
-  const periodSampai = hasPeriod
-    ? (() => {
-        const [y, m] = period.split("-").map(Number);
-        const lastDay = new Date(y, m, 0).getDate();
-        return `${period}-${lastDay.toString().padStart(2, "0")}`;
-      })()
-    : "2026-12-31";
+  // Tanpa `period`, rentang default mengikuti tahun berjalan. Nilai sebelumnya
+  // di-hardcode "2026", jadi laporan tanpa `period` diam-diam kosong di 2027.
+  const tahunIni = new Date().getFullYear();
+  const defaultDari = `${tahunIni}-01-01`;
+  const defaultSampai = `${tahunIni}-12-31`;
+  // `noUncheckedIndexedAccess` membuat hasil split bisa `undefined`, jadi
+  // `period` yang tidak berbentuk "YYYY-MM" jatuh ke rentang default.
+  const [tahun, bulan] = period.split("-").map(Number);
+  const periodDari =
+    hasPeriod && tahun && bulan ? `${tahun}-${bulan.toString().padStart(2, "0")}-01` : defaultDari;
+  const periodSampai =
+    hasPeriod && tahun && bulan
+      ? (() => {
+          // new Date(y, m, 0) = hari terakhir bulan m (m 1-based, 0 mundur ke akhir bulan sebelumnya).
+          const lastDay = new Date(tahun, bulan, 0).getDate();
+          return `${tahun}-${bulan.toString().padStart(2, "0")}-${lastDay.toString().padStart(2, "0")}`;
+        })()
+      : defaultSampai;
 
   // Common filters (shared by Section 1, 2, 4)
   const [dari, setDari] = useState(periodDari);
@@ -90,9 +104,6 @@ function Laporan() {
   const [ttdNama, setTtdNama] = useState("");
   const [ttdJabatan, setTtdJabatan] = useState("");
 
-  // Non-admin: wilayah tab kunjungan rumah terkunci ke wilayah kader
-  const effKel = admin ? kel : (user?.kel ?? "all");
-
   // Auto-expand sections based on URL param
   const [openSection1, setOpenSection1] = useState(section !== "kegiatan" && section !== "rekap" && section !== "riwayat");
   const [openSection2, setOpenSection2] = useState(section === "kegiatan");
@@ -113,17 +124,14 @@ function Laporan() {
       (r) =>
         r.tanggal >= dari &&
         r.tanggal <= sampai &&
-        (effKel === "all" || r.kelurahan === effKel) &&
-        (formId === "all" || formIdOf(r) === formId) &&
+        (kel === "all" || r.kelurahan === kel) &&
+        (formId === "all" || formIdOf(r, formAdaSubmit) === formId) &&
         (!cari ||
           r.nama.toLowerCase().includes(cari.toLowerCase()) ||
           (r.nik ?? "").includes(cari) ||
           r.formNama.toLowerCase().includes(cari.toLowerCase())),
     );
-  }, [rows, dari, sampai, effKel, formId, cari]);
-
-  const formIdOf = (r: (typeof rows)[number]): number =>
-    formAdaSubmit.find((f) => f.nama === r.formNama)?.formId ?? -1;
+  }, [rows, dari, sampai, kel, formId, cari, formAdaSubmit]);
 
   const wargaUnik = new Set(filtered.map((r) => r.nik).filter((n): n is string => n !== null)).size;
 
@@ -172,12 +180,12 @@ function Laporan() {
       (r) =>
         r.tgl >= dari &&
         r.tgl <= sampai &&
-        (effKel === "all" || r.kel === effKel) &&
+        (kel === "all" || r.kel === kel) &&
         (gJenis === "all" || r.jenis === gJenis) &&
         (gPosy === "all" || r.posy === gPosy) &&
         (!gCari || r.nama.toLowerCase().includes(gCari.toLowerCase()) || r.petugas.toLowerCase().includes(gCari.toLowerCase()) || r.lokasi.toLowerCase().includes(gCari.toLowerCase())),
     );
-  }, [kegiatanRows, dari, sampai, effKel, gJenis, gPosy, gCari]);
+  }, [kegiatanRows, dari, sampai, kel, gJenis, gPosy, gCari]);
 
   const totalKegiatan = filteredKegiatan.length;
   const totalPeserta = filteredKegiatan.reduce((a, r) => a + r.total, 0);
@@ -229,17 +237,12 @@ function Laporan() {
         <div className="flex flex-wrap items-end gap-3">
           <Input type="date" value={dari} onChange={(e) => setDari(e.target.value)} aria-label="Tanggal awal" className="max-w-42.5 max-md:max-w-none" />
           <Input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} aria-label="Tanggal akhir" className="max-w-42.5 max-md:max-w-none" />
-          <Select value={kel} onChange={(e) => setKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-42.5 max-md:max-w-none" disabled={!admin}>
+          <Select value={kel} onChange={(e) => setKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-42.5 max-md:max-w-none">
             <option value="all">Semua kelurahan</option>
             {KELS.map((k) => (
               <option key={k}>{k}</option>
             ))}
           </Select>
-          {!admin && (
-            <span className="text-xs text-muted ml-auto">
-              Wilayah terkunci: <b className="text-ink">{user?.kel ?? "—"}</b>
-            </span>
-          )}
         </div>
       </SectionCard>
 
@@ -359,8 +362,12 @@ function Laporan() {
                 <td className="px-3 py-2.5">{(pageClamped - 1) * PAGE_SIZE + i + 1}</td>
                 <td className="whitespace-nowrap px-3 py-2.5">{fmtDate(r.tanggal)}</td>
                 <td className="px-3 py-2.5">
+                  <div className="font-semibold text-ink">{r.formNama}</div>
+                  <div className="text-[11px] text-muted">Versi {r.formVersion}</div>
+                </td>
+                <td className="px-3 py-2.5">
                   <div className="font-semibold text-ink">{r.nama}</div>
-                  <div className="text-[11px] text-muted">NIK {r.nik}</div>
+                  <div className="text-[11px] text-muted">{r.nik ? `NIK ${r.nik}` : "Tanpa warga"}</div>
                 </td>
                 <td className="whitespace-nowrap px-3 py-2.5">
                   Kel. {r.kelurahan}

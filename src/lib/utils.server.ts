@@ -1,12 +1,13 @@
 import { db } from './db.server'
-import { dataWargaTable, formFieldOptions, formFields, formSections, formVersions, forms, surveyEntries, surveys, validSession } from './schema/schema'
+import { dataWargaTable, formFieldOptions, formFields, formSections, formVersions, forms, pinAttempts, surveyEntries, surveys, validSession } from './schema/schema'
 import { listPetugasOpsi, pastikanPetugasValid } from './user-registry.server'
 import { jwtVerify, SignJWT } from 'jose'
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { setCookie } from '@tanstack/react-start/server';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 import { KODE_FORM_BAWAAN, SESSION_IDLE_MS, SESSION_PROFILE, SESSION_TTL_MS } from './constants'
+import { BATAS_GAGAL, hitungCooldown, normalkanPin } from './pin-attempt'
 import { isValidNik } from './utils'
 import type { AuthUser } from './auth'
 import { PEMBATAS_NAMA_FIELD } from '@/features/kunjungan-rumah/lib/template-from-rows'
@@ -46,16 +47,140 @@ function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+/**
+ * Bandingkan PIN dengan waktu tetap.
+ *
+ * `===` keluar lebih awal begitu byte pertama beda. Untuk PIN pendek itu
+ * memberi oracle: penyerang bisa mengukur selisih waktu dan memperpendek
+ * tebakan. `timingSafeEqual` membandingkan seluruh isi tanpa jalur keluar
+ * dini, tapi hanya aman kalau panjang kedua buffer sama — makanya normalisasi
+ * dan pengecekan panjang dilakukan lebih dulu.
+ *
+ * Normalisasi dan politiknya ada di `src/lib/pin-attempt.ts` supaya bisa
+ * diuji tanpa database.
+ */
+function pinBenar(dariUser: string, dariEnv: string): boolean {
+    const a = normalkanPin(dariUser)
+    const b = normalkanPin(dariEnv)
+    // Fail closed, sama seperti versi di pin-attempt.ts: PIN kosong berarti
+    // `PIN` tidak terisi atau field dikosongkan, keduanya harus ditolak.
+    if (a.length === 0 || b.length === 0) return false
+    if (a.length !== b.length) return false
+    return timingSafeEqual(Buffer.from(a), Buffer.from(b))
+}
+
 function isSecureCookie(): boolean {
   // Secure cookie hanya untuk HTTPS (production). Di development (HTTP localhost) harus false.
   return process.env.NODE_ENV === 'production';
 }
 
-export async function isValidPin(pin: number) {
+/** Berapa lama baris IP dianggap basi dan boleh dihapus. */
+const USIA_BARIS_MS = 24 * 60 * 60_000
+
+/**
+ * IP pemohon untuk keperluan rate limit.
+ *
+ * `x-forwarded-for` berisi rantai proxy; yang pertama adalah klien asli. Kalau
+ * header tidak ada (mis. dev tanpa proxy), jatuh ke satu nilai tetap supaya
+ * semua permintaan lokal terhitung satu IP — untuk kiosk satu lokasi itu justru
+ * perilaku yang benar, bukan degrade yang berbahaya.
+ */
+async function ipPemohon(): Promise<string> {
+    try {
+        const { getRequestHeaders } = await import('@tanstack/react-start/server')
+        const header = getRequestHeaders() as unknown as Record<string, string | undefined>
+        const rantai = header['x-forwarded-for']
+        const pertama = rantai?.split(',')[0]?.trim()
+        return pertama && pertama.length > 0 ? pertama.slice(0, 64) : 'lokal'
+    } catch {
+        return 'lokal'
+    }
+}
+
+/**
+ * Apakah IP ini sedang dalam masa lockout?
+ *
+ * Fail-OPEN dengan sengaja: kalau tabel `pin_attempts` tidak bisa dibaca, ini
+ * mengembalikan `false` sehingga login tetap dicoba. Untuk kios puskesmas,
+ * terkunci total karena Supabase DOWN jauh lebih buruk daripada tidak adanya
+ * rate limit sementara. Konsekuensinya jelas dan dicatat di sini: selama DB
+ * tidak terbaca, attacker mendapat laju 1 percobaan/detik tanpa lockout.
+ */
+async function sudahTerkunci(ip: string): Promise<boolean> {
+    try {
+        const baris = await ambilPercobaan(ip)
+        if (!baris?.terkunciSampai) return false
+        return baris.terkunciSampai.getTime() > Date.now()
+    } catch (err) {
+        console.error('[pin] gagal cek status lockout, lanjut tanpa rate limit', err)
+        return false
+    }
+}
+
+type Percobaan = { gagalBerturut: number; terkunciSampai: Date | null } | null
+
+async function ambilPercobaan(ip: string): Promise<Percobaan> {
+    const [baris] = await db.select().from(pinAttempts).where(eq(pinAttempts.ip, ip)).limit(1)
+    return baris ?? null
+}
+
+async function catatGagal(ip: string): Promise<void> {
+    const lalu = await ambilPercobaan(ip)
+    const gagal = (lalu?.gagalBerturut ?? 0) + 1
+    const terkunci = gagal >= BATAS_GAGAL
+    const till = terkunci ? new Date(Date.now() + hitungCooldown(gagal)) : null
+    await db.insert(pinAttempts).values({
+        ip,
+        gagalBerturut: gagal,
+        terkunciSampai: till,
+        terakhirGagal: new Date(),
+    }).onConflictDoUpdate({
+        target: pinAttempts.ip,
+        set: {
+            gagalBerturut: gagal,
+            terkunciSampai: till,
+            terakhirGagal: new Date(),
+        },
+    })
+}
+
+async function resetPercobaan(ip: string): Promise<void> {
+    await db.delete(pinAttempts).where(eq(pinAttempts.ip, ip))
+}
+
+/**
+ * Hapus baris basi supaya tabel tidak tumbuh tanpa batas.
+ *
+ * Dipanggil sesekali, bukan tiap percobaan (1 dari 20), supaya tidak
+ * menambah query di jalur login. Baris yang dihapus
+ * hanya yang `terkunciSampai`-nya sudah lewat DAN lebih lama dari sehari, jadi
+ * sedang terkunci tidak pernah terhapus di tengah masa jeda.
+ */
+async function bersihkanKedaluwarsa(): Promise<void> {
+    const batas = new Date(Date.now() - USIA_BARIS_MS)
+    await db.delete(pinAttempts).where(
+        and(
+            lt(pinAttempts.terakhirGagal, batas),
+            or(isNull(pinAttempts.terkunciSampai), lt(pinAttempts.terkunciSampai, new Date())),
+        ),
+    )
+}
+
+export async function isValidPin(pin: string) {
   await sleep(1000)
-  if (String(pin) !== process.env.PIN) return false
-  await db.delete(validSession)
-  cacheSesi.clear()
+  const ip = await ipPemohon()
+
+  // Pembersian bersifat sesekali dan tidak boleh menunda login: sengaja tidak
+  // di-await, cukup dijadwalkan supaya error-nya tidak menimpa jawaban.
+  void bersihkanKedaluwarsa().catch((err) => console.error('[pin] gagal bersihkan baris basi', err))
+
+  if (await sudahTerkunci(ip)) return false
+
+  if (!pinBenar(pin, process.env.PIN ?? '')) {
+    void catatGagal(ip).catch((err) => console.error('[pin] gagal mencatat percobaan gagal', err))
+    return false
+  }
+  await resetPercobaan(ip).catch((err) => console.error('[pin] gagal reset percobaan', err))
   setCookie('session', await createSessionHelper(), {
     httpOnly: true,
     secure: isSecureCookie(),

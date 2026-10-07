@@ -20,7 +20,7 @@ export function useAuth(): AuthContextValue {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   // Sesi dibaca dari router context, bukan panggilan server sendiri. Setiap route
-  // yang dilindungi `requireAuth`/`requireAdmin` sudah memvalidasi cookie httpOnly
+  // yang dilindungi `requireAuth` sudah memvalidasi cookie httpOnly
   // dan menaruh `user` di sana. `getSessionToken()` dari `useEffect` menambah satu
   // round trip penuh ke `valid_session` setelah hydration, padahal hasilnya sudah ada.
   const ctxUser = useMatches({
