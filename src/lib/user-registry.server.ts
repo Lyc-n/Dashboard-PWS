@@ -28,12 +28,16 @@
  * form. Mengganti PIN global dengan login per-akun adalah pekerjaan tersendiri
  * yang belum dikerjakan; lihat catatan di `src/lib/auth.ts`.
  */
-import { eq, sql } from "drizzle-orm";
-import { db } from "@/lib/db.server";
-import { fasilitasKesehatan, users, wilayahKerja } from "@/lib/schema/schema";
-import type { Staff } from "@/lib/staff";
-import { petakanPeran } from "@/lib/user-registry";
-import type { BarisPengguna, OpsiFasilitas, OpsiPetugas } from "@/lib/user-registry";
+import { eq, sql } from 'drizzle-orm'
+import { db } from '@/lib/db.server'
+import { fasilitasKesehatan, users, wilayahKerja } from '@/lib/schema/schema'
+import type { Staff } from '@/lib/staff'
+import { petakanPeran } from '@/lib/user-registry'
+import type {
+  BarisPengguna,
+  OpsiFasilitas,
+  OpsiPetugas,
+} from '@/lib/user-registry'
 
 /**
  * Nilai yang disimpan di `users.pinHash` untuk akun yang dibuat lewat registry.
@@ -44,8 +48,7 @@ import type { BarisPengguna, OpsiFasilitas, OpsiPetugas } from "@/lib/user-regis
  * akun dengan nilai ini harus dipaksa mengatur PIN baru, bukan diam-diam bisa
  * login.
  */
-export const PENANDA_PIN_TIDAK_DIGUNAKAN = "!belum-diatur";
-
+export const PENANDA_PIN_TIDAK_DIGUNAKAN = '!belum-diatur'
 
 const SELECT_PENGGUNA = {
   id: users.id,
@@ -57,7 +60,7 @@ const SELECT_PENGGUNA = {
   fasKes: sql<string>`${fasilitasKesehatan.nama}`,
   kel: sql<string>`${wilayahKerja.kelurahan}`,
   kecamatan: sql<string>`${wilayahKerja.kecamatan}`,
-};
+}
 
 /**
  * Semua akun, urut nama. Dipakai form Staff di /kelola.
@@ -70,8 +73,11 @@ export async function listPengguna(): Promise<BarisPengguna[]> {
     .select(SELECT_PENGGUNA)
     .from(users)
     .innerJoin(fasilitasKesehatan, eq(users.fasKesId, fasilitasKesehatan.id))
-    .innerJoin(wilayahKerja, eq(fasilitasKesehatan.wilayahKerjaId, wilayahKerja.id))
-    .orderBy(users.nama);
+    .innerJoin(
+      wilayahKerja,
+      eq(fasilitasKesehatan.wilayahKerjaId, wilayahKerja.id),
+    )
+    .orderBy(users.nama)
 }
 
 /**
@@ -82,12 +88,17 @@ export async function listPengguna(): Promise<BarisPengguna[]> {
  *
  * @param fasKesId Batasi ke satu fasilitas. null = semua fasilitas.
  */
-export async function listKaderAktif(fasKesId?: number | null): Promise<Staff[]> {
-  const baris = await listPengguna();
+export async function listKaderAktif(
+  fasKesId?: number | null,
+): Promise<Staff[]> {
+  const baris = await listPengguna()
   return baris
-    .filter((u) => u.aktif && u.role === "kader")
-    .filter((u) => fasKesId === null || fasKesId === undefined || u.fasKesId === fasKesId)
-    .map((u) => keStaff(u));
+    .filter((u) => u.aktif && u.role === 'kader')
+    .filter(
+      (u) =>
+        fasKesId === null || fasKesId === undefined || u.fasKesId === fasKesId,
+    )
+    .map((u) => keStaff(u))
 }
 
 /**
@@ -103,12 +114,12 @@ export function keStaff(u: BarisPengguna): Staff {
     peran: u.role,
     kel: u.kel,
     posy: u.fasKes,
-    hp: u.phone ?? "",
+    hp: u.phone ?? '',
     // Tidak ada kolom username di `users`; login memakai PIN global.
     // Field ini di UI hanya ditampilkan kalau diisi manual.
-    username: "",
+    username: '',
     on: u.aktif,
-  };
+  }
 }
 
 /**
@@ -118,12 +129,17 @@ export function keStaff(u: BarisPengguna): Staff {
  * untuk mencatat kunjungan, dan memasukkan admin ke sini membuat rekap
  * nilainya tercampur dengan petugas lapangan.
  */
-export async function listPetugasOpsi(fasKesId?: number | null): Promise<OpsiPetugas[]> {
-  const baris = await listPengguna();
+export async function listPetugasOpsi(
+  fasKesId?: number | null,
+): Promise<OpsiPetugas[]> {
+  const baris = await listPengguna()
   return baris
-    .filter((u) => u.aktif && u.role === "kader")
-    .filter((u) => fasKesId === null || fasKesId === undefined || u.fasKesId === fasKesId)
-    .map((u) => ({ id: u.id, nama: u.nama, fasKes: u.fasKes }));
+    .filter((u) => u.aktif && u.role === 'kader')
+    .filter(
+      (u) =>
+        fasKesId === null || fasKesId === undefined || u.fasKesId === fasKesId,
+    )
+    .map((u) => ({ id: u.id, nama: u.nama, fasKes: u.fasKes }))
 }
 
 /**
@@ -145,42 +161,50 @@ export async function listPetugasOpsi(fasKesId?: number | null): Promise<OpsiPet
 export async function pastikanPetugasValid(
   petugasId: string | null | undefined,
 ): Promise<{ id: string; nama: string }> {
-  const id = (petugasId ?? "").trim();
-  if (!id) throw new Error("Petugas wajib dipilih sebelum menyimpan.");
+  const id = (petugasId ?? '').trim()
+  if (!id) throw new Error('Petugas wajib dipilih sebelum menyimpan.')
 
   const [baris] = await db
-    .select({ id: users.id, nama: users.nama, role: users.role, aktif: users.aktif })
+    .select({
+      id: users.id,
+      nama: users.nama,
+      role: users.role,
+      aktif: users.aktif,
+    })
     .from(users)
     .where(eq(users.id, id))
-    .limit(1);
+    .limit(1)
 
-  if (!baris) throw new Error("Petugas yang dipilih tidak ditemukan.");
-  if (!baris.aktif) throw new Error("Petugas yang dipilih sudah dinonaktifkan.");
-  if (baris.role === "admin") {
-    throw new Error("Akun admin tidak bisa dipilih sebagai petugas pencatat.");
+  if (!baris) throw new Error('Petugas yang dipilih tidak ditemukan.')
+  if (!baris.aktif) throw new Error('Petugas yang dipilih sudah dinonaktifkan.')
+  if (baris.role === 'admin') {
+    throw new Error('Akun admin tidak bisa dipilih sebagai petugas pencatat.')
   }
-  return { id: baris.id, nama: baris.nama };
+  return { id: baris.id, nama: baris.nama }
 }
 
 function asJsonRecord(v: unknown): Record<string, unknown> {
-  if (!v || typeof v !== "object" || Array.isArray(v)) {
-    throw new Error("Data pengguna tidak valid.");
+  if (!v || typeof v !== 'object' || Array.isArray(v)) {
+    throw new Error('Data pengguna tidak valid.')
   }
-  return v as Record<string, unknown>;
+  return v as Record<string, unknown>
 }
 
-function teks(v: unknown, fallback = ""): string {
-  return typeof v === "string" ? v.trim() : fallback;
+function teks(v: unknown, fallback = ''): string {
+  return typeof v === 'string' ? v.trim() : fallback
 }
 
 /** True bila nama sudah dipakai akun lain (bukan akun yang sedang diedit). */
-async function namaSudahDipakai(nama: string, kecualiId?: string): Promise<boolean> {
+async function namaSudahDipakai(
+  nama: string,
+  kecualiId?: string,
+): Promise<boolean> {
   const baris = await db
     .select({ id: users.id })
     .from(users)
     .where(eq(users.nama, nama))
-    .limit(1);
-  return baris.length > 0 && baris[0]!.id !== kecualiId;
+    .limit(1)
+  return baris.length > 0 && baris[0]!.id !== kecualiId
 }
 
 /**
@@ -195,24 +219,27 @@ async function namaSudahDipakai(nama: string, kecualiId?: string): Promise<boole
  * `Staff` dan `kaderNameOf()` mencocokkan lewat `s.nama`, jadi dua akun dengan
  * nama sama akan menggabungkan rekap dua kader berbeda.
  */
-export async function simpanPengguna(namaLama: string | null, data: unknown): Promise<BarisPengguna> {
-  const rec = asJsonRecord(data);
+export async function simpanPengguna(
+  namaLama: string | null,
+  data: unknown,
+): Promise<BarisPengguna> {
+  const rec = asJsonRecord(data)
 
-  const nama = teks(rec.nama);
-  if (!nama) throw new Error('Field "nama" wajib diisi.');
+  const nama = teks(rec.nama)
+  if (!nama) throw new Error('Field "nama" wajib diisi.')
 
-  const { role } = petakanPeran(teks(rec.peran, "Kader"));
+  const { role } = petakanPeran(teks(rec.peran, 'Kader'))
 
-  const fasKesId = Number(rec.fasKesId);
+  const fasKesId = Number(rec.fasKesId)
   if (!Number.isInteger(fasKesId) || fasKesId <= 0) {
-    throw new Error("Fasilitas kesehatan wajib dipilih.");
+    throw new Error('Fasilitas kesehatan wajib dipilih.')
   }
   const [fas] = await db
     .select({ id: fasilitasKesehatan.id })
     .from(fasilitasKesehatan)
     .where(eq(fasilitasKesehatan.id, fasKesId))
-    .limit(1);
-  if (!fas) throw new Error("Fasilitas kesehatan yang dipilih tidak ditemukan.");
+    .limit(1)
+  if (!fas) throw new Error('Fasilitas kesehatan yang dipilih tidak ditemukan.')
 
   const values = {
     nama,
@@ -220,29 +247,29 @@ export async function simpanPengguna(namaLama: string | null, data: unknown): Pr
     phone: teks(rec.phone) || null,
     aktif: rec.on !== false,
     fasKesId,
-  };
+  }
 
-  const lama = namaLama ? teks(namaLama) : "";
+  const lama = namaLama ? teks(namaLama) : ''
   if (lama) {
     const [existing] = await db
       .select({ id: users.id })
       .from(users)
       .where(eq(users.nama, lama))
-      .limit(1);
+      .limit(1)
 
     if (existing) {
       if (await namaSudahDipakai(nama, existing.id)) {
-        throw new Error(`Akun dengan nama "${nama}" sudah ada.`);
+        throw new Error(`Akun dengan nama "${nama}" sudah ada.`)
       }
-      await db.update(users).set(values).where(eq(users.id, existing.id));
-      const hasil = await ambilSatu(existing.id);
-      if (!hasil) throw new Error("Gagal menyimpan pengguna.");
-      return hasil;
+      await db.update(users).set(values).where(eq(users.id, existing.id))
+      const hasil = await ambilSatu(existing.id)
+      if (!hasil) throw new Error('Gagal menyimpan pengguna.')
+      return hasil
     }
   }
 
   if (await namaSudahDipakai(nama)) {
-    throw new Error(`Akun dengan nama "${nama}" sudah ada.`);
+    throw new Error(`Akun dengan nama "${nama}" sudah ada.`)
   }
 
   const [inserted] = await db
@@ -252,11 +279,11 @@ export async function simpanPengguna(namaLama: string | null, data: unknown): Pr
       // Tidak ada akun per-staf yang bisa login, jadi hash ini hanya penanda.
       pinHash: PENANDA_PIN_TIDAK_DIGUNAKAN,
     })
-    .returning({ id: users.id });
-  if (!inserted) throw new Error("Gagal menyimpan pengguna.");
-  const hasil = await ambilSatu(inserted.id);
-  if (!hasil) throw new Error("Gagal menyimpan pengguna.");
-  return hasil;
+    .returning({ id: users.id })
+  if (!inserted) throw new Error('Gagal menyimpan pengguna.')
+  const hasil = await ambilSatu(inserted.id)
+  if (!hasil) throw new Error('Gagal menyimpan pengguna.')
+  return hasil
 }
 
 /**
@@ -265,9 +292,16 @@ export async function simpanPengguna(namaLama: string | null, data: unknown): Pr
  *soft delete: barisnya tetap ada karena `audit_logs.userId` menunjuk ke sana.
  * Menghapus akun akan membuat jejak audit lama berantai jadi NULL.
  */
-export async function setPenggunaAktif(nama: string, aktif: boolean): Promise<void> {
-  const ada = await db.update(users).set({ aktif }).where(eq(users.nama, nama)).returning({ id: users.id });
-  if (ada.length === 0) throw new Error("Pengguna tidak ditemukan.");
+export async function setPenggunaAktif(
+  nama: string,
+  aktif: boolean,
+): Promise<void> {
+  const ada = await db
+    .update(users)
+    .set({ aktif })
+    .where(eq(users.nama, nama))
+    .returning({ id: users.id })
+  if (ada.length === 0) throw new Error('Pengguna tidak ditemukan.')
 }
 
 async function ambilSatu(id: string): Promise<BarisPengguna | null> {
@@ -275,10 +309,13 @@ async function ambilSatu(id: string): Promise<BarisPengguna | null> {
     .select(SELECT_PENGGUNA)
     .from(users)
     .innerJoin(fasilitasKesehatan, eq(users.fasKesId, fasilitasKesehatan.id))
-    .innerJoin(wilayahKerja, eq(fasilitasKesehatan.wilayahKerjaId, wilayahKerja.id))
+    .innerJoin(
+      wilayahKerja,
+      eq(fasilitasKesehatan.wilayahKerjaId, wilayahKerja.id),
+    )
     .where(eq(users.id, id))
-    .limit(1);
-  return baris ?? null;
+    .limit(1)
+  return baris ?? null
 }
 
 export async function listFasKes(): Promise<OpsiFasilitas[]> {
@@ -291,6 +328,9 @@ export async function listFasKes(): Promise<OpsiFasilitas[]> {
       tipe: fasilitasKesehatan.fasKesType,
     })
     .from(fasilitasKesehatan)
-    .innerJoin(wilayahKerja, eq(fasilitasKesehatan.wilayahKerjaId, wilayahKerja.id))
-    .orderBy(wilayahKerja.kelurahan, fasilitasKesehatan.nama);
+    .innerJoin(
+      wilayahKerja,
+      eq(fasilitasKesehatan.wilayahKerjaId, wilayahKerja.id),
+    )
+    .orderBy(wilayahKerja.kelurahan, fasilitasKesehatan.nama)
 }

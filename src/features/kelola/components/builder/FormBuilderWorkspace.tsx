@@ -1,33 +1,44 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
-import { FolderPlus, RotateCcw, Save, AlertTriangle, ChevronsLeft, ChevronsRight, Eye } from "lucide-react";
-import { Button } from "@/components/atoms/Button";
-import { BlockPalette } from "./BlockPalette";
-import { KontenDrag } from "./KontenDrag";
-import { SectionNode } from "./SectionNode";
-import { SettingsPanel } from "./SettingsPanel";
-import { BuildOverlay } from "./BuildOverlay";
-import { PratinjauOverlay } from "./preview/PratinjauOverlay";
-import { getOrphanFieldIds } from "./tree";
-import { aturanForm } from "@/features/form-builder/lib/kode-bawaan";
-import type { DraftFormDocument, DraftField } from "./types";
-import type { DefinisiVersi } from "@/hooks/use-form-builder";
-import type { useFormBuilderDraft } from "@/hooks/use-form-builder-draft"
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { DragDropProvider, DragOverlay } from '@dnd-kit/react'
+import {
+  FolderPlus,
+  RotateCcw,
+  Save,
+  AlertTriangle,
+  ChevronsLeft,
+  ChevronsRight,
+  Eye,
+} from 'lucide-react'
+import { Button } from '@/components/atoms/Button'
+import { BlockPalette } from './BlockPalette'
+import { KontenDrag } from './KontenDrag'
+import { SectionNode } from './SectionNode'
+import { SettingsPanel } from './SettingsPanel'
+import { BuildOverlay } from './BuildOverlay'
+import { PratinjauOverlay } from './preview/PratinjauOverlay'
+import { getOrphanFieldIds } from './tree'
+import { aturanForm } from '@/features/form-builder/lib/kode-bawaan'
+import type { DraftFormDocument, DraftField } from './types'
+import type { DefinisiVersi } from '@/hooks/use-form-builder'
+import type { useFormBuilderDraft } from '@/hooks/use-form-builder-draft'
 
 interface FormBuilderWorkspaceProps {
-  formVersionId: string;
-  bisaUbah: boolean;
+  formVersionId: string
+  bisaUbah: boolean
   /**
    * `forms.kode` form yang sedang disunting, atau `null` untuk form manual.
    * Menentukan bagian mana dari editor yang dikunci — mis. section dan tipe
    * field form bawaan tidak bisa ditambah atau diubah, karena server akan
    * menolak build-nya (lihat `aturanForm`).
    */
-  kodeForm: string | null;
-  onBack?: () => void;
-  document: DraftFormDocument | null;
-  draft: Omit<ReturnType<typeof useFormBuilderDraft>, "document" | "loadDocument" | "clearDocument">;
-  loadDocument: (definisi: DefinisiVersi) => void;
+  kodeForm: string | null
+  onBack?: () => void
+  document: DraftFormDocument | null
+  draft: Omit<
+    ReturnType<typeof useFormBuilderDraft>,
+    'document' | 'loadDocument' | 'clearDocument'
+  >
+  loadDocument: (definisi: DefinisiVersi) => void
 }
 
 export function FormBuilderWorkspace({
@@ -58,38 +69,43 @@ export function FormBuilderWorkspace({
     deleteOpsi,
     setSumberOpsi,
     selectedItem,
-  } = draft;
+  } = draft
 
-  const [showBuildOverlay, setShowBuildOverlay] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState(true);
-  const [settingsOpen, setSettingsOpen] = useState(true);
-  const [previewMode, setPreviewMode] = useState(false);
+  const [showBuildOverlay, setShowBuildOverlay] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(true)
+  const [settingsOpen, setSettingsOpen] = useState(true)
+  const [previewMode, setPreviewMode] = useState(false)
 
   // Bagian editor yang form bawaan tidak boleh ubah. Penegakan ada di server;
   // yang di sini hanya jangan menawarkan kontrol yang pasti ditolak.
-  const kunci = aturanForm(kodeForm).kunciEditor;
+  const kunci = aturanForm(kodeForm).kunciEditor
 
   // Palette form bawaan hanya menampilkan tipe yang benar-benar bisa dipakai
   // form itu, jadi tidak ada field yang bisa dibuat lalu ditolak saat build.
   const paletteTersedia = useMemo(
-    () => (kunci.tipe ? palette.filter((p) => kunci.tipe!.has(p.tipe)) : palette),
+    () =>
+      kunci.tipe ? palette.filter((p) => kunci.tipe!.has(p.tipe)) : palette,
     [palette, kunci.tipe],
-  );
+  )
 
   // Panel pengaturan otomatis terbuka saat ada yang dipilih.
   useEffect(() => {
-    if (selectedItem) setSettingsOpen(true);
-  }, [selectedItem]);
+    if (selectedItem) setSettingsOpen(true)
+  }, [selectedItem])
 
-  const orphanFieldCount = useMemo(() =>
-    document ? getOrphanFieldIds(document.sections, document.fields).length : 0
-  , [document]);
+  const orphanFieldCount = useMemo(
+    () =>
+      document
+        ? getOrphanFieldIds(document.sections, document.fields).length
+        : 0,
+    [document],
+  )
 
   const fieldsByClientId = useMemo(() => {
-    const map = new Map<string, DraftField>();
-    document?.fields.forEach((f) => map.set(f.clientId, f));
-    return map;
-  }, [document]);
+    const map = new Map<string, DraftField>()
+    document?.fields.forEach((f) => map.set(f.clientId, f))
+    return map
+  }, [document])
 
   /**
    * Hapus field, kecuali field yang form ini larang.
@@ -101,45 +117,52 @@ export function FormBuilderWorkspace({
    */
   const hapusFieldJikaBoleh = useCallback(
     (clientId: string) => {
-      const field = fieldsByClientId.get(clientId);
-      if (field && kunci.namaFieldTidakBolehDihapus(field.nama)) return;
-      deleteField(clientId);
+      const field = fieldsByClientId.get(clientId)
+      if (field && kunci.namaFieldTidakBolehDihapus(field.nama)) return
+      deleteField(clientId)
     },
     [fieldsByClientId, kunci, deleteField],
-  );
-  
-  const handleAddField = useCallback((sectionClientId: string) => {
-    const newClientId = addField(sectionClientId, { nama: "", label: "", tipe: "text" });
-    setSelectedItem({ type: "field", clientId: newClientId });
-  }, [addField, setSelectedItem]);
-  
+  )
+
+  const handleAddField = useCallback(
+    (sectionClientId: string) => {
+      const newClientId = addField(sectionClientId, {
+        nama: '',
+        label: '',
+        tipe: 'text',
+      })
+      setSelectedItem({ type: 'field', clientId: newClientId })
+    },
+    [addField, setSelectedItem],
+  )
+
   const handleAddSection = useCallback(() => {
-    addSection();
-  }, [addSection]);
-  
+    addSection()
+  }, [addSection])
+
   const handleBuild = useCallback(async () => {
-    setShowBuildOverlay(true);
-    const result = await buildForm();
+    setShowBuildOverlay(true)
+    const result = await buildForm()
     if (result) {
-      const { ambilEditorForm } = await import("@/lib/utils.functions");
-      const fresh = await ambilEditorForm({ data: { formVersionId } });
-      loadDocument(fresh);
+      const { ambilEditorForm } = await import('@/lib/utils.functions')
+      const fresh = await ambilEditorForm({ data: { formVersionId } })
+      loadDocument(fresh)
     }
-    setShowBuildOverlay(false);
-    return result;
-  }, [buildForm, formVersionId, loadDocument]);
-  const handlePreviewMode = useCallback(() => setPreviewMode((v) => !v), []);
+    setShowBuildOverlay(false)
+    return result
+  }, [buildForm, formVersionId, loadDocument])
+  const handlePreviewMode = useCallback(() => setPreviewMode((v) => !v), [])
 
   // Pratinjau membaca draft yang sedang diedit, jadi overlay-nya juga ikut
   // berubah setiap edit — tidak perlu Build lebih dulu.
   const handleDragEnd = useCallback(
     (event: Parameters<NonNullable<typeof dragEnd>>[0]) => {
-      if (previewMode) return;
-      dragEnd(event);
+      if (previewMode) return
+      dragEnd(event)
     },
     [previewMode, dragEnd],
-  );
-  
+  )
+
   return (
     <DragDropProvider onDragEnd={handleDragEnd}>
       {/*
@@ -157,156 +180,191 @@ export function FormBuilderWorkspace({
       </DragOverlay>
 
       <div className="h-[calc(100vh-200px)] min-h-125 flex flex-col">
-          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              {onBack && <Button size="sm" variant="ghost" onClick={onBack}><RotateCcw className="w-4 h-4" /> Kembali</Button>}
-              <span className="text-sm font-medium text-ink">Form Builder</span>
+        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            {onBack && (
+              <Button size="sm" variant="ghost" onClick={onBack}>
+                <RotateCcw className="w-4 h-4" /> Kembali
+              </Button>
+            )}
+            <span className="text-sm font-medium text-ink">Form Builder</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {bisaUbah ? (
+              <>
+                {kunci.strukturSection ? null : (
+                  <Button size="sm" variant="ghost" onClick={handleAddSection}>
+                    <FolderPlus className="w-4 h-4" /> Tambah Section
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant={previewMode ? 'primary' : 'default'}
+                  onClick={handlePreviewMode}
+                  aria-pressed={previewMode}
+                >
+                  <Eye className="w-4 h-4" /> Pratinjau
+                </Button>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={handleBuild}
+                  disabled={saving}
+                >
+                  <Save className="w-4 h-4" />{' '}
+                  {saving ? 'Membangun...' : 'Build'}
+                </Button>
+              </>
+            ) : (
+              <Button size="sm" variant="ghost" disabled>
+                Build (hanya draft)
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {buildError && (
+          <div className="mb-3 p-3 rounded-lg border border-destructive bg-destructive/10 text-sm text-destructive flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            {buildError}
+          </div>
+        )}
+
+        {orphanFieldCount > 0 && (
+          <div className="mb-3 p-3 rounded-lg border border-destructive bg-destructive/10 text-sm text-destructive flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            {`${orphanFieldCount} field yatim (section hilang) ditemukan. Pindahkan sebelum Build.`}
+          </div>
+        )}
+
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          {paletteOpen ? (
+            <div className="relative shrink-0 flex">
+              <BlockPalette items={paletteTersedia} disabled={!bisaUbah} />
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(false)}
+                title="Liput panel Komponen"
+                className="absolute top-2 -right-3 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink hover:border-accent-border shadow-sm"
+              >
+                <ChevronsLeft className="w-3.5 h-3.5" />
+              </button>
             </div>
-            <div className="flex items-center gap-2">
-              {bisaUbah ? (
+          ) : (
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              title="Buka panel Komponen"
+              className="shrink-0 w-8 flex flex-col items-center gap-2 border-r border-line bg-surface-2 py-3 text-muted hover:text-ink"
+            >
+              <ChevronsRight className="w-4 h-4" />
+              <span
+                className="text-[10px] font-semibold uppercase tracking-wide"
+                style={{ writingMode: 'vertical-rl' }}
+              >
+                Komponen
+              </span>
+            </button>
+          )}
+
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-3">
+              {document ? (
                 <>
-                  {kunci.strukturSection ? null : (
-                    <Button size="sm" variant="ghost" onClick={handleAddSection}><FolderPlus className="w-4 h-4" /> Tambah Section</Button>
+                  {document.sections.length === 0 ? (
+                    <div className="text-center text-muted py-12">
+                      <FolderPlus className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                      <p className="text-sm">
+                        {kunci.strukturSection
+                          ? 'Form ini memakai section tetap, jadi section tidak bisa ditambah dari sini.'
+                          : 'Belum ada section. Klik "Tambah Section" atau tarik field ke area ini.'}
+                      </p>
+                    </div>
+                  ) : (
+                    document.sections.map((section, sectionIdx) => (
+                      <SectionNode
+                        key={section.clientId}
+                        section={section}
+                        flatTree={flatTree}
+                        index={sectionIdx}
+                        disabled={!bisaUbah}
+                        isSelected={
+                          selectedItem?.type === 'section' &&
+                          selectedItem.clientId === section.clientId
+                        }
+                        fieldsByClientId={fieldsByClientId}
+                        onSelect={(clientId) =>
+                          setSelectedItem({ type: 'section', clientId })
+                        }
+                        onSelectField={(clientId) =>
+                          setSelectedItem({ type: 'field', clientId })
+                        }
+                        onDeselectField={() => setSelectedItem(null)}
+                        selectedFieldClientId={
+                          selectedItem?.type === 'field'
+                            ? selectedItem.clientId
+                            : null
+                        }
+                        onAddField={handleAddField}
+                        onUpdateSection={updateSection}
+                        onDeleteSection={
+                          kunci.strukturSection ? undefined : deleteSection
+                        }
+                        onUpdateField={updateField}
+                        onDeleteField={hapusFieldJikaBoleh}
+                      />
+                    ))
                   )}
-                  <Button
-                    size="sm"
-                    variant={previewMode ? "primary" : "default"}
-                    onClick={handlePreviewMode}
-                    aria-pressed={previewMode}
-                  >
-                    <Eye className="w-4 h-4" /> Pratinjau
-                  </Button>
-                  <Button size="sm" variant="primary" onClick={handleBuild} disabled={saving}>
-                    <Save className="w-4 h-4" /> {saving ? "Membangun..." : "Build"}
-                  </Button>
                 </>
               ) : (
-                <Button size="sm" variant="ghost" disabled>Build (hanya draft)</Button>
+                <div className="text-center text-muted py-12">
+                  <p className="text-sm">Memuat form…</p>
+                </div>
               )}
             </div>
           </div>
-          
-          {buildError && (
-            <div className="mb-3 p-3 rounded-lg border border-destructive bg-destructive/10 text-sm text-destructive flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              {buildError}
-            </div>
-          )}
-          
-          {orphanFieldCount > 0 && (
-            <div className="mb-3 p-3 rounded-lg border border-destructive bg-destructive/10 text-sm text-destructive flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              {`${orphanFieldCount} field yatim (section hilang) ditemukan. Pindahkan sebelum Build.`}
-            </div>
-          )}
 
-          <div className="flex-1 flex min-h-0 overflow-hidden">
-            {paletteOpen ? (
-              <div className="relative shrink-0 flex">
-                <BlockPalette items={paletteTersedia} disabled={!bisaUbah} />
-                <button
-                  type="button"
-                  onClick={() => setPaletteOpen(false)}
-                  title="Liput panel Komponen"
-                  className="absolute top-2 -right-3 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink hover:border-accent-border shadow-sm"
-                >
-                  <ChevronsLeft className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : (
+          {settingsOpen ? (
+            <div className="relative shrink-0 flex">
               <button
                 type="button"
-                onClick={() => setPaletteOpen(true)}
-                title="Buka panel Komponen"
-                className="shrink-0 w-8 flex flex-col items-center gap-2 border-r border-line bg-surface-2 py-3 text-muted hover:text-ink"
+                onClick={() => setSettingsOpen(false)}
+                title="Liput panel Pengaturan"
+                className="absolute top-2 -left-3 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink hover:border-accent-border shadow-sm"
               >
-                <ChevronsRight className="w-4 h-4" />
-                <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ writingMode: "vertical-rl" }}>
-                  Komponen
-                </span>
+                <ChevronsRight className="w-3.5 h-3.5" />
               </button>
-            )}
-            
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-3">
-                {document ? (
-                  <>
-                    {document.sections.length === 0 ? (
-                      <div className="text-center text-muted py-12">
-                        <FolderPlus className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                        <p className="text-sm">{kunci.strukturSection
-                            ? "Form ini memakai section tetap, jadi section tidak bisa ditambah dari sini."
-                            : 'Belum ada section. Klik "Tambah Section" atau tarik field ke area ini.'}</p>
-                      </div>
-                    ) : (
-                      document.sections.map((section, sectionIdx) => (
-                        <SectionNode
-                          key={section.clientId}
-                          section={section}
-                          flatTree={flatTree}
-                          index={sectionIdx}
-                          disabled={!bisaUbah}
-                          isSelected={selectedItem?.type === "section" && selectedItem.clientId === section.clientId}
-                          fieldsByClientId={fieldsByClientId}
-                          onSelect={(clientId) => setSelectedItem({ type: "section", clientId })}
-                          onSelectField={(clientId) => setSelectedItem({ type: "field", clientId })}
-                          onDeselectField={() => setSelectedItem(null)}
-                          selectedFieldClientId={selectedItem?.type === "field" ? selectedItem.clientId : null}
-                          onAddField={handleAddField}
-                          onUpdateSection={updateSection}
-                          onDeleteSection={kunci.strukturSection ? undefined : deleteSection}
-                          onUpdateField={updateField}
-                          onDeleteField={hapusFieldJikaBoleh}
-                        />
-                      ))
-                    )}
-                  </>
-                ) : (
-                  <div className="text-center text-muted py-12">
-                    <p className="text-sm">Memuat form…</p>
-                  </div>
-                )}
-              </div>
+              <SettingsPanel
+                selectedItem={selectedItem}
+                onClose={() => setSelectedItem(null)}
+                document={document}
+                kunci={kunci}
+                updateSection={updateSection}
+                deleteSection={deleteSection}
+                updateField={updateField}
+                deleteField={deleteField}
+                addOpsi={addOpsi}
+                updateOpsi={updateOpsi}
+                deleteOpsi={deleteOpsi}
+                setSumberOpsi={setSumberOpsi}
+              />
             </div>
-            
-            {settingsOpen ? (
-              <div className="relative shrink-0 flex">
-                <button
-                  type="button"
-                  onClick={() => setSettingsOpen(false)}
-                  title="Liput panel Pengaturan"
-                  className="absolute top-2 -left-3 z-10 w-6 h-6 flex items-center justify-center rounded-full border border-line bg-surface text-muted hover:text-ink hover:border-accent-border shadow-sm"
-                >
-                  <ChevronsRight className="w-3.5 h-3.5" />
-                </button>
-                <SettingsPanel
-                  selectedItem={selectedItem}
-                  onClose={() => setSelectedItem(null)}
-                  document={document}
-                  kunci={kunci}
-                  updateSection={updateSection}
-                  deleteSection={deleteSection}
-                  updateField={updateField}
-                  deleteField={deleteField}
-                  addOpsi={addOpsi}
-                  updateOpsi={updateOpsi}
-                  deleteOpsi={deleteOpsi}
-                  setSumberOpsi={setSumberOpsi}
-                />
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setSettingsOpen(true)}
-                title="Buka panel Pengaturan"
-                className="shrink-0 w-8 flex flex-col items-center gap-2 border-l border-line bg-surface-2 py-3 text-muted hover:text-ink"
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              title="Buka panel Pengaturan"
+              className="shrink-0 w-8 flex flex-col items-center gap-2 border-l border-line bg-surface-2 py-3 text-muted hover:text-ink"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+              <span
+                className="text-[10px] font-semibold uppercase tracking-wide"
+                style={{ writingMode: 'vertical-rl' }}
               >
-                <ChevronsLeft className="w-4 h-4" />
-                <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ writingMode: "vertical-rl" }}>
-                  Pengaturan
-                </span>
-              </button>
-            )}
+                Pengaturan
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -327,5 +385,5 @@ export function FormBuilderWorkspace({
         onClose={() => setPreviewMode(false)}
       />
     </DragDropProvider>
-  );
+  )
 }

@@ -1,13 +1,13 @@
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db.server'
-import { formFieldOptions, formFields, formSections, formVersions } from '@/lib/schema/schema'
 import {
-  validasiEdisiVersi,
-  validasiTerbitkanVersi
-  
-  
-} from './validasi'
-import type {HasilValidasi, KodeValidasi} from './validasi';
+  formFieldOptions,
+  formFields,
+  formSections,
+  formVersions,
+} from '@/lib/schema/schema'
+import { validasiEdisiVersi, validasiTerbitkanVersi } from './validasi'
+import type { HasilValidasi, KodeValidasi } from './validasi'
 import { catatAudit } from './audit.server'
 
 /**
@@ -95,17 +95,27 @@ export async function terbitkanVersiForm(
     // Kunci baris versi dulu supaya dua publish paralel tidak sama-sama membaca
     // status lama lalu sama-sama memutuskan untuk mengarsipkan versi yang sama.
     // Satu-satunya tempat publish dilindungi dari konkurensi.
-    await tx.execute(sql`select 1 from form_versions where id = ${formVersionId} for update`)
+    await tx.execute(
+      sql`select 1 from form_versions where id = ${formVersionId} for update`,
+    )
 
     const target = await tx
-      .select({ formId: formVersions.formId, version: formVersions.version, status: formVersions.status })
+      .select({
+        formId: formVersions.formId,
+        version: formVersions.version,
+        status: formVersions.status,
+      })
       .from(formVersions)
       .where(eq(formVersions.id, formVersionId))
       .limit(1)
 
     const versi = target[0]
     if (!versi) {
-      throw new KesalahanValidasi({ ok: false, kode: 'VERSI_TIDAK_ADA', pesan: 'Form versi tidak ditemukan.' })
+      throw new KesalahanValidasi({
+        ok: false,
+        kode: 'VERSI_TIDAK_ADA',
+        pesan: 'Form versi tidak ditemukan.',
+      })
     }
     pastikan(validasiTerbitkanVersi(versi.status))
 
@@ -114,7 +124,12 @@ export async function terbitkanVersiForm(
     await tx
       .update(formVersions)
       .set({ status: 'archived', publishedAt: null, updatedAt: now })
-      .where(and(eq(formVersions.formId, versi.formId), eq(formVersions.status, 'published')))
+      .where(
+        and(
+          eq(formVersions.formId, versi.formId),
+          eq(formVersions.status, 'published'),
+        ),
+      )
 
     await tx
       .update(formVersions)
@@ -175,7 +190,12 @@ async function cariVersiAsal(
   const terbaru = await executor
     .select({ id: formVersions.id })
     .from(formVersions)
-    .where(and(eq(formVersions.formId, formId), eq(formVersions.status, 'published')))
+    .where(
+      and(
+        eq(formVersions.formId, formId),
+        eq(formVersions.status, 'published'),
+      ),
+    )
     .orderBy(desc(formVersions.version))
     .limit(1)
 

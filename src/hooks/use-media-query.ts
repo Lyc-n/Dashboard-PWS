@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react'
 
 /**
  * Ikuti breakpoint media query lewat `matchMedia`, bukan lewat CSS.
@@ -13,20 +13,20 @@ import { useEffect, useState } from "react";
  * percabangan render beneran, bukan sekadar visibilitas.
  */
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false);
+  const [matches, setMatches] = useState(false)
 
   useEffect(() => {
-    const mql = window.matchMedia(query);
-    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
-    setMatches(mql.matches);
-    mql.addEventListener("change", handler);
-    return () => mql.removeEventListener("change", handler);
-  }, [query]);
+    const mql = window.matchMedia(query)
+    const handler = (e: MediaQueryListEvent) => setMatches(e.matches)
+    setMatches(mql.matches)
+    mql.addEventListener('change', handler)
+    return () => mql.removeEventListener('change', handler)
+  }, [query])
 
-  return matches;
+  return matches
 }
 
 /** `true` saat viewport lebih sempit dari breakpoint Tailwind `md` (768px). */
 export function useIsMobile(breakpoint = 768): boolean {
-  return useMediaQuery(`(max-width: ${breakpoint - 1}px)`);
+  return useMediaQuery(`(max-width: ${breakpoint - 1}px)`)
 }

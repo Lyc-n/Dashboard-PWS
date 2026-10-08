@@ -1,13 +1,17 @@
-import { useId } from "react";
+import { useId } from 'react'
 
 export interface DropZoneProps {
-  onFiles?: (files: File[]) => void;
-  title?: string;
-  hint?: string;
+  onFiles?: (files: File[]) => void
+  title?: string
+  hint?: string
 }
 
-export function DropZone({ onFiles, title = "Klik untuk pilih foto", hint = "JPG / PNG dari galeri atau kamera · bisa pilih banyak sekaligus" }: DropZoneProps) {
-  const id = useId();
+export function DropZone({
+  onFiles,
+  title = 'Klik untuk pilih foto',
+  hint = 'JPG / PNG dari galeri atau kamera · bisa pilih banyak sekaligus',
+}: DropZoneProps) {
+  const id = useId()
   return (
     <>
       <label
@@ -24,10 +28,10 @@ export function DropZone({ onFiles, title = "Klik untuk pilih foto", hint = "JPG
         multiple
         hidden
         onChange={(e) => {
-          onFiles?.(Array.from(e.target.files ?? []));
-          e.target.value = "";
+          onFiles?.(Array.from(e.target.files ?? []))
+          e.target.value = ''
         }}
       />
     </>
-  );
+  )
 }

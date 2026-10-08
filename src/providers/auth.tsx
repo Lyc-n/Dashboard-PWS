@@ -1,21 +1,28 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
-import { useMatches } from "@tanstack/react-router";
-import { logoutSession } from "@/lib/utils.functions";
-import type { AuthUser } from "@/lib/auth";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
+import type { ReactNode } from 'react'
+import { useMatches } from '@tanstack/react-router'
+import { logoutSession } from '@/lib/utils.functions'
+import type { AuthUser } from '@/lib/auth'
 
 interface AuthContextValue {
-  user: AuthUser | null;
-  logout: () => Promise<void>;
+  user: AuthUser | null
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   logout: async () => {},
-});
+})
 
 export function useAuth(): AuthContextValue {
-  return useContext(AuthContext);
+  return useContext(AuthContext)
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -34,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return null
     },
-  });
+  })
 
   // Penanda logout: router context masih menyimpan `user` lama sampai navigasi
   // berikutnya selesai, jadi tanpa ini header masih menampilkan nama yang baru logout.
@@ -44,20 +51,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // shell router dan tidak remount saat pindah `/pin` ke halaman terlindungi.
   // Reset-nya lewat `useEffect` (bukan `useState` langsung) karena `ctxUser` masih
   // objek yang sama pada render pertama setelah logout.
-  const [sudahKeluar, setSudahKeluar] = useState(false);
+  const [sudahKeluar, setSudahKeluar] = useState(false)
   useEffect(() => {
-    setSudahKeluar(false);
-  }, [ctxUser]);
+    setSudahKeluar(false)
+  }, [ctxUser])
 
   const logout = useCallback(async () => {
-    await logoutSession();
-    setSudahKeluar(true);
-  }, []);
+    await logoutSession()
+    setSudahKeluar(true)
+  }, [])
 
   const value = useMemo(
     () => ({ user: sudahKeluar ? null : ctxUser, logout }),
     [ctxUser, sudahKeluar, logout],
-  );
+  )
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

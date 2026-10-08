@@ -18,68 +18,70 @@
  * dijalankan bila tidak ada submission di `surveys`. Idempoten untuk pemakaian
  * uji coba: warga dummy lama dengan NIK sintetis dibuat ulang dari awal.
  */
-import { eq, inArray, sql } from "drizzle-orm";
-import { db } from "@/lib/db.server";
+import { eq, inArray, sql } from 'drizzle-orm'
+import { db } from '@/lib/db.server'
 import {
   dataWargaTable,
   fasilitasKesehatan,
   surveys,
   users,
-} from "@/lib/schema/schema";
-import { PENANDA_PIN_TIDAK_DIGUNAKAN } from "@/lib/user-registry.server";
-import { pastikanDatabaseUji } from "@/lib/database-uji";
+} from '@/lib/schema/schema'
+import { PENANDA_PIN_TIDAK_DIGUNAKAN } from '@/lib/user-registry.server'
+import { pastikanDatabaseUji } from '@/lib/database-uji'
 
-const NIK_DUMMY = ["9000000000000001", "9000000000000002"] as const;
+const NIK_DUMMY = ['9000000000000001', '9000000000000002'] as const
 
 const PENGGUNA_UJI = [
   {
-    nama: "Admin Uji",
-    role: "admin",
-    fasilitas: "Melati 1",
+    nama: 'Admin Uji',
+    role: 'admin',
+    fasilitas: 'Melati 1',
   },
   {
-    nama: "Bidan Uji",
-    role: "kader",
-    fasilitas: "Kenanga",
+    nama: 'Bidan Uji',
+    role: 'kader',
+    fasilitas: 'Kenanga',
   },
   {
-    nama: "Kader Uji Melati",
-    role: "kader",
-    fasilitas: "Melati 1",
+    nama: 'Kader Uji Melati',
+    role: 'kader',
+    fasilitas: 'Melati 1',
   },
   {
-    nama: "Kader Uji Flamboyan",
-    role: "kader",
-    fasilitas: "Flamboyan",
+    nama: 'Kader Uji Flamboyan',
+    role: 'kader',
+    fasilitas: 'Flamboyan',
   },
-] as const;
+] as const
 
 async function utama(): Promise<void> {
-  pastikanDatabaseUji("seed");
+  pastikanDatabaseUji('seed')
 
   const [jumlahSurvey] = await db
     .select({ n: sql<number>`count(*)::int` })
-    .from(surveys);
+    .from(surveys)
   if ((jumlahSurvey?.n ?? 0) > 0) {
     throw new Error(
-      "Database uji sudah berisi submission. Hapus data uji dulu sebelum mengganti akun dan warga dummy.",
-    );
+      'Database uji sudah berisi submission. Hapus data uji dulu sebelum mengganti akun dan warga dummy.',
+    )
   }
 
   const fasilitas = await db
     .select({ id: fasilitasKesehatan.id, nama: fasilitasKesehatan.nama })
-    .from(fasilitasKesehatan);
-  const fasilitasId = new Map(fasilitas.map((f) => [f.nama, f.id]));
+    .from(fasilitasKesehatan)
+  const fasilitasId = new Map(fasilitas.map((f) => [f.nama, f.id]))
   for (const p of PENGGUNA_UJI) {
     if (!fasilitasId.get(p.fasilitas)) {
       throw new Error(
         `Fasilitas "${p.fasilitas}" tidak ada. Siapkan data referensi database uji dulu.`,
-      );
+      )
     }
   }
 
-  await db.delete(dataWargaTable).where(inArray(dataWargaTable.nik, [...NIK_DUMMY]));
-  await db.delete(users);
+  await db
+    .delete(dataWargaTable)
+    .where(inArray(dataWargaTable.nik, [...NIK_DUMMY]))
+  await db.delete(users)
 
   const penggunaBaru = await db
     .insert(users)
@@ -93,66 +95,68 @@ async function utama(): Promise<void> {
         pinHash: PENANDA_PIN_TIDAK_DIGUNAKAN,
       })),
     )
-    .returning({ id: users.id, nama: users.nama });
-  const idPengguna = new Map(penggunaBaru.map((p) => [p.nama, p.id]));
-  const idPetugas = idPengguna.get("Bidan Uji");
-  const idKader = idPengguna.get("Kader Uji Melati");
-  if (!idPetugas || !idKader) throw new Error("Akun uji gagal dibuat.");
+    .returning({ id: users.id, nama: users.nama })
+  const idPengguna = new Map(penggunaBaru.map((p) => [p.nama, p.id]))
+  const idPetugas = idPengguna.get('Bidan Uji')
+  const idKader = idPengguna.get('Kader Uji Melati')
+  if (!idPetugas || !idKader) throw new Error('Akun uji gagal dibuat.')
 
   await db.insert(dataWargaTable).values([
     {
       nik: NIK_DUMMY[0],
-      nama_art: "WARGA UJI SATU",
-      nama_kk: "WARGA UJI SATU",
-      hubungan_keluarga: "Kepala Keluarga",
-      alamat: "JL UJI COBA 1",
-      tgl_lahir: "1990-01-01",
-      rt: "001",
-      rw: "001",
-      kecamatan: "PANGGUNGREJO",
-      kelurahan: "Trajeng",
-      kota: "Kota Pasuruan",
-      status_kawin: "kawin",
+      nama_art: 'WARGA UJI SATU',
+      nama_kk: 'WARGA UJI SATU',
+      hubungan_keluarga: 'Kepala Keluarga',
+      alamat: 'JL UJI COBA 1',
+      tgl_lahir: '1990-01-01',
+      rt: '001',
+      rw: '001',
+      kecamatan: 'PANGGUNGREJO',
+      kelurahan: 'Trajeng',
+      kota: 'Kota Pasuruan',
+      status_kawin: 'kawin',
       staff: idPetugas,
-      jenis_kelamin: "perempuan",
+      jenis_kelamin: 'perempuan',
       wanita_usia_hamil: false,
-      agama: "Islam",
-      pendidikan: "SLTA/Sederajat",
-      pekerjaan: "IRT",
+      agama: 'Islam',
+      pendidikan: 'SLTA/Sederajat',
+      pekerjaan: 'IRT',
     },
     {
       nik: NIK_DUMMY[1],
-      nama_art: "WARGA UJI DUA",
-      nama_kk: "WARGA UJI DUA",
-      hubungan_keluarga: "Kepala Keluarga",
-      alamat: "JL UJI COBA 2",
-      tgl_lahir: "1985-05-05",
-      rt: "002",
-      rw: "001",
-      kecamatan: "PANGGUNGREJO",
-      kelurahan: "Ngemplakrejo",
-      kota: "Kota Pasuruan",
-      status_kawin: "kawin",
+      nama_art: 'WARGA UJI DUA',
+      nama_kk: 'WARGA UJI DUA',
+      hubungan_keluarga: 'Kepala Keluarga',
+      alamat: 'JL UJI COBA 2',
+      tgl_lahir: '1985-05-05',
+      rt: '002',
+      rw: '001',
+      kecamatan: 'PANGGUNGREJO',
+      kelurahan: 'Ngemplakrejo',
+      kota: 'Kota Pasuruan',
+      status_kawin: 'kawin',
       staff: idKader,
-      jenis_kelamin: "laki-laki",
+      jenis_kelamin: 'laki-laki',
       wanita_usia_hamil: false,
-      agama: "Islam",
-      pendidikan: "SLTA/Sederajat",
-      pekerjaan: "Buruh",
+      agama: 'Islam',
+      pendidikan: 'SLTA/Sederajat',
+      pekerjaan: 'Buruh',
     },
-  ]);
+  ])
 
   const [cekWarga] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(dataWargaTable)
-    .where(inArray(dataWargaTable.nik, [...NIK_DUMMY]));
-  console.log(`OK akun uji: ${penggunaBaru.length} akun.`);
-  console.log(`OK warga dummy: ${cekWarga?.n ?? 0} baris (${NIK_DUMMY.join(", ")}).`);
+    .where(inArray(dataWargaTable.nik, [...NIK_DUMMY]))
+  console.log(`OK akun uji: ${penggunaBaru.length} akun.`)
+  console.log(
+    `OK warga dummy: ${cekWarga?.n ?? 0} baris (${NIK_DUMMY.join(', ')}).`,
+  )
 }
 
 utama()
   .then(() => process.exit(0))
   .catch((e) => {
-    console.error("SEED UJI GAGAL:", e);
-    process.exit(1);
-  });
+    console.error('SEED UJI GAGAL:', e)
+    process.exit(1)
+  })

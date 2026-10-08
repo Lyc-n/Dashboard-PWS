@@ -1,16 +1,16 @@
-import { useCallback, useState  } from "react";
-import type {ReactNode} from "react";
-import { Topbar } from "@/components/organisms/Topbar";
-import { Sidebar } from "@/components/organisms/Sidebar";
-import { BottomNav } from "@/components/organisms/BottomNav";
+import { useCallback, useState } from 'react'
+import type { ReactNode } from 'react'
+import { Topbar } from '@/components/organisms/Topbar'
+import { Sidebar } from '@/components/organisms/Sidebar'
+import { BottomNav } from '@/components/organisms/BottomNav'
 
 export interface AppShellProps {
-  children: ReactNode;
+  children: ReactNode
 }
 
 export function AppShell({ children }: AppShellProps) {
-  const [collapsed, setCollapsed] = useState(false);
-  const toggle = useCallback(() => setCollapsed((c) => !c), []);
+  const [collapsed, setCollapsed] = useState(false)
+  const toggle = useCallback(() => setCollapsed((c) => !c), [])
 
   return (
     <div className="flex min-h-screen">
@@ -23,6 +23,5 @@ export function AppShell({ children }: AppShellProps) {
       </div>
       <BottomNav />
     </div>
-  );
+  )
 }
-

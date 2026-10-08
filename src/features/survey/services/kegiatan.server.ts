@@ -26,8 +26,8 @@
  *     supaya field yang tampil di form dan isi `survey_entries` tidak bisa beda.
  * Ketidakcocokan antara keduanya dicek `pastikanPetugasValid()`.
  */
-import { and, desc, eq, inArray } from "drizzle-orm";
-import { db } from "@/lib/db.server";
+import { and, desc, eq, inArray } from 'drizzle-orm'
+import { db } from '@/lib/db.server'
 import {
   formFields,
   formVersions,
@@ -35,12 +35,12 @@ import {
   surveys,
   surveyEntries,
   users,
-} from "@/lib/schema/schema";
-import { pastikanPetugasValid } from "@/lib/user-registry.server";
-import { KODE_FORM_BAWAAN } from "@/lib/constants";
+} from '@/lib/schema/schema'
+import { pastikanPetugasValid } from '@/lib/user-registry.server'
+import { KODE_FORM_BAWAAN } from '@/lib/constants'
 
 /** `forms.kode` untuk form kegiatan. Sama dengan yang dipakai seeder. */
-const KODE_KEGIATAN = KODE_FORM_BAWAAN.kegiatan;
+const KODE_KEGIATAN = KODE_FORM_BAWAAN.kegiatan
 
 /**
  * Peta nama field UI (key di `KegiatanFieldState`) ke `form_fields.nama`.
@@ -51,46 +51,53 @@ const KODE_KEGIATAN = KODE_FORM_BAWAAN.kegiatan;
  * `namaFieldUnik()`.
  */
 const PETA_FIELD: Readonly<Record<string, string>> = {
-  nama: "identitas::nama",
-  jenis: "identitas::jenis",
-  tgl: "identitas::tgl",
-  jam: "identitas::jam",
-  lokasi: "identitas::lokasi",
-  kel: "identitas::kel",
-  petugas: "identitas::petugas",
-  target: "identitas::target",
-  posy: "identitas::posy",
-  deskripsi: "identitas::deskripsi",
-  peserta: "peserta::peserta",
-  hadir: "peserta::hadir",
-  total: "peserta::total",
-  foto: "dokumentasi::foto",
-};
-
-type JsonRecord = Record<string, unknown>;
-
-function asJsonRecord(v: unknown): JsonRecord {
-  if (!v || typeof v !== "object" || Array.isArray(v)) {
-    throw new Error("Data kegiatan tidak valid.");
-  }
-  return v as JsonRecord;
+  nama: 'identitas::nama',
+  jenis: 'identitas::jenis',
+  tgl: 'identitas::tgl',
+  jam: 'identitas::jam',
+  lokasi: 'identitas::lokasi',
+  kel: 'identitas::kel',
+  petugas: 'identitas::petugas',
+  target: 'identitas::target',
+  posy: 'identitas::posy',
+  deskripsi: 'identitas::deskripsi',
+  peserta: 'peserta::peserta',
+  hadir: 'peserta::hadir',
+  total: 'peserta::total',
+  foto: 'dokumentasi::foto',
 }
 
-function teks(v: unknown, fallback = ""): string {
-  return typeof v === "string" ? v : fallback;
+type JsonRecord = Record<string, unknown>
+
+function asJsonRecord(v: unknown): JsonRecord {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) {
+    throw new Error('Data kegiatan tidak valid.')
+  }
+  return v as JsonRecord
+}
+
+function teks(v: unknown, fallback = ''): string {
+  return typeof v === 'string' ? v : fallback
 }
 
 function angka(v: unknown): number {
-  const n = typeof v === "number" ? v : Number(v);
-  return Number.isFinite(n) ? n : 0;
+  const n = typeof v === 'number' ? v : Number(v)
+  return Number.isFinite(n) ? n : 0
 }
 
 /** Field wajib yang kosong harus ditolak sebelum menyentuh database. */
-const FIELD_WAJIB = ["nama", "jenis", "tgl", "lokasi", "kel", "petugas"] as const;
+const FIELD_WAJIB = [
+  'nama',
+  'jenis',
+  'tgl',
+  'lokasi',
+  'kel',
+  'petugas',
+] as const
 
 interface VersiKegiatan {
-  formVersionId: string;
-  fieldIdByNama: Map<string, string>;
+  formVersionId: string
+  fieldIdByNama: Map<string, string>
 }
 
 /**
@@ -112,80 +119,85 @@ async function cariVersiKegiatan(): Promise<VersiKegiatan> {
     .select({ id: forms.id })
     .from(forms)
     .where(eq(forms.kode, KODE_KEGIATAN))
-    .limit(1);
+    .limit(1)
   if (!form) {
     throw new Error(
       `Form kegiatan (kode "${KODE_KEGIATAN}") belum ada di database. Jalankan \`pnpm db:seed\`.`,
-    );
+    )
   }
 
   const [versi] = await db
     .select({ id: formVersions.id, version: formVersions.version })
     .from(formVersions)
     .where(
-      and(eq(formVersions.formId, form.id), eq(formVersions.status, "published")),
+      and(
+        eq(formVersions.formId, form.id),
+        eq(formVersions.status, 'published'),
+      ),
     )
     .orderBy(desc(formVersions.version))
-    .limit(1);
+    .limit(1)
   if (!versi) {
     throw new Error(
       `Form kegiatan belum punya versi yang tayang. Jalankan \`pnpm db:seed\`.`,
-    );
+    )
   }
 
   const baris = await db
     .select({ id: formFields.id, nama: formFields.nama })
     .from(formFields)
-    .where(eq(formFields.formVersionId, versi.id));
+    .where(eq(formFields.formVersionId, versi.id))
   if (baris.length === 0) {
-    throw new Error(`Versi ${versi.version} dari form kegiatan tidak punya field.`);
+    throw new Error(
+      `Versi ${versi.version} dari form kegiatan tidak punya field.`,
+    )
   }
 
   return {
     formVersionId: versi.id,
     fieldIdByNama: new Map(baris.map((b) => [b.nama, b.id])),
-  };
+  }
 }
 
 /** Field yang wajib ada di DB; kalau hilang berarti seeder perlu dijalankan ulang. */
 function wajibAda(v: VersiKegiatan, namaField: string): string {
-  const id = v.fieldIdByNama.get(namaField);
+  const id = v.fieldIdByNama.get(namaField)
   if (!id) {
     throw new Error(
       `Field "${namaField}" tidak ada di versi form kegiatan ini. Jalankan \`pnpm db:seed\`.`,
-    );
+    )
   }
-  return id;
+  return id
 }
 
 export interface PesertaKegiatan {
-  nama: string;
-  kel: string;
-  hadir: boolean;
+  nama: string
+  kel: string
+  hadir: boolean
 }
 
 export interface KegiatanSimpan {
-  nama: string;
-  jenis: string;
+  nama: string
+  jenis: string
   /** `users.id` untuk petugas pencatat. */
-  petugas: string;
-  tgl: string;
-  jam: string;
-  lokasi: string;
-  kel: string;
-  target: string;
-  posy: string;
-  deskripsi: string;
-  hadir: number;
-  total: number;
+  petugas: string
+  tgl: string
+  jam: string
+  lokasi: string
+  kel: string
+  target: string
+  posy: string
+  deskripsi: string
+  hadir: number
+  total: number
   /** Jumlah foto yang terlampir. Isinya sudah berupa caption, bukan file. */
-  foto: number;
-  peserta: PesertaKegiatan[];
+  foto: number
+  peserta: PesertaKegiatan[]
 }
 
 export interface KegiatanBaca extends KegiatanSimpan {
-  id: string;
-  tanggal: string;
+  id: string
+  tanggal: string
   /**
    * `users.id` petugas pencatat, sama dengan isi `surveys.petugasId`.
    *
@@ -193,7 +205,7 @@ export interface KegiatanBaca extends KegiatanSimpan {
    * `petugas` dianggap UUID. Kalau yang dibutuhkan untuk filter atau relasi,
    * pakai yang ini; kalau untuk ditampilkan, pakai `petugas`.
    */
-  petugasId: string;
+  petugasId: string
 }
 
 /**
@@ -208,11 +220,11 @@ export interface KegiatanBaca extends KegiatanSimpan {
  * submission setengah jadi tidak mungkin.
  */
 export async function simpanKegiatan(payload: unknown): Promise<KegiatanBaca> {
-  const rec = asJsonRecord(payload);
+  const rec = asJsonRecord(payload)
 
   for (const k of FIELD_WAJIB) {
-    if (teks(rec[k]).trim() === "") {
-      throw new Error(`Field ${k} wajib diisi.`);
+    if (teks(rec[k]).trim() === '') {
+      throw new Error(`Field ${k} wajib diisi.`)
     }
   }
 
@@ -222,30 +234,35 @@ export async function simpanKegiatan(payload: unknown): Promise<KegiatanBaca> {
   // Yang disimpan ke `surveys.petugasId` adalah `id`, BUKAN `nama`. Kolomnya
   // bertipe uuid, jadi nama akan ditolak Postgres dengan pesan yang tidak
   // berguna untuk petugas.
-  const petugas = await pastikanPetugasValid(teks(rec.petugas));
+  const petugas = await pastikanPetugasValid(teks(rec.petugas))
 
-  const tanggal = teks(rec.tgl).trim();
+  const tanggal = teks(rec.tgl).trim()
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) {
-    throw new Error("Tanggal kegiatan tidak valid. Gunakan format YYYY-MM-DD.");
+    throw new Error('Tanggal kegiatan tidak valid. Gunakan format YYYY-MM-DD.')
   }
 
-  const v = await cariVersiKegiatan();
+  const v = await cariVersiKegiatan()
 
   // Peserta dinormalkan ke array objek. Field `peserta::peserta` bertipe group,
   // jadi validator grup akan menolak bentuk lain.
   const peserta: PesertaKegiatan[] = Array.isArray(rec.peserta)
     ? (rec.peserta as unknown[]).flatMap((p) => {
-        const o = asJsonRecord(p);
-        return [{ nama: teks(o.nama), kel: teks(o.kel), hadir: o.hadir === true }];
+        const o = asJsonRecord(p)
+        return [
+          { nama: teks(o.nama), kel: teks(o.kel), hadir: o.hadir === true },
+        ]
       })
-    : [];
+    : []
 
   const answers: Array<{ fieldId: string; value: unknown }> = [
     { fieldId: wajibAda(v, PETA_FIELD.nama!), value: teks(rec.nama).trim() },
     { fieldId: wajibAda(v, PETA_FIELD.jenis!), value: teks(rec.jenis) },
     { fieldId: wajibAda(v, PETA_FIELD.tgl!), value: tanggal },
     { fieldId: wajibAda(v, PETA_FIELD.jam!), value: teks(rec.jam) },
-    { fieldId: wajibAda(v, PETA_FIELD.lokasi!), value: teks(rec.lokasi).trim() },
+    {
+      fieldId: wajibAda(v, PETA_FIELD.lokasi!),
+      value: teks(rec.lokasi).trim(),
+    },
     { fieldId: wajibAda(v, PETA_FIELD.kel!), value: teks(rec.kel).trim() },
     { fieldId: wajibAda(v, PETA_FIELD.petugas!), value: petugas.id },
     { fieldId: wajibAda(v, PETA_FIELD.target!), value: teks(rec.target) },
@@ -255,9 +272,9 @@ export async function simpanKegiatan(payload: unknown): Promise<KegiatanBaca> {
     { fieldId: wajibAda(v, PETA_FIELD.total!), value: angka(rec.total) },
     { fieldId: wajibAda(v, PETA_FIELD.foto!), value: angka(rec.foto) },
     { fieldId: wajibAda(v, PETA_FIELD.peserta!), value: peserta },
-  ];
+  ]
 
-  const id = crypto.randomUUID();
+  const id = crypto.randomUUID()
 
   await db.transaction(async (tx) => {
     await tx.insert(surveys).values({
@@ -268,11 +285,15 @@ export async function simpanKegiatan(payload: unknown): Promise<KegiatanBaca> {
       wargaNik: null,
       petugasId: petugas.id,
       tanggal,
-    });
+    })
     await tx.insert(surveyEntries).values(
-      answers.map((a) => ({ surveyId: id, fieldId: a.fieldId, value: a.value })),
-    );
-  });
+      answers.map((a) => ({
+        surveyId: id,
+        fieldId: a.fieldId,
+        value: a.value,
+      })),
+    )
+  })
 
   return {
     id,
@@ -292,7 +313,7 @@ export async function simpanKegiatan(payload: unknown): Promise<KegiatanBaca> {
     total: angka(rec.total),
     foto: angka(rec.foto),
     peserta,
-  };
+  }
 }
 
 /**
@@ -303,9 +324,9 @@ export async function simpanKegiatan(payload: unknown): Promise<KegiatanBaca> {
  * `surveys.petugasId` untuk yang butuh memfilter.
  */
 export async function listKegiatan(): Promise<KegiatanBaca[]> {
-  const v = await cariVersiKegiatan();
-  const kebalikan = new Map<string, string>();
-  for (const [nama, id] of v.fieldIdByNama) kebalikan.set(id, nama);
+  const v = await cariVersiKegiatan()
+  const kebalikan = new Map<string, string>()
+  for (const [nama, id] of v.fieldIdByNama) kebalikan.set(id, nama)
 
   const baris = await db
     .select({
@@ -318,75 +339,105 @@ export async function listKegiatan(): Promise<KegiatanBaca[]> {
     .from(surveys)
     .innerJoin(surveyEntries, eq(surveyEntries.surveyId, surveys.id))
     .where(eq(surveys.formVersionId, v.formVersionId))
-    .orderBy(surveys.tanggal);
+    .orderBy(surveys.tanggal)
 
   // Petugas bisa jadi sudah dinonaktifkan, tapi nama di
   // `users` tetap ada untuk ditampilkan.
-  const petugasIds = [...new Set(baris.map((b) => b.petugasId))];
-  const namaPetugas = new Map<string, string>();
+  const petugasIds = [...new Set(baris.map((b) => b.petugasId))]
+  const namaPetugas = new Map<string, string>()
   if (petugasIds.length > 0) {
     const usersRows = await db
       .select({ id: users.id, nama: users.nama })
       .from(users)
-      .where(inArray(users.id, petugasIds));
-    for (const u of usersRows) namaPetugas.set(u.id, u.nama);
+      .where(inArray(users.id, petugasIds))
+    for (const u of usersRows) namaPetugas.set(u.id, u.nama)
   }
 
-  const perSurvey = new Map<string, KegiatanBaca>();
+  const perSurvey = new Map<string, KegiatanBaca>()
   for (const b of baris) {
-    let row = perSurvey.get(b.id);
+    let row = perSurvey.get(b.id)
     if (!row) {
       row = {
         id: b.id,
         tanggal: b.tanggal,
-        nama: "",
-        jenis: "",
-        petugas: namaPetugas.get(b.petugasId) ?? "—",
+        nama: '',
+        jenis: '',
+        petugas: namaPetugas.get(b.petugasId) ?? '—',
         petugasId: b.petugasId,
         tgl: b.tanggal,
-        jam: "",
-        lokasi: "",
-        kel: "",
-        target: "",
-        posy: "",
-        deskripsi: "",
+        jam: '',
+        lokasi: '',
+        kel: '',
+        target: '',
+        posy: '',
+        deskripsi: '',
         hadir: 0,
         total: 0,
         foto: 0,
         peserta: [],
-      };
-      perSurvey.set(b.id, row);
+      }
+      perSurvey.set(b.id, row)
     }
 
-    const namaField = kebalikan.get(b.fieldId);
-    if (!namaField) continue;
-    const nilai = b.value;
+    const namaField = kebalikan.get(b.fieldId)
+    if (!namaField) continue
+    const nilai = b.value
 
     switch (namaField) {
-      case PETA_FIELD.nama: row.nama = teks(nilai); break;
-      case PETA_FIELD.jenis: row.jenis = teks(nilai); break;
-      case PETA_FIELD.tgl: row.tgl = teks(nilai, b.tanggal); break;
-      case PETA_FIELD.jam: row.jam = teks(nilai); break;
-      case PETA_FIELD.lokasi: row.lokasi = teks(nilai); break;
-      case PETA_FIELD.kel: row.kel = teks(nilai); break;
-      case PETA_FIELD.target: row.target = teks(nilai); break;
-      case PETA_FIELD.posy: row.posy = teks(nilai); break;
-      case PETA_FIELD.deskripsi: row.deskripsi = teks(nilai); break;
-      case PETA_FIELD.hadir: row.hadir = angka(nilai); break;
-      case PETA_FIELD.total: row.total = angka(nilai); break;
-      case PETA_FIELD.foto: row.foto = angka(nilai); break;
+      case PETA_FIELD.nama:
+        row.nama = teks(nilai)
+        break
+      case PETA_FIELD.jenis:
+        row.jenis = teks(nilai)
+        break
+      case PETA_FIELD.tgl:
+        row.tgl = teks(nilai, b.tanggal)
+        break
+      case PETA_FIELD.jam:
+        row.jam = teks(nilai)
+        break
+      case PETA_FIELD.lokasi:
+        row.lokasi = teks(nilai)
+        break
+      case PETA_FIELD.kel:
+        row.kel = teks(nilai)
+        break
+      case PETA_FIELD.target:
+        row.target = teks(nilai)
+        break
+      case PETA_FIELD.posy:
+        row.posy = teks(nilai)
+        break
+      case PETA_FIELD.deskripsi:
+        row.deskripsi = teks(nilai)
+        break
+      case PETA_FIELD.hadir:
+        row.hadir = angka(nilai)
+        break
+      case PETA_FIELD.total:
+        row.total = angka(nilai)
+        break
+      case PETA_FIELD.foto:
+        row.foto = angka(nilai)
+        break
       case PETA_FIELD.peserta:
         row.peserta = Array.isArray(nilai)
           ? (nilai as unknown[]).flatMap((p) => {
-              const o = asJsonRecord(p);
-              return [{ nama: teks(o.nama), kel: teks(o.kel), hadir: o.hadir === true }];
+              const o = asJsonRecord(p)
+              return [
+                {
+                  nama: teks(o.nama),
+                  kel: teks(o.kel),
+                  hadir: o.hadir === true,
+                },
+              ]
             })
-          : [];
-        break;
+          : []
+        break
       default:
-        break;
+        break
     }
   }
 
-  return [...perSurvey.values()];
+  return [...perSurvey.values()]
 }

@@ -1,6 +1,12 @@
 import { eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db.server'
-import { formFieldOptions, formFields, formSections, formVersions, forms } from '@/lib/schema/schema'
+import {
+  formFieldOptions,
+  formFields,
+  formSections,
+  formVersions,
+  forms,
+} from '@/lib/schema/schema'
 import { KesalahanValidasi } from './form-version.server'
 import { namaTanpaPrefix } from '../lib/kode-bawaan'
 
@@ -60,7 +66,8 @@ export async function ambilDefinisiVersi(formVersionId: string) {
     .where(eq(forms.id, versi[0].formId))
     .limit(1)
   const bawaan = (form?.kode ?? null) !== null
-  const namaUntukEditor = (nama: string): string => (bawaan ? namaTanpaPrefix(nama) : nama)
+  const namaUntukEditor = (nama: string): string =>
+    bawaan ? namaTanpaPrefix(nama) : nama
 
   const sections = await db
     .select({
@@ -97,7 +104,12 @@ export async function ambilDefinisiVersi(formVersionId: string) {
       aktif: formFields.aktif,
     })
     .from(formFields)
-    .where(inArray(formFields.sectionId, sections.map((s) => s.id)))
+    .where(
+      inArray(
+        formFields.sectionId,
+        sections.map((s) => s.id),
+      ),
+    )
     .orderBy(formFields.urutan)
 
   const fieldsBySection = new Map<string, typeof fieldRows>()
@@ -124,7 +136,12 @@ export async function ambilDefinisiVersi(formVersionId: string) {
       aktif: formFieldOptions.aktif,
     })
     .from(formFieldOptions)
-    .where(inArray(formFieldOptions.fieldId, fieldRows.map((f) => f.id)))
+    .where(
+      inArray(
+        formFieldOptions.fieldId,
+        fieldRows.map((f) => f.id),
+      ),
+    )
     .orderBy(formFieldOptions.urutan)
 
   const opsiByField = new Map<string, OpsiDefinisiField[]>()

@@ -342,8 +342,6 @@ export function nilaiEnum(key: string): readonly string[] | null {
 
 export const SUMBER_SUGGEST = 'suggest'
 
-
-
 /**
  * Sumber hanya boleh dipasang pada field yang butuh pilihan, kecuali `suggest`
  * yang memang untuk field teks (daftar saran bukan daftar jawaban wajib).

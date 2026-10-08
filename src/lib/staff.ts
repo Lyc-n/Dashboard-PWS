@@ -3,11 +3,11 @@
 // bukan dari hard-code di kode.
 
 export interface Staff {
-  nama: string;
-  peran: string;
-  kel: string;
-  posy: string;
-  hp: string;
-  username: string;
-  on: boolean;
+  nama: string
+  peran: string
+  kel: string
+  posy: string
+  hp: string
+  username: string
+  on: boolean
 }

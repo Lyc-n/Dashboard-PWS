@@ -215,9 +215,7 @@ export function RiwayatSubmitSection({
     let filtered = terfilter
 
     // Filter by date range
-    filtered = filtered.filter(
-      (r) => r.tanggal >= dari && r.tanggal <= sampai
-    )
+    filtered = filtered.filter((r) => r.tanggal >= dari && r.tanggal <= sampai)
 
     // Filter by kelurahan
     if (kel !== 'all') {
@@ -246,9 +244,26 @@ export function RiwayatSubmitSection({
         title="Saring Riwayat Submit"
         sub="Semua form yang sudah diisi petugas, termasuk form buatan Form Builder."
       >
-        <Input type="date" value={dari} onChange={(e) => setDari(e.target.value)} aria-label="Tanggal awal" className="max-w-42.5 max-md:max-w-none" />
-        <Input type="date" value={sampai} onChange={(e) => setSampai(e.target.value)} aria-label="Tanggal akhir" className="max-w-42.5 max-md:max-w-none" />
-        <Select value={kel} onChange={(e) => setKel(e.target.value)} aria-label="Filter kelurahan" className="max-w-42.5 max-md:max-w-none">
+        <Input
+          type="date"
+          value={dari}
+          onChange={(e) => setDari(e.target.value)}
+          aria-label="Tanggal awal"
+          className="max-w-42.5 max-md:max-w-none"
+        />
+        <Input
+          type="date"
+          value={sampai}
+          onChange={(e) => setSampai(e.target.value)}
+          aria-label="Tanggal akhir"
+          className="max-w-42.5 max-md:max-w-none"
+        />
+        <Select
+          value={kel}
+          onChange={(e) => setKel(e.target.value)}
+          aria-label="Filter kelurahan"
+          className="max-w-42.5 max-md:max-w-none"
+        >
           <option value="all">Semua kelurahan</option>
           {KELS.map((k) => (
             <option key={k}>{k}</option>

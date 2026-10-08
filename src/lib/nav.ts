@@ -1,38 +1,61 @@
-import { ClipboardCheck, ClipboardList, FileText, LayoutDashboard, ScrollText, Settings } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import {
+  ClipboardCheck,
+  ClipboardList,
+  FileText,
+  LayoutDashboard,
+  ScrollText,
+  Settings,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 export interface NavItem {
-  label: string;
+  label: string
   /** Label ringkas untuk nav bawah yang sempit. Falls back ke `label` kalau kosong. */
-  shortLabel?: string;
-  to?: string;
-  Icon: LucideIcon;
-  children?: NavItem[];
-  isDropdownTrigger?: boolean;
+  shortLabel?: string
+  to?: string
+  Icon: LucideIcon
+  children?: NavItem[]
+  isDropdownTrigger?: boolean
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", shortLabel: "Home", to: "/", Icon: LayoutDashboard },
-  { label: "Data Sasaran", shortLabel: "Sasaran", to: "/sasaran", Icon: FileText },
-  { label: "Kunjungan Rumah", shortLabel: "Kunjungan", to: "/kunjungan-rumah", Icon: ClipboardCheck },
-  { label: "Formulir", shortLabel: "Formulir", Icon: ClipboardList, isDropdownTrigger: true, children: [] },
-  { label: "Laporan", shortLabel: "Laporan", to: "/laporan", Icon: ScrollText },
-  { label: "Kelola", shortLabel: "Kelola", to: "/kelola", Icon: Settings },
-] as const;
+  { label: 'Dashboard', shortLabel: 'Home', to: '/', Icon: LayoutDashboard },
+  {
+    label: 'Data Sasaran',
+    shortLabel: 'Sasaran',
+    to: '/sasaran',
+    Icon: FileText,
+  },
+  {
+    label: 'Kunjungan Rumah',
+    shortLabel: 'Kunjungan',
+    to: '/kunjungan-rumah',
+    Icon: ClipboardCheck,
+  },
+  {
+    label: 'Formulir',
+    shortLabel: 'Formulir',
+    Icon: ClipboardList,
+    isDropdownTrigger: true,
+    children: [],
+  },
+  { label: 'Laporan', shortLabel: 'Laporan', to: '/laporan', Icon: ScrollText },
+  { label: 'Kelola', shortLabel: 'Kelola', to: '/kelola', Icon: Settings },
+] as const
 
-let dynamicFormChildren: NavItem[] = [];
+let dynamicFormChildren: NavItem[] = []
 
 export function setDynamicFormChildren(children: NavItem[]): void {
-  dynamicFormChildren = children;
+  dynamicFormChildren = children
 }
 
 function mergeDynamicChildren(items: NavItem[]): NavItem[] {
   return items.map((item) => {
-    if (item.isDropdownTrigger && item.label === "Formulir") {
-      return { ...item, children: dynamicFormChildren };
+    if (item.isDropdownTrigger && item.label === 'Formulir') {
+      return { ...item, children: dynamicFormChildren }
     }
-    return item;
-  });
+    return item
+  })
 }
 
 /**
@@ -45,12 +68,12 @@ function mergeDynamicChildren(items: NavItem[]): NavItem[] {
  * siapa yang login.
  */
 export function navItemsForUser(): NavItem[] {
-  return mergeDynamicChildren(NAV_ITEMS);
+  return mergeDynamicChildren(NAV_ITEMS)
 }
 
 export function bottomNavItemsForUser(): NavItem[] {
   return navItemsForUser()
-    .filter((item) => item.label !== "Formulir")
+    .filter((item) => item.label !== 'Formulir')
     .slice(0, 5)
-    .map((item) => ({ ...item, children: undefined }));
+    .map((item) => ({ ...item, children: undefined }))
 }

@@ -11,8 +11,12 @@
  * di `terbitkanVersiForm()`, di dalam transaksi publish.
  */
 
-import { isValidNik } from "@/lib/utils";
-import { cariSumber, SUMBER_CARI_WARGA, SUMBER_SUGGEST } from "@/features/form-builder/services/sumber-opsi";
+import { isValidNik } from '@/lib/utils'
+import {
+  cariSumber,
+  SUMBER_CARI_WARGA,
+  SUMBER_SUGGEST,
+} from '@/features/form-builder/services/sumber-opsi'
 
 export type KodeValidasi =
   | 'OPSI_KOSONG'
@@ -41,8 +45,7 @@ export type KodeValidasi =
   | 'KONFIRMASI_NAMA_SALAH'
 
 export type HasilValidasi =
-  | { ok: true }
-  | { ok: false; kode: KodeValidasi; pesan: string }
+  { ok: true } | { ok: false; kode: KodeValidasi; pesan: string }
 
 const lolos: HasilValidasi = { ok: true }
 
@@ -86,7 +89,11 @@ export const SEMUA_TIPE_FIELD: readonly TipeField[] = [
 ]
 
 /** Tipe yang jawabannya dipilih dari daftar, jadi butuh opsi. */
-export const TIPE_BUTUH_OPSI: readonly TipeField[] = ['select', 'radio', 'checkbox']
+export const TIPE_BUTUH_OPSI: readonly TipeField[] = [
+  'select',
+  'radio',
+  'checkbox',
+]
 
 /**
  * Batas atas jumlah baris untuk satu field `group`.
@@ -145,7 +152,9 @@ export function validasiNilaiGroup(params: {
         `Baris ${i + 1} pada field group harus berupa objek, bukan ${Array.isArray(baris) ? 'daftar' : typeof baris}.`,
       )
     }
-    for (const [kolom, isi] of Object.entries(baris as Record<string, unknown>)) {
+    for (const [kolom, isi] of Object.entries(
+      baris as Record<string, unknown>,
+    )) {
       if (!selGroupValid(isi)) {
         return gagal(
           'GROUP_NILAI_SISIP',
@@ -258,7 +267,10 @@ export function validasiSumberOpsi(params: {
   // Prefix `bucket=` dipakai Form Kunjungan Rumah untuk menyimpan tata letak
   // panel (lihat parseBucket di src/lib/utils.server.ts). Kolomnya sama dengan
   // option_source_key, jadi builder tidak boleh pernah mengirim nilai itu.
-  if (optionSourceType.startsWith('bucket=') || (params.optionSourceKey ?? '').startsWith('bucket=')) {
+  if (
+    optionSourceType.startsWith('bucket=') ||
+    (params.optionSourceKey ?? '').startsWith('bucket=')
+  ) {
     return gagal(
       'SUMBER_OPSI_TIDAK_DIKENAL',
       'Sumber pilihan "bucket" milik Form Kunjungan Rumah, bukan pilihan jawaban form.',
@@ -422,12 +434,20 @@ export function validasiFieldPenuh(params: {
     }
     namaPemakai.set(namaBersih, i + 1)
 
-    if (field.fieldBawaan) continue;
+    if (field.fieldBawaan) continue
 
     if (field.tipe === 'group') {
       const jumlah = field.jumlahKolom
-      if (jumlah === null || jumlah === undefined || !Number.isInteger(jumlah) || jumlah < 1) {
-        return gagal('KOLOM_GROUP_KOSONG', `${posisi} bertipe group wajib punya jumlah kolom minimal satu.`)
+      if (
+        jumlah === null ||
+        jumlah === undefined ||
+        !Number.isInteger(jumlah) ||
+        jumlah < 1
+      ) {
+        return gagal(
+          'KOLOM_GROUP_KOSONG',
+          `${posisi} bertipe group wajib punya jumlah kolom minimal satu.`,
+        )
       }
     } else if (field.jumlahKolom !== null && field.jumlahKolom !== undefined) {
       return gagal(
@@ -481,7 +501,10 @@ export function validasiNilaiOpsiTerpilih(params: {
   if (!TIPE_BUTUH_OPSI.includes(tipe)) return lolos
 
   const boleh = new Set(
-    opsi.filter((o) => o.aktif !== false).map((o) => o.value.trim()).filter((v) => v !== ''),
+    opsi
+      .filter((o) => o.aktif !== false)
+      .map((o) => o.value.trim())
+      .filter((v) => v !== ''),
   )
 
   const kirim = Array.isArray(nilai) ? nilai : [nilai]
@@ -490,7 +513,10 @@ export function validasiNilaiOpsiTerpilih(params: {
 
   for (const v of kirim) {
     if (typeof v !== 'string' || !boleh.has(v.trim())) {
-      return gagal('OPSI_TIDAK_VALID', 'Pilihan jawaban tidak ada di daftar yang tersedia.')
+      return gagal(
+        'OPSI_TIDAK_VALID',
+        'Pilihan jawaban tidak ada di daftar yang tersedia.',
+      )
     }
   }
   return lolos
@@ -508,7 +534,10 @@ export function validasiEdisiVersi(status: string | null): HasilValidasi {
     )
   }
   if (status === 'archived') {
-    return gagal('VERSI_BUKAN_DRAFT', 'Versi ini sudah diarsipkan dan tidak bisa diedit.')
+    return gagal(
+      'VERSI_BUKAN_DRAFT',
+      'Versi ini sudah diarsipkan dan tidak bisa diedit.',
+    )
   }
   if (status !== 'draft') {
     return gagal('VERSI_BUKAN_DRAFT', `Status versi tidak dikenal: ${status}.`)
@@ -525,7 +554,10 @@ export function validasiTerbitkanVersi(status: string | null): HasilValidasi {
     return gagal('VERSI_SUDAH_TERBIT', 'Versi ini sudah diterbitkan.')
   }
   if (status !== 'draft') {
-    return gagal('VERSI_BUKAN_DRAFT', 'Hanya versi berstatus draft yang bisa diterbitkan.')
+    return gagal(
+      'VERSI_BUKAN_DRAFT',
+      'Hanya versi berstatus draft yang bisa diterbitkan.',
+    )
   }
   return lolos
 }
@@ -542,7 +574,9 @@ function tanggalNyata(nilai: string): boolean {
   if (y === undefined || m === undefined || d === undefined) return false
   const dt = new Date(Date.UTC(y, m - 1, d))
   return (
-    dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d
+    dt.getUTCFullYear() === y &&
+    dt.getUTCMonth() === m - 1 &&
+    dt.getUTCDate() === d
   )
 }
 
@@ -567,7 +601,8 @@ export function validasiNilaiField(params: {
   if (value === null || value === undefined || value === '') return lolos
 
   const opsiDiberikan = opsi !== undefined
-  const nilaiAktif = opsi?.filter((o) => o.aktif !== false).map((o) => o.value) ?? []
+  const nilaiAktif =
+    opsi?.filter((o) => o.aktif !== false).map((o) => o.value) ?? []
 
   switch (tipe) {
     case 'text':
@@ -585,33 +620,51 @@ export function validasiNilaiField(params: {
 
     case 'date':
       if (typeof value !== 'string' || !tanggalNyata(value)) {
-        return gagal('NILAI_TIDAK_COCOK', 'Field date harus diisi tanggal YYYY-MM-DD yang sah.')
+        return gagal(
+          'NILAI_TIDAK_COCOK',
+          'Field date harus diisi tanggal YYYY-MM-DD yang sah.',
+        )
       }
       return lolos
 
     case 'time':
       if (typeof value !== 'string' || !POLA_WAKTU.test(value)) {
-        return gagal('NILAI_TIDAK_COCOK', 'Field time harus diisi waktu HH:MM (24 jam).')
+        return gagal(
+          'NILAI_TIDAK_COCOK',
+          'Field time harus diisi waktu HH:MM (24 jam).',
+        )
       }
       return lolos
 
     case 'select':
     case 'radio': {
       if (typeof value !== 'string') {
-        return gagal('NILAI_TIDAK_COCOK', `Field ${tipe} harus diisi satu nilai teks.`)
+        return gagal(
+          'NILAI_TIDAK_COCOK',
+          `Field ${tipe} harus diisi satu nilai teks.`,
+        )
       }
       if (opsiDiberikan && !nilaiAktif.includes(value)) {
-        return gagal('NILAI_TIDAK_COCOK', 'Jawaban tidak ada di daftar opsi field ini.')
+        return gagal(
+          'NILAI_TIDAK_COCOK',
+          'Jawaban tidak ada di daftar opsi field ini.',
+        )
       }
       return lolos
     }
 
     case 'checkbox': {
       if (!Array.isArray(value)) {
-        return gagal('NILAI_TIDAK_COCOK', 'Field checkbox harus diisi daftar pilihan.')
+        return gagal(
+          'NILAI_TIDAK_COCOK',
+          'Field checkbox harus diisi daftar pilihan.',
+        )
       }
       if (!value.every((v) => typeof v === 'string')) {
-        return gagal('NILAI_TIDAK_COCOK', 'Field checkbox harus diisi daftar teks.')
+        return gagal(
+          'NILAI_TIDAK_COCOK',
+          'Field checkbox harus diisi daftar teks.',
+        )
       }
       if (opsiDiberikan) {
         const diLuar = value.filter((v) => !nilaiAktif.includes(v))
@@ -705,7 +758,11 @@ export function validasiHapusForm(params: {
   // Konfirmasi nama hanya diminta kalau benar-benar ada isian yang hilang.
   // Pemanggil boleh selalu mengirim `hapusPermanent: true`, jadi tanpa syarat
   // jumlahSubmit form kosong akan ikut tertolak.
-  if (hapusPermanent && ringkasan.jumlahSubmit > 0 && (params.konfirmasiNama ?? '').trim() !== nama) {
+  if (
+    hapusPermanent &&
+    ringkasan.jumlahSubmit > 0 &&
+    (params.konfirmasiNama ?? '').trim() !== nama
+  ) {
     return gagal(
       'KONFIRMASI_NAMA_SALAH',
       `Ketik nama form persis ("${nama}") untuk melanjutkan penghapusan.`,

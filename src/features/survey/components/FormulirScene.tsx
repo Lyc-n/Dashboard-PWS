@@ -21,22 +21,35 @@
  * Petugas tidak bisa diambil dari sesi login karena sesinya satu PIN global
  * (lihat `SESSION_PROFILE` di src/lib/constants.ts).
  */
-import { useCallback } from "react";
-import { Link } from "@tanstack/react-router";
-import { AppShell, SuccessPanel } from "@/components/organisms";
-import { FillBar, FormField, PageHeader, SectionCard, Stepper, Toolbar } from "@/components/molecules";
-import type { Step } from "@/components/molecules";
-import { Button, Input, Select } from "@/components/atoms";
-import { useToast } from "@/providers/toast";
-import { nilaiKosong, useFormRuntime } from "@/hooks/use-form-runtime";
-import { DynamicField, fieldAnchorId } from "@/features/survey/components/DynamicField";
-import { SaranWargaDropdown } from "@/features/survey/components/SaranWargaDropdown";
-import type { FieldRuntime, DefinisiRuntime } from "@/features/survey/services/form-runtime.server";
+import { useCallback } from 'react'
+import { Link } from '@tanstack/react-router'
+import { AppShell, SuccessPanel } from '@/components/organisms'
+import {
+  FillBar,
+  FormField,
+  PageHeader,
+  SectionCard,
+  Stepper,
+  Toolbar,
+} from '@/components/molecules'
+import type { Step } from '@/components/molecules'
+import { Button, Input, Select } from '@/components/atoms'
+import { useToast } from '@/providers/toast'
+import { nilaiKosong, useFormRuntime } from '@/hooks/use-form-runtime'
+import {
+  DynamicField,
+  fieldAnchorId,
+} from '@/features/survey/components/DynamicField'
+import { SaranWargaDropdown } from '@/features/survey/components/SaranWargaDropdown'
+import type {
+  FieldRuntime,
+  DefinisiRuntime,
+} from '@/features/survey/services/form-runtime.server'
 
 export interface FormulirSceneProps {
-  formVersionId: string;
+  formVersionId: string
   /** Definisi dari `ambilFormulir`; pemuatan dan kegagalan ditangani halamannya. */
-  definisi: DefinisiRuntime;
+  definisi: DefinisiRuntime
 }
 
 /**
@@ -52,21 +65,29 @@ function BarisField({
   setAnswer,
   invalid,
 }: {
-  field: FieldRuntime;
-  value: unknown;
-  setAnswer: (fieldId: string, value: unknown) => void;
-  invalid: boolean;
+  field: FieldRuntime
+  value: unknown
+  setAnswer: (fieldId: string, value: unknown) => void
+  invalid: boolean
 }) {
-  const onChange = useCallback((baru: unknown) => setAnswer(field.id, baru), [setAnswer, field.id]);
+  const onChange = useCallback(
+    (baru: unknown) => setAnswer(field.id, baru),
+    [setAnswer, field.id],
+  )
   return (
     <div id={fieldAnchorId(field.id)}>
-      <DynamicField field={field} value={value} onChange={onChange} invalid={invalid} />
+      <DynamicField
+        field={field}
+        value={value}
+        onChange={onChange}
+        invalid={invalid}
+      />
     </div>
-  );
+  )
 }
 
 export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
-  const toast = useToast();
+  const toast = useToast()
   const {
     form,
     version,
@@ -100,56 +121,66 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
     error,
     saved,
     reset,
-  } = useFormRuntime({ formVersionId, definisi });
+  } = useFormRuntime({ formVersionId, definisi })
 
   /** Penanda wajib hanya menyala setelah petugas pernah menekan Simpan. */
-  const kosongkan = (field: FieldRuntime) => percobaanKirim && field.wajib && nilaiKosong(answers[field.id]);
-  const petugasKurang = percobaanKirim && petugasId.trim() === "";
-  const wargaKurang = percobaanKirim && subjekWargaWajib && wargaNik.trim() === "";
+  const kosongkan = (field: FieldRuntime) =>
+    percobaanKirim && field.wajib && nilaiKosong(answers[field.id])
+  const petugasKurang = percobaanKirim && petugasId.trim() === ''
+  const wargaKurang =
+    percobaanKirim && subjekWargaWajib && wargaNik.trim() === ''
 
   const onSimpan = () => {
     void submit().then((hasil) => {
       if (hasil) {
-        toast("Isian form tersimpan di database.");
-        return;
+        toast('Isian form tersimpan di database.')
+        return
       }
       // Gagal kirim karena ada yang belum terisi: perlihat petugas mana duluan.
       // Ini hanya penandaan wajib di scene, BUKAN satu-satunya pemeriksaan —
       // penolakan tetap datang dari server.
-      if (firstMissingRequiredId !== null && typeof document !== "undefined") {
-        document.getElementById(fieldAnchorId(firstMissingRequiredId))?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
+      if (firstMissingRequiredId !== null && typeof document !== 'undefined') {
+        document
+          .getElementById(fieldAnchorId(firstMissingRequiredId))
+          ?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          })
       }
-    });
-  };
+    })
+  }
 
-  const jumlahField = visibleSections.reduce((n, s) => n + s.fields.length, 0);
+  const jumlahField = visibleSections.reduce((n, s) => n + s.fields.length, 0)
 
   /** Satu section dianggap selesai kalau setiap field wajibnya sudah terisi. */
   const sectionLengkap = (section: (typeof visibleSections)[number]): boolean =>
-    section.fields.every((f) => !f.wajib || !nilaiKosong(answers[f.id]));
+    section.fields.every((f) => !f.wajib || !nilaiKosong(answers[f.id]))
 
   /**
    * Angka langkah untuk `Stepper`: semua yang selesai sebelum bagian pertama
    * yang belum lengkap berstatus "done", yang pertama itu "now", sisanya "todo".
    */
-  const langkahSekarang = visibleSections.findIndex((s) => !sectionLengkap(s));
-  const metaLengkap = petugasId.trim() !== "" && !nilaiKosong(tanggal);
+  const langkahSekarang = visibleSections.findIndex((s) => !sectionLengkap(s))
+  const metaLengkap = petugasId.trim() !== '' && !nilaiKosong(tanggal)
   /**
    * Langkah "Simpan" baru hijau kalau tidak ada satu pun yang tertinggal —
    * petugas, tanggal, dan seluruh pertanyaan wajib.
    */
-  const belumAdaSisa = metaLengkap && langkahSekarang === -1 && kosongWajib === 0;
+  const belumAdaSisa =
+    metaLengkap && langkahSekarang === -1 && kosongWajib === 0
 
   const steps: Step[] = [
     ...visibleSections.map((section, i): Step => ({
       label: section.nama,
-      state: langkahSekarang === -1 || i < langkahSekarang ? "done" : i === langkahSekarang ? "now" : "todo",
+      state:
+        langkahSekarang === -1 || i < langkahSekarang
+          ? 'done'
+          : i === langkahSekarang
+            ? 'now'
+            : 'todo',
     })),
-    { label: "Simpan", state: belumAdaSisa ? "done" : "todo" },
-  ];
+    { label: 'Simpan', state: belumAdaSisa ? 'done' : 'todo' },
+  ]
 
   return (
     <AppShell>
@@ -157,7 +188,7 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
         title={form.nama}
         description={`Versi ${version.version} · ${visibleSections.length} bagian · ${jumlahField} pertanyaan. ${
           form.deskripsi ||
-          "Daftar pertanyaan, opsi jawaban, dan bagiannya ditentukan Admin di Kelola, lalu diisi di sini."
+          'Daftar pertanyaan, opsi jawaban, dan bagiannya ditentukan Admin di Kelola, lalu diisi di sini.'
         }`}
       />
 
@@ -193,7 +224,9 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
             disabled={petugasLoading}
             invalid={petugasKurang}
           >
-            <option value="">{petugasLoading ? "Memuat daftar petugas…" : "— Pilih petugas —"}</option>
+            <option value="">
+              {petugasLoading ? 'Memuat daftar petugas…' : '— Pilih petugas —'}
+            </option>
             {petugasOpsi.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nama} — {p.fasKes}
@@ -202,15 +235,29 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
           </Select>
         </FormField>
 
-        <FormField label="Tanggal isian" required className="min-w-44" hint="Dipakai rekap harian dan bulanan.">
-          <Input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
+        <FormField
+          label="Tanggal isian"
+          required
+          className="min-w-44"
+          hint="Dipakai rekap harian dan bulanan."
+        >
+          <Input
+            type="date"
+            value={tanggal}
+            onChange={(e) => setTanggal(e.target.value)}
+          />
         </FormField>
 
         <p className="max-w-64 text-[11px] font-normal text-muted">
-          Petugas dan tanggal diisi di luar form. Kalau form ini butuh data petugas atau warga sebagai
-          pertanyaan, tambahkan sendiri sebagai field di Form Builder.
+          Petugas dan tanggal diisi di luar form. Kalau form ini butuh data
+          petugas atau warga sebagai pertanyaan, tambahkan sendiri sebagai field
+          di Form Builder.
         </p>
-        {petugasError ? <p className="text-[11px] font-semibold text-danger">{petugasError}</p> : null}
+        {petugasError ? (
+          <p className="text-[11px] font-semibold text-danger">
+            {petugasError}
+          </p>
+        ) : null}
       </div>
 
       {/*
@@ -253,11 +300,15 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
             />
             <span className="text-[11px] font-normal text-muted">
               {warga
-                ? `${warga.namaArt || warga.namaKk || "Warga"} · NIK ${warga.nik} · ${warga.kelurahan ?? "kelurahan belum ada"}`
-                : "Belum ada warga yang dipilih."}
+                ? `${warga.namaArt || warga.namaKk || 'Warga'} · NIK ${warga.nik} · ${warga.kelurahan ?? 'kelurahan belum ada'}`
+                : 'Belum ada warga yang dipilih.'}
             </span>
           </FormField>
-          {saranError ? <p className="mt-2 text-[11px] font-semibold text-danger">{saranError}</p> : null}
+          {saranError ? (
+            <p className="mt-2 text-[11px] font-semibold text-danger">
+              {saranError}
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -287,7 +338,8 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
       {visibleSections.length === 0 ? (
         <SectionCard title="Belum ada pertanyaan">
           <p className="text-[12.5px] text-muted">
-            Form ini belum punya pertanyaan aktif. Admin belum menyusunnya di Kelola.
+            Form ini belum punya pertanyaan aktif. Admin belum menyusunnya di
+            Kelola.
           </p>
         </SectionCard>
       ) : null}
@@ -296,22 +348,27 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
         title={`${visibleSections.length + 1}. Simpan`}
         actions={
           <Toolbar className="w-full">
-            <span className="ml-auto text-xs text-muted">Simpan ke database.</span>
+            <span className="ml-auto text-xs text-muted">
+              Simpan ke database.
+            </span>
             <Button variant="default" onClick={reset} disabled={saving}>
               Reset
             </Button>
             <Button variant="primary" onClick={onSimpan} disabled={saving}>
-              {saving ? "Menyimpan…" : "Simpan isian"}
+              {saving ? 'Menyimpan…' : 'Simpan isian'}
             </Button>
           </Toolbar>
         }
       >
         <div className="grid gap-1.5">
           <span className="text-xs text-muted">
-            Tanda bintang menandai pertanyaan wajib. Pemeriksaan terakhir tetap dilakukan server saat
-            menyimpan, dan pesan yang muncul berasal dari sana.
+            Tanda bintang menandai pertanyaan wajib. Pemeriksaan terakhir tetap
+            dilakukan server saat menyimpan, dan pesan yang muncul berasal dari
+            sana.
           </span>
-          {error ? <span className="text-xs font-semibold text-danger">{error}</span> : null}
+          {error ? (
+            <span className="text-xs font-semibold text-danger">{error}</span>
+          ) : null}
         </div>
       </SectionCard>
 
@@ -323,15 +380,16 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
           <Button
             variant="primary"
             onClick={() => {
-              reset();
-              if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+              reset()
+              if (typeof window !== 'undefined')
+                window.scrollTo({ top: 0, behavior: 'smooth' })
             }}
           >
             Isi formulir ini lagi
           </Button>
           <Link
             to="/form"
-            search={{ jenis: "" }}
+            search={{ jenis: '' }}
             className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-[18px] py-[11px] text-[13px] font-bold text-on-accent hover:bg-accent-hover"
           >
             Isi formulir lain
@@ -339,5 +397,5 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
         </SuccessPanel>
       ) : null}
     </AppShell>
-  );
+  )
 }

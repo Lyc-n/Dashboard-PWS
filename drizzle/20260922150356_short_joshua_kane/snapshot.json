@@ -2,9 +2,7 @@
   "version": "8",
   "dialect": "postgres",
   "id": "7f03499c-5240-44fc-a743-2dc2c5569609",
-  "prevIds": [
-    "00000000-0000-0000-0000-000000000000"
-  ],
+  "prevIds": ["00000000-0000-0000-0000-000000000000"],
   "ddl": [
     {
       "values": [
@@ -25,10 +23,7 @@
       "schema": "public"
     },
     {
-      "values": [
-        "laki-laki",
-        "perempuan"
-      ],
+      "values": ["laki-laki", "perempuan"],
       "name": "jenis_kelamin",
       "entityType": "enums",
       "schema": "public"
@@ -50,12 +45,7 @@
       "schema": "public"
     },
     {
-      "values": [
-        "belum kawin",
-        "kawin",
-        "cerai mati",
-        "cerai hidup"
-      ],
+      "values": ["belum kawin", "kawin", "cerai mati", "cerai hidup"],
       "name": "status_kawin",
       "entityType": "enums",
       "schema": "public"
@@ -553,14 +543,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "nik_warga"
-      ],
+      "columns": ["nik_warga"],
       "schemaTo": "public",
       "tableTo": "data_warga",
-      "columnsTo": [
-        "nik"
-      ],
+      "columnsTo": ["nik"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "riwayat_survey_nik_warga_data_warga_nik_fkey",
@@ -570,14 +556,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "petugas_id"
-      ],
+      "columns": ["petugas_id"],
       "schemaTo": "public",
       "tableTo": "surveyor",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "riwayat_survey_petugas_id_surveyor_id_fkey",
@@ -586,9 +568,7 @@
       "table": "riwayat_survey"
     },
     {
-      "columns": [
-        "nik"
-      ],
+      "columns": ["nik"],
       "nameExplicit": false,
       "name": "data_warga_pkey",
       "schema": "public",
@@ -596,9 +576,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "riwayat_survey_pkey",
       "schema": "public",
@@ -606,9 +584,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "surveyor_pkey",
       "schema": "public",

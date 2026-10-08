@@ -1,21 +1,21 @@
-import { createContext, useCallback, useContext, useRef, useState  } from "react";
-import type {ReactNode} from "react";
+import { createContext, useCallback, useContext, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 
-const ToastContext = createContext<(message: string) => void>(() => {});
+const ToastContext = createContext<(message: string) => void>(() => {})
 
 export function useToast(): (message: string) => void {
-  return useContext(ToastContext);
+  return useContext(ToastContext)
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [message, setMessage] = useState<string | null>(null);
-  const timer = useRef<number | undefined>(undefined);
+  const [message, setMessage] = useState<string | null>(null)
+  const timer = useRef<number | undefined>(undefined)
 
   const show = useCallback((msg: string) => {
-    setMessage(msg);
-    window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setMessage(null), 2200);
-  }, []);
+    setMessage(msg)
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setMessage(null), 2200)
+  }, [])
 
   return (
     <ToastContext.Provider value={show}>
@@ -29,5 +29,5 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {message}
       </div>
     </ToastContext.Provider>
-  );
+  )
 }

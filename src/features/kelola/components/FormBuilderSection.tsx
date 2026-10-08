@@ -1,18 +1,24 @@
-import { useState, useEffect } from "react";
-import { AdminModal } from "./AdminModal";
-import { HapusFormDialog } from "./HapusFormDialog";
-import { FormBuilderWorkspace } from "./builder/FormBuilderWorkspace";
-import { Button, EmptyState, Input, StatusBadge, Textarea } from "@/components/atoms";
-import { useToast } from "@/providers/toast";
-import { Card, CardHeader } from "@/components/molecules";
-import { useFormBuilder } from "@/hooks/use-form-builder";
-import { useFormBuilderDraft } from "@/hooks/use-form-builder-draft";
+import { useState, useEffect } from 'react'
+import { AdminModal } from './AdminModal'
+import { HapusFormDialog } from './HapusFormDialog'
+import { FormBuilderWorkspace } from './builder/FormBuilderWorkspace'
+import {
+  Button,
+  EmptyState,
+  Input,
+  StatusBadge,
+  Textarea,
+} from '@/components/atoms'
+import { useToast } from '@/providers/toast'
+import { Card, CardHeader } from '@/components/molecules'
+import { useFormBuilder } from '@/hooks/use-form-builder'
+import { useFormBuilderDraft } from '@/hooks/use-form-builder-draft'
 
 const LABEL_STATUS: Record<string, string> = {
-  draft: "Draft",
-  published: "Tayang",
-  archived: "Diarsipkan",
-};
+  draft: 'Draft',
+  published: 'Tayang',
+  archived: 'Diarsipkan',
+}
 
 export function FormBuilderSection() {
   const {
@@ -37,54 +43,60 @@ export function FormBuilderSection() {
     tutupDialogHapus,
     terbitkan,
     buatDraft,
-  } = useFormBuilder();
+  } = useFormBuilder()
 
-  const toast = useToast();
-  const draft = useFormBuilderDraft();
-  const { loadDocument, clearDocument, document, ...draftRest } = draft;
+  const toast = useToast()
+  const draft = useFormBuilderDraft()
+  const { loadDocument, clearDocument, document, ...draftRest } = draft
 
-  const [modalForm, setModalForm] = useState(false);
-  const [nama, setNama] = useState("");
-  const [deskripsi, setDeskripsi] = useState("");
-  const [targetHapus, setTargetHapus] = useState<{ formId: number; nama: string } | null>(null);
+  const [modalForm, setModalForm] = useState(false)
+  const [nama, setNama] = useState('')
+  const [deskripsi, setDeskripsi] = useState('')
+  const [targetHapus, setTargetHapus] = useState<{
+    formId: number
+    nama: string
+  } | null>(null)
 
-  const formTerpilih = forms.find((f) => f.id === formId) ?? null;
+  const formTerpilih = forms.find((f) => f.id === formId) ?? null
 
   const tambahForm = async () => {
-    if (!nama.trim()) return;
-    await buatForm(nama.trim(), deskripsi.trim());
-    setModalForm(false);
-    setNama("");
-    setDeskripsi("");
-  };
+    if (!nama.trim()) return
+    await buatForm(nama.trim(), deskripsi.trim())
+    setModalForm(false)
+    setNama('')
+    setDeskripsi('')
+  }
 
   /**
    * Hapus form lalu sebut angka yang benar-benar hilang, supaya admin tidak
    * hanya melihat toast "berhasil" tanpa tahu combien data yang ikut hilang.
    */
   const konfirmasiHapus = async (konfirmasiNama: string | null) => {
-    if (!targetHapus) return;
-    const hasil = await hapusForm(targetHapus.formId, konfirmasiNama ?? undefined);
-    if (!hasil) return;
-    setTargetHapus(null);
+    if (!targetHapus) return
+    const hasil = await hapusForm(
+      targetHapus.formId,
+      konfirmasiNama ?? undefined,
+    )
+    if (!hasil) return
+    setTargetHapus(null)
     toast(
       hasil.jumlahSubmit > 0
         ? `Form dihapus permanen: ${hasil.jumlahVersi} versi, ${hasil.jumlahSubmit} isian, ${hasil.jumlahJawaban} jawaban.`
         : `Form dihapus: ${hasil.jumlahVersi} versi, ${hasil.jumlahJawaban} jawaban.`,
-    );
-  };
+    )
+  }
 
   useEffect(() => {
     if (definisi) {
-      loadDocument(definisi);
+      loadDocument(definisi)
     } else {
-      clearDocument();
+      clearDocument()
     }
-  }, [definisi, loadDocument, clearDocument]);
+  }, [definisi, loadDocument, clearDocument])
 
   const handleBack = () => {
-    pilihForm(formTerpilih?.id ?? forms[0]?.id ?? 0);
-  };
+    pilihForm(formTerpilih?.id ?? forms[0]?.id ?? 0)
+  }
 
   return (
     <div className="mt-4">
@@ -95,13 +107,19 @@ export function FormBuilderSection() {
           title="Form"
           sub="Form bawaan sistem ikut tampil dan bisa disunting di sini lewat draft baru. Strukturnya sebagian terkunci karena form kader membacanya lewat nama section dan kode field."
           actions={
-            <Button variant="primary" size="sm" onClick={() => setModalForm(true)}>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setModalForm(true)}
+            >
               Form Baru
             </Button>
           }
         />
 
-        {loading ? <p className="mt-3 text-[13px] text-muted">Memuat daftar form…</p> : null}
+        {loading ? (
+          <p className="mt-3 text-[13px] text-muted">Memuat daftar form…</p>
+        ) : null}
 
         {!loading && forms.length === 0 ? (
           <EmptyState title="Belum ada form." className="mt-3">
@@ -113,9 +131,13 @@ export function FormBuilderSection() {
           <ul className="mt-3 grid gap-1.5">
             {forms.map((form) => (
               <li key={form.id}>
-                <div className={`flex w-full flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
-                  form.id === formId ? "border-accent-border bg-accent-light" : "border-line"
-                }`}>
+                <div
+                  className={`flex w-full flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
+                    form.id === formId
+                      ? 'border-accent-border bg-accent-light'
+                      : 'border-line'
+                  }`}
+                >
                   <button
                     type="button"
                     onClick={() => void pilihForm(form.id)}
@@ -124,8 +146,12 @@ export function FormBuilderSection() {
                     {form.nama}
                   </button>
                   <div className="flex items-center gap-2">
-                    {form.kode ? <StatusBadge variant="process">Bawaan</StatusBadge> : null}
-                    <StatusBadge variant={form.aktif ? "done" : "off"}>{form.aktif ? "Aktif" : "Nonaktif"}</StatusBadge>
+                    {form.kode ? (
+                      <StatusBadge variant="process">Bawaan</StatusBadge>
+                    ) : null}
+                    <StatusBadge variant={form.aktif ? 'done' : 'off'}>
+                      {form.aktif ? 'Aktif' : 'Nonaktif'}
+                    </StatusBadge>
                     {/* Form bawaan tidak bisa dihapus — server juga menolaknya.
                         Tombolnya disembunyikan supaya tidak menawarkan aksi yang
                         pasti gagal. */}
@@ -135,8 +161,8 @@ export function FormBuilderSection() {
                         variant="ghost"
                         className="text-destructive hover:bg-destructive/10"
                         onClick={() => {
-                          setTargetHapus({ formId: form.id, nama: form.nama });
-                          void bukaDialogHapus(form.id);
+                          setTargetHapus({ formId: form.id, nama: form.nama })
+                          void bukaDialogHapus(form.id)
                         }}
                         disabled={saving}
                       >
@@ -167,7 +193,11 @@ export function FormBuilderSection() {
                   >
                     Terbitkan
                   </Button>
-                  <Button size="sm" disabled={saving} onClick={() => void buatDraft()}>
+                  <Button
+                    size="sm"
+                    disabled={saving}
+                    onClick={() => void buatDraft()}
+                  >
                     Draft Berikutnya
                   </Button>
                 </>
@@ -179,7 +209,7 @@ export function FormBuilderSection() {
                 <Button
                   key={v.id}
                   size="sm"
-                  variant={v.id === formVersionId ? "primary" : "default"}
+                  variant={v.id === formVersionId ? 'primary' : 'default'}
                   onClick={() => void pilihVersi(v.id)}
                 >
                   v{v.version} · {LABEL_STATUS[v.status] ?? v.status}
@@ -189,14 +219,20 @@ export function FormBuilderSection() {
 
             {versiTerpilih && !bisaUbah ? (
               <p className="mt-3 text-[13px] text-muted">
-                Versi ini {LABEL_STATUS[versiTerpilih.status]?.toLowerCase() ?? versiTerpilih.status} dan tidak bisa diubah. Buat draft berikutnya untuk menyuntingnya.
+                Versi ini{' '}
+                {LABEL_STATUS[versiTerpilih.status]?.toLowerCase() ??
+                  versiTerpilih.status}{' '}
+                dan tidak bisa diubah. Buat draft berikutnya untuk
+                menyuntingnya.
               </p>
             ) : null}
           </Card>
 
           {loadingDefinisi || !definisi ? (
             definisiError ? (
-              <p className="mt-3 text-[13px] text-destructive">Gagal memuat definisi: {definisiError}</p>
+              <p className="mt-3 text-[13px] text-destructive">
+                Gagal memuat definisi: {definisiError}
+              </p>
             ) : (
               <p className="mt-3 text-[13px] text-muted">Memuat isi form…</p>
             )
@@ -222,11 +258,20 @@ export function FormBuilderSection() {
         >
           <label className="grid gap-1">
             <span className="text-xs font-bold text-ink-2">Nama form</span>
-            <Input value={nama} onChange={(e) => setNama(e.target.value)} placeholder="Contoh: Monitoring Ibu Hamil" />
+            <Input
+              value={nama}
+              onChange={(e) => setNama(e.target.value)}
+              placeholder="Contoh: Monitoring Ibu Hamil"
+            />
           </label>
           <label className="grid gap-1">
-            <span className="text-xs font-bold text-ink-2">Deskripsi (opsional)</span>
-            <Textarea value={deskripsi} onChange={(e) => setDeskripsi(e.target.value)} />
+            <span className="text-xs font-bold text-ink-2">
+              Deskripsi (opsional)
+            </span>
+            <Textarea
+              value={deskripsi}
+              onChange={(e) => setDeskripsi(e.target.value)}
+            />
           </label>
         </AdminModal>
       ) : null}
@@ -237,12 +282,12 @@ export function FormBuilderSection() {
           ringkasan={ringkasanHapus}
           busy={saving}
           onClose={() => {
-            setTargetHapus(null);
-            tutupDialogHapus();
+            setTargetHapus(null)
+            tutupDialogHapus()
           }}
           onConfirm={(konfirmasiNama) => void konfirmasiHapus(konfirmasiNama)}
         />
       ) : null}
     </div>
-  );
+  )
 }

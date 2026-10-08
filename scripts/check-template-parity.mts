@@ -28,15 +28,15 @@
  *
  * Jalankan: `pnpm db:check-parity` (butuh DATABASE_URL)
  */
-import "dotenv/config";
-import { sql } from "drizzle-orm";
-import { db } from "../src/lib/db.server.ts";
-import { getKunjunganRumahTemplateRows } from "../src/lib/utils.server.ts";
-import { templateFromRows } from "../src/features/kunjungan-rumah/lib/template-from-rows.ts";
-import { createDefaultKunjunganRumahTemplates } from "../src/lib/kunjungan-rumah-templates.ts";
-import type { KunjunganRumahTemplateField } from "../src/lib/kunjungan-rumah-templates.ts";
-import { SASARAN_KEYS } from "../src/lib/kunjungan-rumah-form.ts";
-import { KODE_FORM_BAWAAN } from "../src/lib/constants.ts";
+import 'dotenv/config'
+import { sql } from 'drizzle-orm'
+import { db } from '../src/lib/db.server.ts'
+import { getKunjunganRumahTemplateRows } from '../src/lib/utils.server.ts'
+import { templateFromRows } from '../src/features/kunjungan-rumah/lib/template-from-rows.ts'
+import { createDefaultKunjunganRumahTemplates } from '../src/lib/kunjungan-rumah-templates.ts'
+import type { KunjunganRumahTemplateField } from '../src/lib/kunjungan-rumah-templates.ts'
+import { SASARAN_KEYS } from '../src/lib/kunjungan-rumah-form.ts'
+import { KODE_FORM_BAWAAN } from '../src/lib/constants.ts'
 import {
   BUCKET_SASARAN,
   FIELD_RECORD_LEGACY,
@@ -45,20 +45,22 @@ import {
   SECTION_TERLINDUNGI,
   TIPE_KADER,
   namaDenganPrefix,
-} from "../src/features/form-builder/lib/kode-bawaan.ts";
+} from '../src/features/form-builder/lib/kode-bawaan.ts'
 
-const modeBaseline = process.argv.includes("--baseline");
+const modeBaseline = process.argv.includes('--baseline')
 
-let masalah = 0;
+let masalah = 0
 const lap = (m: string) => {
-  masalah += 1;
-  console.error(`MASALAH ${m}`);
-};
+  masalah += 1
+  console.error(`MASALAH ${m}`)
+}
 
-const rows = await getKunjunganRumahTemplateRows();
+const rows = await getKunjunganRumahTemplateRows()
 if (!rows) {
-  console.error("GAGAL: form kunjungan rumah tidak ada di database. Jalankan `pnpm db:seed`.");
-  process.exit(1);
+  console.error(
+    'GAGAL: form kunjungan rumah tidak ada di database. Jalankan `pnpm db:seed`.',
+  )
+  process.exit(1)
 }
 
 // ---------------------------------------------------------------------------
@@ -67,10 +69,10 @@ if (!rows) {
 
 /** Baris mentah, supaya nama field yang ter-prefix `::` masih terlihat. */
 const barisMentah: {
-  section: string;
-  nama: string;
-  tipe: string;
-  optionSourceKey: string | null;
+  section: string
+  nama: string
+  tipe: string
+  optionSourceKey: string | null
 }[] = await db.execute(sql`
   SELECT s.nama AS section, f.nama, f.tipe, f."optionSourceKey"
   FROM form_fields f
@@ -80,33 +82,42 @@ const barisMentah: {
   WHERE fm.kode = ${KODE_FORM_BAWAAN.kunjunganRumah}
     AND fv.status = 'published'
   ORDER BY s.nama, f.urutan
-`);
+`)
 
 // 1. Section tetap harus lengkap. Section yang hilang berarti seluruh isian di
 //    dalamnya tidak bisa dirender dan tidak akan muncul di mana pun.
-const sectionAda = new Set(barisMentah.map((b) => b.section));
+const sectionAda = new Set(barisMentah.map((b) => b.section))
 for (const nama of SECTION_TERLINDUNGI) {
-  if (!sectionAda.has(nama)) lap(`section "${nama}" tidak ada di versi published`);
+  if (!sectionAda.has(nama))
+    lap(`section "${nama}" tidak ada di versi published`)
 }
 for (const nama of sectionAda) {
-  if (!SECTION_TERLINDUNGI.has(nama)) lap(`section "${nama}" tidak dikenal form kunjungan rumah`);
+  if (!SECTION_TERLINDUNGI.has(nama))
+    lap(`section "${nama}" tidak dikenal form kunjungan rumah`)
 }
 
 // 2. Field penyimpan data wajib ada. Tanpa ini seluruh data kunjungan lama tidak
 //    bisa dibaca maupun diperbarui karena isiannya satu baris jsonb di sini.
-const namaRecord = `${SECTION_PENYIMPANAN}::${FIELD_RECORD_LEGACY}`;
-const recordAda = barisMentah.some((b) => b.nama === namaRecord);
-if (!recordAda) lap(`field "${namaRecord}" tidak ada — seluruh data kunjungan rumah bisa hilang`);
+const namaRecord = `${SECTION_PENYIMPANAN}::${FIELD_RECORD_LEGACY}`
+const recordAda = barisMentah.some((b) => b.nama === namaRecord)
+if (!recordAda)
+  lap(
+    `field "${namaRecord}" tidak ada — seluruh data kunjungan rumah bisa hilang`,
+  )
 
 // 3. Nama field harus ber-namespace. `form_fields.nama` unik per versi form,
 //    sedangkan id-nya sengaja dipakai ulang antar section, jadi prefix itu satu-
 //    satunya cara keduanya bisa hidup berdampingan.
 for (const b of barisMentah) {
-  if (!b.nama.includes("::")) {
-    lap(`field "${b.nama}" (section ${b.section}) tidak ber-prefix "::" — bentrok dengan field bernama sama di section lain`);
+  if (!b.nama.includes('::')) {
+    lap(
+      `field "${b.nama}" (section ${b.section}) tidak ber-prefix "::" — bentrok dengan field bernama sama di section lain`,
+    )
   }
-  if (namaDenganPrefix(b.section, b.nama.split("::").pop() ?? b.nama) !== b.nama) {
-    lap(`field "${b.nama}" tidak cocok dengan section-nya "${b.section}"`);
+  if (
+    namaDenganPrefix(b.section, b.nama.split('::').pop() ?? b.nama) !== b.nama
+  ) {
+    lap(`field "${b.nama}" tidak cocok dengan section-nya "${b.section}"`)
   }
 }
 
@@ -114,7 +125,9 @@ for (const b of barisMentah) {
 //    penyuntingan langsung di database, karena build menolaknya.
 for (const b of barisMentah) {
   if (!TIPE_KADER.has(b.tipe) && b.nama !== namaRecord) {
-    lap(`field "${b.nama}" bertipe "${b.tipe}" yang tidak bisa dirender form kader`);
+    lap(
+      `field "${b.nama}" bertipe "${b.tipe}" yang tidak bisa dirender form kader`,
+    )
   }
 }
 
@@ -122,35 +135,42 @@ for (const b of barisMentah) {
 //    boleh punya apa pun di option_source_key. Bucket ini yang menentukan field
 //    masuk panel identitas, kolom, bools, atau baha.
 for (const b of barisMentah) {
-  const diSasaran = (SASARAN_KEYS as readonly string[]).includes(b.section);
+  const diSasaran = (SASARAN_KEYS as readonly string[]).includes(b.section)
   if (diSasaran) {
     if (!b.optionSourceKey?.startsWith(PREFIX_BUCKET)) {
-      lap(`field sasaran "${b.nama}" tidak punya prefix "${PREFIX_BUCKET}" pada option source key`);
-      continue;
+      lap(
+        `field sasaran "${b.nama}" tidak punya prefix "${PREFIX_BUCKET}" pada option source key`,
+      )
+      continue
     }
-    const bucket = b.optionSourceKey.slice(PREFIX_BUCKET.length);
+    const bucket = b.optionSourceKey.slice(PREFIX_BUCKET.length)
     if (!BUCKET_SASARAN.has(bucket)) {
-      lap(`field sasaran "${b.nama}" punya bucket "${bucket}" yang tidak dikenal`);
+      lap(
+        `field sasaran "${b.nama}" punya bucket "${bucket}" yang tidak dikenal`,
+      )
     }
   } else if (b.optionSourceKey !== null && b.nama !== namaRecord) {
-    lap(`field "${b.nama}" (section ${b.section}) punya option source key "${b.optionSourceKey}" yang tidak boleh ada`);
+    lap(
+      `field "${b.nama}" (section ${b.section}) punya option source key "${b.optionSourceKey}" yang tidak boleh ada`,
+    )
   }
 }
 
 // 6. Tiap sasaran harus punya minimal satu field, kalau tidak panelnya kosong
 //    dan kader tidak bisa mengisi apa pun untuk kelompok itu.
 for (const key of SASARAN_KEYS) {
-  const jumlah = barisMentah.filter((b) => b.section === key).length;
-  if (jumlah === 0) lap(`section sasaran "${key}" tidak punya field sama sekali`);
+  const jumlah = barisMentah.filter((b) => b.section === key).length
+  if (jumlah === 0)
+    lap(`section sasaran "${key}" tidak punya field sama sekali`)
 }
 
 // 7. Mapper harus berhasil mengubah baris jadi form. Ini yang sebenarnya
 //    dijalankan form kader, jadi gaganya di sini sama dengan gaganya di aplikasi.
-let template = null;
+let template = null
 try {
-  template = templateFromRows(rows);
+  template = templateFromRows(rows)
 } catch (e) {
-  lap(`mapper gagal: ${e instanceof Error ? e.message : String(e)}`);
+  lap(`mapper gagal: ${e instanceof Error ? e.message : String(e)}`)
 }
 
 if (template) {
@@ -159,18 +179,24 @@ if (template) {
     template.anggota.length +
     template.sanitasi.length +
     template.masalah.length +
-    SASARAN_KEYS.reduce((a, k) => a + (template!.sasaran[k]?.fields.length ?? 0), 0);
+    SASARAN_KEYS.reduce(
+      (a, k) => a + (template!.sasaran[k]?.fields.length ?? 0),
+      0,
+    )
   const nonaktif =
     template.keluargaInfo.filter((f) => !f.active).length +
     template.anggota.filter((f) => !f.active).length +
     template.sanitasi.filter((f) => !f.active).length +
     template.masalah.filter((f) => !f.active).length +
-    SASARAN_KEYS.reduce((a, k) => a + template!.sasaran[k].fields.filter((f) => !f.active).length, 0);
+    SASARAN_KEYS.reduce(
+      (a, k) => a + template!.sasaran[k].fields.filter((f) => !f.active).length,
+      0,
+    )
 
   if (masalah === 0) {
     console.log(
       `STRUKTUR OK: versi definisi ${rows.versiDefinisi}, ${totalField} field aktif dari ${barisMentah.length} baris (${nonaktif} nonaktif), ${sectionAda.size} section.`,
-    );
+    )
   }
 }
 
@@ -180,61 +206,95 @@ if (template) {
 
 if (modeBaseline) {
   if (!template) {
-    console.error("BASELINE GAGAL: definisi di database tidak bisa dipetakan, tidak ada yang bisa dibandingkan.");
-    process.exit(1);
+    console.error(
+      'BASELINE GAGAL: definisi di database tidak bisa dipetakan, tidak ada yang bisa dibandingkan.',
+    )
+    process.exit(1)
   }
 
-  const dariKode = createDefaultKunjunganRumahTemplates();
-  const FIELD_KEYS = ["id", "label", "kind", "section", "sasaranKey", "required", "active", "order", "hint"] as const;
+  const dariKode = createDefaultKunjunganRumahTemplates()
+  const FIELD_KEYS = [
+    'id',
+    'label',
+    'kind',
+    'section',
+    'sasaranKey',
+    'required',
+    'active',
+    'order',
+    'hint',
+  ] as const
 
-  function bandingField(a: KunjunganRumahTemplateField, b: KunjunganRumahTemplateField, lokasi: string) {
+  function bandingField(
+    a: KunjunganRumahTemplateField,
+    b: KunjunganRumahTemplateField,
+    lokasi: string,
+  ) {
     for (const k of FIELD_KEYS) {
       if ((a[k] ?? null) !== (b[k] ?? null)) {
-        lap(`baseline ${lokasi}.${k} (id ${a.id}): DB "${a[k]}" vs kode "${b[k]}"`);
+        lap(
+          `baseline ${lokasi}.${k} (id ${a.id}): DB "${a[k]}" vs kode "${b[k]}"`,
+        )
       }
     }
-    if (JSON.stringify(a.options ?? null) !== JSON.stringify(b.options ?? null)) {
-      lap(`baseline ${lokasi}.options (id ${a.id}): DB ${JSON.stringify(a.options)} vs kode ${JSON.stringify(b.options)}`);
+    if (
+      JSON.stringify(a.options ?? null) !== JSON.stringify(b.options ?? null)
+    ) {
+      lap(
+        `baseline ${lokasi}.options (id ${a.id}): DB ${JSON.stringify(a.options)} vs kode ${JSON.stringify(b.options)}`,
+      )
     }
   }
 
-  function bandingDaftar(a: KunjunganRumahTemplateField[], b: KunjunganRumahTemplateField[], lokasi: string) {
+  function bandingDaftar(
+    a: KunjunganRumahTemplateField[],
+    b: KunjunganRumahTemplateField[],
+    lokasi: string,
+  ) {
     if (a.length !== b.length) {
-      lap(`baseline ${lokasi}: jumlah field DB ${a.length} vs kode ${b.length}`);
-      return;
+      lap(`baseline ${lokasi}: jumlah field DB ${a.length} vs kode ${b.length}`)
+      return
     }
-    for (let i = 0; i < a.length; i++) bandingField(a[i]!, b[i]!, `${lokasi}[${i}]`);
+    for (let i = 0; i < a.length; i++)
+      bandingField(a[i]!, b[i]!, `${lokasi}[${i}]`)
   }
 
-  bandingDaftar(template.keluargaInfo, dariKode.keluargaInfo, "keluargaInfo");
-  bandingDaftar(template.anggota, dariKode.anggota, "anggota");
-  bandingDaftar(template.sanitasi, dariKode.sanitasi, "sanitasi");
-  bandingDaftar(template.masalah, dariKode.masalah, "masalah");
+  bandingDaftar(template.keluargaInfo, dariKode.keluargaInfo, 'keluargaInfo')
+  bandingDaftar(template.anggota, dariKode.anggota, 'anggota')
+  bandingDaftar(template.sanitasi, dariKode.sanitasi, 'sanitasi')
+  bandingDaftar(template.masalah, dariKode.masalah, 'masalah')
 
   for (const key of SASARAN_KEYS) {
-    const a = template.sasaran[key];
-    const b = dariKode.sasaran[key];
+    const a = template.sasaran[key]
+    const b = dariKode.sasaran[key]
     if (!a || !b) {
-      lap(`baseline sasaran.${key}: salah satu sisi kosong`);
-      continue;
+      lap(`baseline sasaran.${key}: salah satu sisi kosong`)
+      continue
     }
-    if (a.label !== b.label) lap(`baseline sasaran.${key}.label: DB "${a.label}" vs kode "${b.label}"`);
-    if (JSON.stringify(a.prioritasDefault) !== JSON.stringify(dariKode.sasaran[key]!.prioritasDefault)) {
-      lap(`baseline sasaran.${key}.prioritasDefault berbeda dari kode`);
+    if (a.label !== b.label)
+      lap(`baseline sasaran.${key}.label: DB "${a.label}" vs kode "${b.label}"`)
+    if (
+      JSON.stringify(a.prioritasDefault) !==
+      JSON.stringify(dariKode.sasaran[key]!.prioritasDefault)
+    ) {
+      lap(`baseline sasaran.${key}.prioritasDefault berbeda dari kode`)
     }
-    bandingDaftar(a.fields, b.fields, `sasaran.${key}`);
+    bandingDaftar(a.fields, b.fields, `sasaran.${key}`)
   }
 
   // `version` tidak dibandingkan: `templateFromRows()` selalu mengisinya dari
   // konstanta di kode, bukan dari `form_versions.version`, jadi bandingannya
   // selalu sama dan tidak memeriksa apa pun.
-  if (JSON.stringify(template.hasilOpsi) !== JSON.stringify(dariKode.hasilOpsi)) lap("baseline hasilOpsi berbeda dari kode");
+  if (JSON.stringify(template.hasilOpsi) !== JSON.stringify(dariKode.hasilOpsi))
+    lap('baseline hasilOpsi berbeda dari kode')
 
   if (masalah === 0) {
-    console.log("BASELINE OK: definisi di database identik dengan template bawaan di kode.");
+    console.log(
+      'BASELINE OK: definisi di database identik dengan template bawaan di kode.',
+    )
   }
 }
 
-if (masalah === 0) process.exit(0);
-console.error(`GAGAL: ${masalah} masalah struktur.`);
-process.exit(1);
+if (masalah === 0) process.exit(0)
+console.error(`GAGAL: ${masalah} masalah struktur.`)
+process.exit(1)

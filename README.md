@@ -4,18 +4,18 @@ Dipakai petugas untuk mencatat kunjungan rumah dan kegiatan Posyandu, dan mencet
 
 ## Stack
 
-- **TanStack Start** 
+- **TanStack Start**
 - **TanStack Router**
-- **Drizzle ORM** 
-- **Tailwind CSS v4** 
-- **Vitest** 
+- **Drizzle ORM**
+- **Tailwind CSS v4**
+- **Vitest**
 
 ## Getting started
 
 ```bash
 pnpm install
-cp .env.example .env  
-pnpm dev             
+cp .env.example .env
+pnpm dev
 ```
 
 ## Perintah
@@ -68,9 +68,9 @@ pnpm dev
 ## Database
 
 ```bash
-pnpm db:push      
-pnpm db:sql      
-pnpm db:seed    
+pnpm db:push
+pnpm db:sql
+pnpm db:seed
 ```
 
 ## Dokumentasi teknis

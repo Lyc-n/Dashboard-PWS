@@ -7,8 +7,11 @@ import { Input } from '@/components/atoms/Input'
 import { Select } from '@/components/atoms/Select'
 import { ChipGroup } from '@/components/molecules/ChipGroup'
 import { FormField } from '@/components/molecules/FormField'
-import type { KunjunganRumahAction, KunjunganRumahState } from "@/features/kunjungan-rumah/store/kunjunganRumahReducer"
-import { normalkanNik } from "@/lib/utils"
+import type {
+  KunjunganRumahAction,
+  KunjunganRumahState,
+} from '@/features/kunjungan-rumah/store/kunjunganRumahReducer'
+import { normalkanNik } from '@/lib/utils'
 
 interface Props {
   state: KunjunganRumahState

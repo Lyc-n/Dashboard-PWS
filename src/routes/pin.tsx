@@ -1,15 +1,15 @@
-import { useState } from "react";
-import type { FormEvent } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { pinLogin, getSessionToken } from "@/lib/utils.functions";
-import { APP_BRAND } from "@/lib/constants";
-import { useToast } from "@/providers/toast";
-import brandIcon from "@/assets/brandIcon.png";
-import { Button, Input } from "@/components/atoms";
-import { FormField } from "@/components/molecules";
-import ThemeToggle from "@/components/ThemeToggle";
-import { normalkanPin } from "@/lib/utils";
-import { sisaMenit } from "@/lib/pin-attempt";
+import { useState } from 'react'
+import type { FormEvent } from 'react'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { pinLogin, getSessionToken } from '@/lib/utils.functions'
+import { APP_BRAND } from '@/lib/constants'
+import { useToast } from '@/providers/toast'
+import brandIcon from '@/assets/brandIcon.png'
+import { Button, Input } from '@/components/atoms'
+import { FormField } from '@/components/molecules'
+import ThemeToggle from '@/components/ThemeToggle'
+import { normalkanPin } from '@/lib/utils'
+import { sisaMenit } from '@/lib/pin-attempt'
 
 /* ALUR LOGIN
 1. cek sessionToken pake beforeLoad di /laporan (form)
@@ -19,38 +19,38 @@ import { sisaMenit } from "@/lib/pin-attempt";
 5. update expireTime sessionToken kalo akses /laporan
 */
 
-export const Route = createFileRoute("/pin")({
+export const Route = createFileRoute('/pin')({
   beforeLoad: async () => {
     try {
-      await getSessionToken();
+      await getSessionToken()
     } catch {
-      return undefined;
+      return undefined
     }
-    throw redirect({ to: "/" });
+    throw redirect({ to: '/' })
   },
   component: RouteComponent,
-});
+})
 
 function RouteComponent() {
-  const navigate = useNavigate();
-  const toast = useToast();
-  const [pin, setPin] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const navigate = useNavigate()
+  const toast = useToast()
+  const [pin, setPin] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
     if (!pin.trim()) {
-      setError("PIN wajib diisi.");
-      return;
+      setError('PIN wajib diisi.')
+      return
     }
-    setBusy(true);
+    setBusy(true)
     try {
       // expect: PIN benar → cookie sesi terpasang → pindah ke dashboard "/".
       // Dikirim sebagai string, bukan `Number(...)`: PIN dari env bisa
       // berawalan nol dan `Number` akan membuangnya, sehingga PIN itu tidak
       // akan pernah bisa dipakai login. Normalisasi ada di `isValidPin`.
-      const ok = await pinLogin({ data: { pin } });
+      const ok = await pinLogin({ data: { pin } })
       if (!ok.ok) {
         // Dua alasan ditolak, dua pesan berbeda. Keduanya tetap menolak — yang
         // dibedakan hanya penjelasan, bukan hasilnya. Error database sengaja
@@ -60,18 +60,18 @@ function RouteComponent() {
         setError(
           ok.sisaLockoutMs > 0
             ? `Terlalu banyak percobaan. Coba lagi dalam ${sisaMenit(ok.sisaLockoutMs)} menit.`
-            : "PIN salah.",
-        );
-        return;
+            : 'PIN salah.',
+        )
+        return
       }
-      toast("Berhasil masuk. Selamat bekerja!");
-      void navigate({ to: "/" });
+      toast('Berhasil masuk. Selamat bekerja!')
+      void navigate({ to: '/' })
     } catch {
-      setError("Gagal masuk. Coba lagi.");
+      setError('Gagal masuk. Coba lagi.')
     } finally {
-      setBusy(false);
+      setBusy(false)
     }
-  };
+  }
 
   return (
     <div className="grid min-h-screen place-items-center px-4 py-10">
@@ -81,10 +81,14 @@ function RouteComponent() {
 
       <main>
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <img src={brandIcon} alt="Kunjungan Rumah" width={64}/>
+          <img src={brandIcon} alt="Kunjungan Rumah" width={64} />
           <div>
-            <h1 className="text-lg font-bold leading-tight text-ink">{APP_BRAND.name}</h1>
-            <p className="text-xs font-semibold tracking-[0.22em] text-muted">{APP_BRAND.region}</p>
+            <h1 className="text-lg font-bold leading-tight text-ink">
+              {APP_BRAND.name}
+            </h1>
+            <p className="text-xs font-semibold tracking-[0.22em] text-muted">
+              {APP_BRAND.region}
+            </p>
           </div>
         </div>
 
@@ -92,18 +96,25 @@ function RouteComponent() {
           <form onSubmit={onSubmit} className="grid gap-4" noValidate>
             <div>
               <h2 className="text-base font-bold text-ink">Masuk dengan PIN</h2>
-              <p className="mt-0.5 text-xs text-muted">Satu-satunya gerbang dashboard. Sesi berlaku 1 jam.</p>
+              <p className="mt-0.5 text-xs text-muted">
+                Satu-satunya gerbang dashboard. Sesi berlaku 1 jam.
+              </p>
             </div>
 
-            <FormField label="PIN" required error={error ?? undefined} invalid={!!error}>
+            <FormField
+              label="PIN"
+              required
+              error={error ?? undefined}
+              invalid={!!error}
+            >
               <Input
                 autoFocus
                 type="password"
                 inputMode="numeric"
                 value={pin}
                 onChange={(e) => {
-                  setPin(normalkanPin(e.target.value));
-                  setError(null);
+                  setPin(normalkanPin(e.target.value))
+                  setError(null)
                 }}
                 placeholder="••••••"
                 autoComplete="off"
@@ -111,12 +122,18 @@ function RouteComponent() {
               />
             </FormField>
 
-            <Button type="submit" variant="primary" size="md" className="mt-1 w-full" disabled={busy}>
-              {busy ? "Memeriksa…" : "Masuk"}
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              className="mt-1 w-full"
+              disabled={busy}
+            >
+              {busy ? 'Memeriksa…' : 'Masuk'}
             </Button>
           </form>
         </div>
       </main>
     </div>
-  );
+  )
 }

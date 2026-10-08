@@ -9,8 +9,8 @@
 // form bawaan disunting lewat tab sendiri tidak berlaku lagi sejak form bawaan
 // ikut tampil di Form Builder.
 export const TABS = [
-  { key: "form-builder", label: "Form Builder" },
-  { key: "staff", label: "Kader" },
-] as const;
+  { key: 'form-builder', label: 'Form Builder' },
+  { key: 'staff', label: 'Kader' },
+] as const
 
-export type KelolaTab = (typeof TABS)[number]["key"];
+export type KelolaTab = (typeof TABS)[number]['key']

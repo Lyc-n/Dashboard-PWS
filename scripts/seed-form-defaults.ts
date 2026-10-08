@@ -17,32 +17,33 @@
  * daftar field ke sini secara manual pasti akan menyimpang dari template
  * lokal setelah salah satu sisipan berubah.
  */
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db.server";
+import { eq } from 'drizzle-orm'
+import { db } from '@/lib/db.server'
 import {
   formFieldOptions,
   formFields,
   formSections,
   formVersions,
   forms,
-} from "@/lib/schema/schema";
+} from '@/lib/schema/schema'
 import {
   createDefaultKunjunganRumahTemplates,
   KUNJUNGAN_RUMAH_TEMPLATE_VERSION,
-} from "@/lib/kunjungan-rumah-templates";
-import type {
-  KunjunganRumahTemplateField,
-} from "@/lib/kunjungan-rumah-templates";
-import { SASARAN_KEYS } from "@/lib/kunjungan-rumah-form";
-import { namaFieldUnik, FORM_KUNJUNGAN_RUMAH } from "@/features/kunjungan-rumah/lib/template-from-rows";
-import { JENIS_KEGIATAN, KODE_FORM_BAWAAN } from "@/lib/constants";
+} from '@/lib/kunjungan-rumah-templates'
+import type { KunjunganRumahTemplateField } from '@/lib/kunjungan-rumah-templates'
+import { SASARAN_KEYS } from '@/lib/kunjungan-rumah-form'
+import {
+  namaFieldUnik,
+  FORM_KUNJUNGAN_RUMAH,
+} from '@/features/kunjungan-rumah/lib/template-from-rows'
+import { JENIS_KEGIATAN, KODE_FORM_BAWAAN } from '@/lib/constants'
 
 /**
  * Di-re-export dari `src/lib/constants.ts` supaya seeder dan kode runtime memakai
  * satu sumber. Kalau kodenya hanya hidup di `scripts/`, reader di `src/` akan
  *reachable lewat import yang arahnya terbalik.
  */
-export const KODE_FORM = KODE_FORM_BAWAAN;
+export const KODE_FORM = KODE_FORM_BAWAAN
 
 /**
  * Nama bawaan form kunjungan rumah diambil dari satu konstanta di `src/` supaya
@@ -50,53 +51,57 @@ export const KODE_FORM = KODE_FORM_BAWAAN;
  * pembacaan runtime memakai `forms.kode`, bukan `forms.nama`.
  */
 const NAMA_FORM = {
-  kegiatan: "Form Kegiatan Pemberdayaan",
+  kegiatan: 'Form Kegiatan Pemberdayaan',
   kunjunganRumah: FORM_KUNJUNGAN_RUMAH,
-} as const;
+} as const
 
 type JenisFieldDb =
-  | "text"
-  | "textarea"
-  | "number"
-  | "select"
-  | "radio"
-  | "checkbox"
-  | "date"
-  | "time"
-  | "image"
-  | "file"
-  | "group";
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'select'
+  | 'radio'
+  | 'checkbox'
+  | 'date'
+  | 'time'
+  | 'image'
+  | 'file'
+  | 'group'
 
 /** Bucket layout panel sasaran disimpan sebagai prefix pada `option_source_key`. */
 function kunciBucket(bucket: string | null): string | null {
-  return bucket === null ? null : `bucket=${bucket}`;
+  return bucket === null ? null : `bucket=${bucket}`
 }
 
-
 /** `section` UI sudah persis nama section di database, jadi tidak perlu dipetakan. */
-const SECTION_UI_PLAIN = ["keluargaInfo", "anggota", "sanitasi", "masalah"] as const;
+const SECTION_UI_PLAIN = [
+  'keluargaInfo',
+  'anggota',
+  'sanitasi',
+  'masalah',
+] as const
 
 interface BarisField {
-  nama: string;
-  label: string;
-  tipe: JenisFieldDb;
-  wajib: boolean;
-  urutan: number;
+  nama: string
+  label: string
+  tipe: JenisFieldDb
+  wajib: boolean
+  urutan: number
   /** Tipe sumber opsi dinamis (mis. "users"). null = opsi statis dari `options`. */
-  optionSourceType: string | null;
-  optionSourceKey: string | null;
-  options: string[];
-  jumlahKolom: number | null;
+  optionSourceType: string | null
+  optionSourceKey: string | null
+  options: string[]
+  jumlahKolom: number | null
 }
 
 interface BarisSection {
-  nama: string;
-  urutan: number;
-  fields: BarisField[];
+  nama: string
+  urutan: number
+  fields: BarisField[]
 }
 
 /** Field yang menyimpan seluruh payload legacy untuk Form Kunjungan Rumah. */
-export const FIELD_RECORD_LEGACY = "record_legacy";
+export const FIELD_RECORD_LEGACY = 'record_legacy'
 
 /**
  * Bangun section + field Form Kunjungan Rumah dari template lokal.
@@ -105,8 +110,8 @@ export const FIELD_RECORD_LEGACY = "record_legacy";
  * karena `templateFromRows()` memetakannya kembali dengan BUCKET_TO_SECTION.
  */
 function sectionsKunjunganRumah(): BarisSection[] {
-  const t = createDefaultKunjunganRumahTemplates();
-  const sections: BarisSection[] = [];
+  const t = createDefaultKunjunganRumahTemplates()
+  const sections: BarisSection[] = []
 
   const pushField = (
     list: BarisField[],
@@ -124,27 +129,27 @@ function sectionsKunjunganRumah(): BarisSection[] {
       optionSourceKey: kunciBucket(bucket),
       options: f.options ?? [],
       jumlahKolom: null,
-    });
-  };
+    })
+  }
 
-  (SECTION_UI_PLAIN as readonly string[]).forEach((nama, i) => {
-    const fields = t[nama as (typeof SECTION_UI_PLAIN)[number]];
-    const list: BarisField[] = [];
-    fields.forEach((f) => pushField(list, f, nama, null));
-    sections.push({ nama, urutan: i, fields: list });
-  });
+  ;(SECTION_UI_PLAIN as readonly string[]).forEach((nama, i) => {
+    const fields = t[nama as (typeof SECTION_UI_PLAIN)[number]]
+    const list: BarisField[] = []
+    fields.forEach((f) => pushField(list, f, nama, null))
+    sections.push({ nama, urutan: i, fields: list })
+  })
 
   // Field `record_legacy` tidak ada di template lokal: ia adalah tempat
   // penyimpanan payload, bukan pertanyaan yang dilihat petugas. Ditambahkan di
   // section terakhir supaya tidak menggeser urutan field yang lain.
   sections.push({
-    nama: "penyimpanan",
+    nama: 'penyimpanan',
     urutan: sections.length,
     fields: [
       {
-        nama: namaFieldUnik("penyimpanan", FIELD_RECORD_LEGACY),
-        label: "Data kunjungan rumah (penyimpanan)",
-        tipe: "group",
+        nama: namaFieldUnik('penyimpanan', FIELD_RECORD_LEGACY),
+        label: 'Data kunjungan rumah (penyimpanan)',
+        tipe: 'group',
         wajib: false,
         urutan: 0,
         optionSourceType: null,
@@ -153,26 +158,26 @@ function sectionsKunjunganRumah(): BarisSection[] {
         jumlahKolom: null,
       },
     ],
-  });
+  })
 
   SASARAN_KEYS.forEach((key, i) => {
-    const def = t.sasaran[key];
-    const list: BarisField[] = [];
+    const def = t.sasaran[key]
+    const list: BarisField[] = []
     for (const f of def.fields) {
-      const bucket = f.section.startsWith("sasaran:")
-        ? f.section.slice("sasaran:".length)
-        : null;
+      const bucket = f.section.startsWith('sasaran:')
+        ? f.section.slice('sasaran:'.length)
+        : null
       if (bucket === null) {
         throw new Error(
           `Field sasaran "${f.id}" tidak punya bucket yang bisa dibaca; section-nya "${f.section}".`,
-        );
+        )
       }
-      pushField(list, f, key, bucket);
+      pushField(list, f, key, bucket)
     }
-    sections.push({ nama: key, urutan: sections.length + i, fields: list });
-  });
+    sections.push({ nama: key, urutan: sections.length + i, fields: list })
+  })
 
-  return sections;
+  return sections
 }
 
 /**
@@ -203,22 +208,22 @@ function sectionsKegiatan(): BarisSection[] {
     options: [],
     jumlahKolom: null,
     ...extra,
-  });
+  })
 
   return [
     {
-      nama: "identitas",
+      nama: 'identitas',
       urutan: 0,
       fields: [
-        field("identitas", "nama", "Nama kegiatan", "text", 0, { wajib: true }),
-        field("identitas", "jenis", "Jenis kegiatan", "select", 1, {
+        field('identitas', 'nama', 'Nama kegiatan', 'text', 0, { wajib: true }),
+        field('identitas', 'jenis', 'Jenis kegiatan', 'select', 1, {
           wajib: true,
           options: [...JENIS_KEGIATAN],
         }),
-        field("identitas", "tgl", "Tanggal", "date", 2, { wajib: true }),
-        field("identitas", "jam", "Jam", "time", 3),
-        field("identitas", "lokasi", "Lokasi", "text", 4, { wajib: true }),
-        field("identitas", "kel", "Kelurahan", "text", 5, { wajib: true }),
+        field('identitas', 'tgl', 'Tanggal', 'date', 2, { wajib: true }),
+        field('identitas', 'jam', 'Jam', 'time', 3),
+        field('identitas', 'lokasi', 'Lokasi', 'text', 4, { wajib: true }),
+        field('identitas', 'kel', 'Kelurahan', 'text', 5, { wajib: true }),
         // Petugas dipilih manual dari registry `users`, bukan diambil dari sesi
         // login. Alasannya login masih pakai satu PIN global dengan role
         // hard-coded, jadi tidak ada `users.id` yang bisa dipercaya sebagai
@@ -228,37 +233,39 @@ function sectionsKegiatan(): BarisSection[] {
         // saat render dan saat validasi dari tabel `users` lewat
         // `optionSourceType`/`optionSourceKey`, jadi menambah petugas di
         // /kelola langsung mengubah pilihan di form tanpa seeding ulang.
-        field("identitas", "petugas", "Petugas", "select", 6, {
+        field('identitas', 'petugas', 'Petugas', 'select', 6, {
           wajib: true,
-          optionSourceType: "users",
-          optionSourceKey: "petugas",
+          optionSourceType: 'users',
+          optionSourceKey: 'petugas',
         }),
-        field("identitas", "target", "Target", "text", 7),
-        field("identitas", "posy", "Posyandu", "text", 8),
-        field("identitas", "deskripsi", "Deskripsi", "textarea", 9),
+        field('identitas', 'target', 'Target', 'text', 7),
+        field('identitas', 'posy', 'Posyandu', 'text', 8),
+        field('identitas', 'deskripsi', 'Deskripsi', 'textarea', 9),
       ],
     },
     {
-      nama: "peserta",
+      nama: 'peserta',
       urutan: 1,
       fields: [
-        field("peserta", "peserta", "Daftar peserta", "group", 0, { jumlahKolom: 3 }),
-        field("peserta", "hadir", "Jumlah hadir", "number", 1),
-        field("peserta", "total", "Jumlah peserta", "number", 2),
+        field('peserta', 'peserta', 'Daftar peserta', 'group', 0, {
+          jumlahKolom: 3,
+        }),
+        field('peserta', 'hadir', 'Jumlah hadir', 'number', 1),
+        field('peserta', 'total', 'Jumlah peserta', 'number', 2),
       ],
     },
     {
-      nama: "dokumentasi",
+      nama: 'dokumentasi',
       urutan: 2,
-      fields: [field("dokumentasi", "foto", "Foto kegiatan", "image", 0)],
+      fields: [field('dokumentasi', 'foto', 'Foto kegiatan', 'image', 0)],
     },
-  ];
+  ]
 }
 
 export interface LaporanSeed {
-  kode: string;
-  dibuat: boolean;
-  versi: number | null;
+  kode: string
+  dibuat: boolean
+  versi: number | null
 }
 
 /**
@@ -268,20 +275,20 @@ export interface LaporanSeed {
  * menyentuh satu baris pun. Itu yang menjaga editan admin tetap utuh.
  */
 async function seedForm(params: {
-  kode: string;
-  nama: string;
-  deskripsi: string;
-  subjekWargaWajib: boolean;
+  kode: string
+  nama: string
+  deskripsi: string
+  subjekWargaWajib: boolean
   /** Angka di kolom `form_versions.version`; lihat catatan di dalam fungsi. */
-  nomorVersi: number;
-  sections: BarisSection[];
+  nomorVersi: number
+  sections: BarisSection[]
 }): Promise<boolean> {
   const existing = await db
     .select({ id: forms.id })
     .from(forms)
     .where(eq(forms.kode, params.kode))
-    .limit(1);
-  if (existing.length > 0) return false;
+    .limit(1)
+  if (existing.length > 0) return false
 
   // Semua penulisan satu form ditulis dalam satu transaksi. Insert per baris di luar
   // transaksi berarti satu round trip ke server Postgres per field, dan Form
@@ -289,7 +296,7 @@ async function seedForm(params: {
   // itu berjam-jam. Dengan satu transaksi, ratusan baris selesai dalam
   // hitungan detik. Kalau ada field yang gagal, tidak ada form setengah jadi.
   return db.transaction(async (tx) => {
-    const now = new Date();
+    const now = new Date()
     const [form] = await tx
       .insert(forms)
       .values({
@@ -298,8 +305,8 @@ async function seedForm(params: {
         deskripsi: params.deskripsi,
         subjekWargaWajib: params.subjekWargaWajib,
       })
-      .returning();
-    if (!form) throw new Error(`Gagal membuat form "${params.nama}"`);
+      .returning()
+    if (!form) throw new Error(`Gagal membuat form "${params.nama}"`)
 
     // Nomor versi BUKAN selalu 1. `form_versions.version` dibaca
     // `templateFromRows()` sebagai penanda "definisi di DB milik template yang
@@ -315,11 +322,12 @@ async function seedForm(params: {
       .values({
         formId: form.id,
         version: params.nomorVersi,
-        status: "published",
+        status: 'published',
         publishedAt: now,
       })
-      .returning();
-    if (!versi) throw new Error(`Gagal membuat versi untuk form "${params.nama}"`);
+      .returning()
+    if (!versi)
+      throw new Error(`Gagal membuat versi untuk form "${params.nama}"`)
 
     for (const s of params.sections) {
       const [section] = await tx
@@ -329,9 +337,9 @@ async function seedForm(params: {
           nama: s.nama,
           urutan: s.urutan,
         })
-        .returning();
-      if (!section) throw new Error(`Gagal membuat section "${s.nama}"`);
-      if (s.fields.length === 0) continue;
+        .returning()
+      if (!section) throw new Error(`Gagal membuat section "${s.nama}"`)
+      if (s.fields.length === 0) continue
 
       // Field satu section di-insert sekaligus. Insert per field dengan
       // `.returning()` berarti satu round trip per field; section sasaran punya
@@ -353,11 +361,11 @@ async function seedForm(params: {
             jumlahKolom: f.jumlahKolom,
           })),
         )
-        .returning({ id: formFields.id, nama: formFields.nama });
+        .returning({ id: formFields.id, nama: formFields.nama })
       if (kolom.length !== s.fields.length) {
         throw new Error(
           `Field section "${s.nama}": hope ${s.fields.length}, tersimpan ${kolom.length}.`,
-        );
+        )
       }
 
       // Semua opsi di seluruh section di-insert sekaligus. `form_field_options`
@@ -376,45 +384,46 @@ async function seedForm(params: {
           urutan: i,
         }))
       })
-      if (opsiRows.length > 0) await tx.insert(formFieldOptions).values(opsiRows)
+      if (opsiRows.length > 0)
+        await tx.insert(formFieldOptions).values(opsiRows)
     }
 
-    return true;
-  });
+    return true
+  })
 }
 
 export async function seedFormDefaults(): Promise<LaporanSeed[]> {
-  const laporan: LaporanSeed[] = [];
+  const laporan: LaporanSeed[] = []
 
   const kegiatan = await seedForm({
     kode: KODE_FORM.kegiatan,
     nama: NAMA_FORM.kegiatan,
     deskripsi:
-      "Catatan kegiatan pemberdayaan. Tidak menunjuk warga per-submission; daftar peserta disimpan di field peserta.",
+      'Catatan kegiatan pemberdayaan. Tidak menunjuk warga per-submission; daftar peserta disimpan di field peserta.',
     subjekWargaWajib: false,
     nomorVersi: 1,
     sections: sectionsKegiatan(),
-  });
+  })
   laporan.push({
     kode: KODE_FORM.kegiatan,
     dibuat: kegiatan,
     versi: kegiatan ? 1 : null,
-  });
+  })
 
   const kunjungan = await seedForm({
     kode: KODE_FORM.kunjunganRumah,
     nama: NAMA_FORM.kunjunganRumah,
     deskripsi:
-      "Checklist kunjungan rumah. Setiap submission wajib menunjuk satu warga.",
+      'Checklist kunjungan rumah. Setiap submission wajib menunjuk satu warga.',
     subjekWargaWajib: true,
     nomorVersi: KUNJUNGAN_RUMAH_TEMPLATE_VERSION,
     sections: sectionsKunjunganRumah(),
-  });
+  })
   laporan.push({
     kode: KODE_FORM.kunjunganRumah,
     dibuat: kunjungan,
     versi: kunjungan ? KUNJUNGAN_RUMAH_TEMPLATE_VERSION : null,
-  });
+  })
 
-  return laporan;
+  return laporan
 }

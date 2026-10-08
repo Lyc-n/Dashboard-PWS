@@ -1,6 +1,6 @@
-import { useAsyncData } from "@/hooks/use-async-data";
-import { listPetugasAktif } from "@/lib/utils.functions";
-import type { OpsiPetugas } from "@/lib/user-registry";
+import { useAsyncData } from '@/hooks/use-async-data'
+import { listPetugasAktif } from '@/lib/utils.functions'
+import type { OpsiPetugas } from '@/lib/user-registry'
 
 /**
  * Daftar petugas pencatat untuk dropdown di form kegiatan.
@@ -16,15 +16,20 @@ import type { OpsiPetugas } from "@/lib/user-registry";
  * dropdown ikut tersaring tanpa perubahan lain.
  */
 export function usePetugasOpsi() {
-  const { data: petugasOpsi, loading, error, reload } = useAsyncData(
+  const {
+    data: petugasOpsi,
+    loading,
+    error,
+    reload,
+  } = useAsyncData(
     () => listPetugasAktif({ data: { fasKesId: null } }),
     [],
     [] as OpsiPetugas[],
     {
       cancel: false,
-      mapError: () => "Gagal memuat daftar petugas.",
+      mapError: () => 'Gagal memuat daftar petugas.',
     },
-  );
+  )
 
-  return { petugasOpsi, loading, error, refresh: reload };
+  return { petugasOpsi, loading, error, refresh: reload }
 }

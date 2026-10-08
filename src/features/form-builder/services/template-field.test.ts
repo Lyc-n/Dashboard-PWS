@@ -13,7 +13,11 @@ import {
   templatePerKelompok,
   TEMPLATE_FIELD,
 } from './template-field'
-import { cariSumber, tipeBolehPakaiSumber, SUMBER_CARI_WARGA } from './sumber-opsi'
+import {
+  cariSumber,
+  tipeBolehPakaiSumber,
+  SUMBER_CARI_WARGA,
+} from './sumber-opsi'
 import { TIPE_BUTUH_OPSI, validasiSumberOpsi } from './validasi'
 
 /**
@@ -30,14 +34,18 @@ describe('TEMPLATE_FIELD', () => {
   it('setiap nama teknis lolos POLA_NAMA_FIELD', () => {
     // Nama teknis ditulis apa adanya ke `form_fields.nama`, dan builder
     // memvalidasinya dengan pola ini. Nama yang gagal pola akan ditolak Build.
-    const salah = TEMPLATE_FIELD.filter((t) => !POLA_NAMA_SAMA.test(t.nama)).map((t) => t.nama)
+    const salah = TEMPLATE_FIELD.filter(
+      (t) => !POLA_NAMA_SAMA.test(t.nama),
+    ).map((t) => t.nama)
     expect(salah).toEqual([])
   })
 
   it('setiap sumber jawaban terdaftar di katalog SUMBER_OPSI', () => {
     // Kalau sumber tidak dikenal, `validasiSumberOpsi` menolak Build.
     const salah = TEMPLATE_FIELD.filter(
-      (t) => t.optionSourceType && cariSumber(t.optionSourceType, t.optionSourceKey) === null,
+      (t) =>
+        t.optionSourceType &&
+        cariSumber(t.optionSourceType, t.optionSourceKey) === null,
     ).map((t) => `${t.optionSourceType}::${t.optionSourceKey}`)
     expect(salah).toEqual([])
   })
@@ -86,7 +94,9 @@ describe('TEMPLATE_FIELD', () => {
     // menyesatkan.
     for (const kelompok of templatePerKelompok()) {
       const nama = kelompok.daftar.map((t) => t.nama)
-      expect(new Set(nama).size, `duplikat di ${kelompok.kelompok}`).toBe(nama.length)
+      expect(new Set(nama).size, `duplikat di ${kelompok.kelompok}`).toBe(
+        nama.length,
+      )
     }
   })
 
@@ -123,10 +133,15 @@ describe('presetDariTemplate', () => {
     // Key sumber menentukan kolom mana yang mengisi field. Kalau key dan kolomnya
     // berbeda, satu baris bisa mengisi field dengan kolom yang tidak diminta —
     // dan itu tidak akan ketahuan dari layar isi.
-    const cari = TEMPLATE_FIELD.filter((t) => t.optionSourceType === SUMBER_CARI_WARGA)
+    const cari = TEMPLATE_FIELD.filter(
+      (t) => t.optionSourceType === SUMBER_CARI_WARGA,
+    )
     expect(cari.length).toBeGreaterThan(0)
     for (const template of cari) {
-      const sumber = cariSumber(template.optionSourceType, template.optionSourceKey)
+      const sumber = cariSumber(
+        template.optionSourceType,
+        template.optionSourceKey,
+      )
       expect(sumber?.kolom, template.id).toBe(template.optionSourceKey)
     }
   })
@@ -135,8 +150,12 @@ describe('presetDariTemplate', () => {
     // Opsi statis tidak boleh diisi template: daftar jawabannya sudah ada di
     // enum atau di database, dan baris `form_field_options` akan jadi kontradiksi.
     // Termasuk `cari_warga`, yang daftarnya memang datang saat mengetik.
-    const butuhOpsi = TEMPLATE_FIELD.filter((t) => TIPE_BUTUH_OPSI.includes(t.tipe))
-    const punyaSumber = TEMPLATE_FIELD.filter((t) => t.optionSourceType !== null)
+    const butuhOpsi = TEMPLATE_FIELD.filter((t) =>
+      TIPE_BUTUH_OPSI.includes(t.tipe),
+    )
+    const punyaSumber = TEMPLATE_FIELD.filter(
+      (t) => t.optionSourceType !== null,
+    )
     for (const template of [...butuhOpsi, ...punyaSumber]) {
       expect(presetDariTemplate(template).opsi).toEqual([])
     }
@@ -145,7 +164,9 @@ describe('presetDariTemplate', () => {
   it('tidak ikut menebak field wajib', () => {
     // `wajib` harus tetap bernilai default false: template tidak tahu apakah
     // tiap form mewajibkan field ini.
-    expect(Object.keys(presetDariTemplate(TEMPLATE_FIELD[0]!))).not.toContain('wajib')
+    expect(Object.keys(presetDariTemplate(TEMPLATE_FIELD[0]!))).not.toContain(
+      'wajib',
+    )
   })
 })
 

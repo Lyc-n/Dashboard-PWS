@@ -1,8 +1,8 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { AppShell } from "@/components/organisms";
-import { requireAuth } from "@/lib/auth";
+import { createFileRoute, Outlet } from '@tanstack/react-router'
+import { AppShell } from '@/components/organisms'
+import { requireAuth } from '@/lib/auth'
 
-export const Route = createFileRoute("/sasaran")({
+export const Route = createFileRoute('/sasaran')({
   beforeLoad: requireAuth,
   component: SasaranLayout,
 })

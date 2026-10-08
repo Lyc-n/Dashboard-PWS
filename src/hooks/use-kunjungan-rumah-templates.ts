@@ -1,5 +1,5 @@
-import { useKunjunganRumahTemplateDb } from "@/hooks/use-kunjungan-rumah-template-db";
-import type { KunjunganRumahTemplates } from "@/lib/kunjungan-rumah-templates";
+import { useKunjunganRumahTemplateDb } from '@/hooks/use-kunjungan-rumah-template-db'
+import type { KunjunganRumahTemplates } from '@/lib/kunjungan-rumah-templates'
 
 /**
  * Definisi form kunjungan rumah dibaca dari database, bukan localStorage.
@@ -17,7 +17,8 @@ import type { KunjunganRumahTemplates } from "@/lib/kunjungan-rumah-templates";
  * field, dan `/kelola` untuk angka field aktif.
  */
 export function useKunjunganRumahTemplates() {
-  const { templates, loading, error, source, refresh } = useKunjunganRumahTemplateDb();
+  const { templates, loading, error, source, refresh } =
+    useKunjunganRumahTemplateDb()
 
   return {
     templates,
@@ -25,7 +26,7 @@ export function useKunjunganRumahTemplates() {
     error,
     source,
     refresh,
-  };
+  }
 }
 
-export type { KunjunganRumahTemplates };
+export type { KunjunganRumahTemplates }

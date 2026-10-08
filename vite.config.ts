@@ -14,9 +14,9 @@ const config = defineConfig({
   ssr: {
     // Fix rolldown MISSING_EXPORT for @tanstack/history in nitro build (upstream mismatch)
     // Externalize to avoid bundling issue; Node will resolve at runtime
-    external: ["@tanstack/history"],
+    external: ['@tanstack/history'],
   },
-  envPrefix: 'VITE_'
+  envPrefix: 'VITE_',
 })
 
 export default config

@@ -1,7 +1,33 @@
-import { check, date, foreignKey, index, integer, pgTable, text, varchar, boolean, timestamp, uuid, jsonb, uniqueIndex, smallint} from "drizzle-orm/pg-core";
+import {
+  check,
+  date,
+  foreignKey,
+  index,
+  integer,
+  pgTable,
+  text,
+  varchar,
+  boolean,
+  timestamp,
+  uuid,
+  jsonb,
+  uniqueIndex,
+  smallint,
+} from 'drizzle-orm/pg-core'
 
-import { sql } from "drizzle-orm";
-import { hubunganKeluargaEnum, jenisKelaminEnum, statusKawinEnum, agama, pekerjaan, pendidikanEnum, fasKes, role, formFieldType, auditAction } from "./type-enum";
+import { sql } from 'drizzle-orm'
+import {
+  hubunganKeluargaEnum,
+  jenisKelaminEnum,
+  statusKawinEnum,
+  agama,
+  pekerjaan,
+  pendidikanEnum,
+  fasKes,
+  role,
+  formFieldType,
+  auditAction,
+} from './type-enum'
 
 // WAJIB `withTimezone: true` di setiap kolom timestamp. Jangan dikembalikan jadi
 // `timestamp()` polos.
@@ -15,80 +41,105 @@ import { hubunganKeluargaEnum, jenisKelaminEnum, statusKawinEnum, agama, pekerja
 // Kolom `date` (surveys.tanggal, data_warga.tgl_lahir) TIDAK ikut aturan ini:
 // tanggal kalender memang tidak punya zona waktu.
 
-export const dataWargaTable = pgTable("data_warga", {
-    nik: varchar({ length: 16 }).notNull().primaryKey(),
-    nama_art: varchar({ length: 255 }).notNull(),
-    nama_kk: varchar({ length: 255 }).notNull(),
-    hubungan_keluarga: hubunganKeluargaEnum().notNull(),
-    alamat:text().notNull(),
-    tgl_lahir: date().notNull(),
-    rt: varchar({ length: 3 }).notNull(),
-    rw: varchar({ length: 3 }).notNull(),
-    kecamatan: text().notNull(),
-    kelurahan: text().notNull(),
-    kota: text().notNull(),
-    status_kawin: statusKawinEnum().notNull(),
-    staff: uuid().notNull().references(() => users.id),
-    jenis_kelamin: jenisKelaminEnum().notNull(),
-    wanita_usia_hamil:boolean().notNull(),
-    agama: agama().notNull(),
-    pendidikan: pendidikanEnum().notNull(),
-    pekerjaan: pekerjaan().notNull(),
-    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-});
-
-export const wilayahKerja = pgTable('wilayah_kerja', {
-  id: smallint().primaryKey().notNull().generatedAlwaysAsIdentity(),
+export const dataWargaTable = pgTable('data_warga', {
+  nik: varchar({ length: 16 }).notNull().primaryKey(),
+  nama_art: varchar({ length: 255 }).notNull(),
+  nama_kk: varchar({ length: 255 }).notNull(),
+  hubungan_keluarga: hubunganKeluargaEnum().notNull(),
+  alamat: text().notNull(),
+  tgl_lahir: date().notNull(),
+  rt: varchar({ length: 3 }).notNull(),
+  rw: varchar({ length: 3 }).notNull(),
   kecamatan: text().notNull(),
   kelurahan: text().notNull(),
+  kota: text().notNull(),
+  status_kawin: statusKawinEnum().notNull(),
+  staff: uuid()
+    .notNull()
+    .references(() => users.id),
+  jenis_kelamin: jenisKelaminEnum().notNull(),
+  wanita_usia_hamil: boolean().notNull(),
+  agama: agama().notNull(),
+  pendidikan: pendidikanEnum().notNull(),
+  pekerjaan: pekerjaan().notNull(),
   createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-}, (t) =>
-[
-  uniqueIndex("wilayah_kerja_kecamatan_kelurahan").on(t.kecamatan, t.kelurahan),
-]);
+})
 
-export const fasilitasKesehatan = pgTable('fasilitas_kesehatan', {
-  id: smallint().primaryKey().notNull().generatedAlwaysAsIdentity(),
-  wilayahKerjaId: smallint().notNull().references(() => wilayahKerja.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
-  fasKesType: fasKes().notNull(), // Posyandu | Pustu
-  nama: varchar({ length: 20 }).notNull(),
-  alamat: text().notNull(),
-  rt: varchar({ length: 3 }),
-  rw: varchar({ length: 3 }),
-  createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-}, (t) =>
-[
-  // Menampilkan daftar fasilitas per wilayah kerja, jadi index ini sudah ada di
-  // database dan ikut dicatat di sini agar tidak dianggap index asing.
-  index("fasilitas_kesehatan_wilayah_kerja_id_idx").on(t.wilayahKerjaId),
-])
+export const wilayahKerja = pgTable(
+  'wilayah_kerja',
+  {
+    id: smallint().primaryKey().notNull().generatedAlwaysAsIdentity(),
+    kecamatan: text().notNull(),
+    kelurahan: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('wilayah_kerja_kecamatan_kelurahan').on(
+      t.kecamatan,
+      t.kelurahan,
+    ),
+  ],
+)
 
+export const fasilitasKesehatan = pgTable(
+  'fasilitas_kesehatan',
+  {
+    id: smallint().primaryKey().notNull().generatedAlwaysAsIdentity(),
+    wilayahKerjaId: smallint()
+      .notNull()
+      .references(() => wilayahKerja.id, {
+        onDelete: 'cascade',
+        onUpdate: 'cascade',
+      }),
+    fasKesType: fasKes().notNull(), // Posyandu | Pustu
+    nama: varchar({ length: 20 }).notNull(),
+    alamat: text().notNull(),
+    rt: varchar({ length: 3 }),
+    rw: varchar({ length: 3 }),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    // Menampilkan daftar fasilitas per wilayah kerja, jadi index ini sudah ada di
+    // database dan ikut dicatat di sini agar tidak dianggap index asing.
+    index('fasilitas_kesehatan_wilayah_kerja_id_idx').on(t.wilayahKerjaId),
+  ],
+)
 
-export const users = pgTable("users", {
-  id: uuid().primaryKey().defaultRandom(),
-  // RESTRICT, bukan CASCADE: menghapus fasilitas tidak boleh ikut menghapus akun
-  // petugas. Akun petugas adalah audit trail (lihat audit_logs.userId), jadi harus
-  // bertahan walau fasilitasnya dihapus.
-  fasKesId: smallint().notNull().references(() => fasilitasKesehatan.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
-  role: role().notNull().default('kader'),
-  nama: varchar({ length: 255 }).notNull(),
-  pinHash: varchar({ length: 255 }).notNull(),
-  phone: varchar({ length: 20 }),
-  aktif: boolean().notNull().default(true),
-  createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-}, (t) =>
-[
-  // Login selalu menyaring lewat fasKesId untuk membatasi petugas ke fasilitas
-  // nya sendiri. Index ini sudah ada di database, cuma belum dicatat di sini.
-  index("users_fas_kes_id_idx").on(t.fasKesId),
-]);
+export const users = pgTable(
+  'users',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    // RESTRICT, bukan CASCADE: menghapus fasilitas tidak boleh ikut menghapus akun
+    // petugas. Akun petugas adalah audit trail (lihat audit_logs.userId), jadi harus
+    // bertahan walau fasilitasnya dihapus.
+    fasKesId: smallint()
+      .notNull()
+      .references(() => fasilitasKesehatan.id, {
+        onDelete: 'restrict',
+        onUpdate: 'cascade',
+      }),
+    role: role().notNull().default('kader'),
+    nama: varchar({ length: 255 }).notNull(),
+    pinHash: varchar({ length: 255 }).notNull(),
+    phone: varchar({ length: 20 }),
+    aktif: boolean().notNull().default(true),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    // Login selalu menyaring lewat fasKesId untuk membatasi petugas ke fasilitas
+    // nya sendiri. Index ini sudah ada di database, cuma belum dicatat di sini.
+    index('users_fas_kes_id_idx').on(t.fasKesId),
+  ],
+)
 
 // tabel untuk pilihan form, sehingga user bisa membuat atau menghapus form
-export const forms = pgTable("forms", {
+export const forms = pgTable(
+  'forms',
+  {
     id: smallint().primaryKey().notNull().generatedAlwaysAsIdentity(),
     nama: varchar({ length: 100 }).notNull().unique(), // form default saat ini ada Form Kunjungan Rumah | Form Kegiatan Pemberdayaan
     // Kode stabil untuk seeding idempotent (KEGIATAN_PEMBERDAYAAN,
@@ -108,60 +159,82 @@ export const forms = pgTable("forms", {
     aktif: boolean().notNull().default(true), // tampilkan form atau tidak, agar user bisa menonaktifkan form sementara sebelum hapus total
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-}, (t) =>
-[
-    uniqueIndex("forms_kode_key").on(t.kode),
-])
+  },
+  (t) => [uniqueIndex('forms_kode_key').on(t.kode)],
+)
 
-export const formVersions = pgTable("form_versions", {
-  id: uuid().primaryKey().defaultRandom(),
-  formId: smallint().notNull().references(() => forms.id, { onDelete: "cascade" }),
-  version: integer().notNull(),
-  status: varchar({ length: 20 }).notNull().default('draft'),
-  publishedAt: timestamp({ withTimezone: true }),
-  createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-}, (t) =>
-[
-  uniqueIndex("form_versions_form_id_version").on(t.formId, t.version),
-  index("form_versions_form_id_status_idx").on(t.formId, t.status),
-  check("form_versions_status_check", sql`${t.status} IN ('draft', 'published', 'archived')`),
-  check("form_versions_version_check", sql`${t.version} >= 1`),
-  // Versi published wajib punya publishedAt, kalau tidak rekap "ber kapan form ini
-  // tayang" jadi tidak bisa dijawab.
-  check("form_versions_published_at_check", sql`${t.status} <> 'published' or ${t.publishedAt} is not null`),
-]);
+export const formVersions = pgTable(
+  'form_versions',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    formId: smallint()
+      .notNull()
+      .references(() => forms.id, { onDelete: 'cascade' }),
+    version: integer().notNull(),
+    status: varchar({ length: 20 }).notNull().default('draft'),
+    publishedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('form_versions_form_id_version').on(t.formId, t.version),
+    index('form_versions_form_id_status_idx').on(t.formId, t.status),
+    check(
+      'form_versions_status_check',
+      sql`${t.status} IN ('draft', 'published', 'archived')`,
+    ),
+    check('form_versions_version_check', sql`${t.version} >= 1`),
+    // Versi published wajib punya publishedAt, kalau tidak rekap "ber kapan form ini
+    // tayang" jadi tidak bisa dijawab.
+    check(
+      'form_versions_published_at_check',
+      sql`${t.status} <> 'published' or ${t.publishedAt} is not null`,
+    ),
+  ],
+)
 
 // tabel untuk membagi form jadi beberapa bagian
-export const formSections = pgTable("form_sections", {
+export const formSections = pgTable(
+  'form_sections',
+  {
     id: uuid().primaryKey().defaultRandom(),
-    formVersionId: uuid().notNull().references(() => formVersions.id, { onDelete: "cascade", }), 
+    formVersionId: uuid()
+      .notNull()
+      .references(() => formVersions.id, { onDelete: 'cascade' }),
     nama: varchar({ length: 100 }).notNull(),
     deskripsi: text(),
     urutan: integer().notNull(),
     aktif: boolean().notNull().default(true),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-}, (t) =>
-[
+  },
+  (t) => [
     // Syarat FK komposit form_fields (sectionId, formVersionId) -> (id, formVersionId).
     // Postgres butuh kolom target punya UNIQUE persis di kombinasi itu.
-    uniqueIndex("form_sections_id_form_version_id").on(t.id, t.formVersionId),
-    index("form_sections_form_version_urutan_idx").on(t.formVersionId, t.urutan),
-])
+    uniqueIndex('form_sections_id_form_version_id').on(t.id, t.formVersionId),
+    index('form_sections_form_version_urutan_idx').on(
+      t.formVersionId,
+      t.urutan,
+    ),
+  ],
+)
 
-// tabel pertanyaan tiap section 
-export const formFields = pgTable("form_fields", {
+// tabel pertanyaan tiap section
+export const formFields = pgTable(
+  'form_fields',
+  {
     id: uuid().primaryKey().defaultRandom(),
     // formVersionId didenormalisasi dari section supaya `nama` bisa dijamin unik per
     // versi form (lihat uniqueIndex di bawah) dan supaya validasi "field ini milik
     // versi mana?" cukup satu join, tanpa lewat form_sections. Konsistensinya dengan
     // section dijamin FK komposit, jadi kolom ini tidak bisa menyimpang diam-diam.
-    formVersionId: uuid().notNull().references(() => formVersions.id, { onDelete: "cascade" }),
+    formVersionId: uuid()
+      .notNull()
+      .references(() => formVersions.id, { onDelete: 'cascade' }),
     sectionId: uuid().notNull(), // selalu terhubung dengan section
     nama: varchar({ length: 100 }).notNull(), // identifier teknis, mis. tekanan_darah
     label: varchar({ length: 255 }).notNull(), // teks yang dilihat petugas
-    tipe: formFieldType().notNull(), // text | number | date | select | radio | checkbox | time 
+    tipe: formFieldType().notNull(), // text | number | date | select | radio | checkbox | time
     optionSourceType: varchar({ length: 30 }),
     optionSourceKey: varchar({ length: 100 }),
     deskripsi: text(),
@@ -177,22 +250,26 @@ export const formFields = pgTable("form_fields", {
     aktif: boolean().notNull().default(true), // tampilkan atau tidak
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-}, (t) =>
-[
+  },
+  (t) => [
     // Set SEBELUM references() tunggal: composite FK ini yang memastikan field dan
     // section-nya memang versi form yang sama. Kalau hanya FK ke sectionId, kolom
     // formVersionId bisa diisi versi lain dan unique index di bawah jadi bohong.
     foreignKey({
-        columns: [t.sectionId, t.formVersionId],
-        foreignColumns: [formSections.id, formSections.formVersionId],
-        name: "form_fields_section_version_fk",
-    }).onDelete("cascade"),
+      columns: [t.sectionId, t.formVersionId],
+      foreignColumns: [formSections.id, formSections.formVersionId],
+      name: 'form_fields_section_version_fk',
+    }).onDelete('cascade'),
     // `nama` = identifier teknis yang dipanggil kode saat menyimpan jawaban, jadi
     // unik per versi form. Boleh sama di dua versi berbeda karena answer lama
     // di-pin ke formVersionId lewat survey_entries.surveyId.
-    uniqueIndex("form_fields_form_version_nama_key").on(t.formVersionId, t.nama),
-    index("form_fields_section_urutan_idx").on(t.sectionId, t.urutan),
-]);
+    uniqueIndex('form_fields_form_version_nama_key').on(
+      t.formVersionId,
+      t.nama,
+    ),
+    index('form_fields_section_urutan_idx').on(t.sectionId, t.urutan),
+  ],
+)
 
 // Tabel pilihan jawaban (`option`) untuk setiap field.
 //
@@ -200,70 +277,89 @@ export const formFields = pgTable("form_fields", {
 // bila field lain bernilai X". Aturan itu dihapus: tidak pernah dipakai di data
 // mana pun, dan menambah tiga kolom (tipe, sourceFieldId, operator) plus satu
 // enum untuk sesuatu yang nol. Sekarang satu baris = satu pilihan jawaban.
-export const formFieldOptions = pgTable("form_field_options", {
+export const formFieldOptions = pgTable(
+  'form_field_options',
+  {
     id: uuid().primaryKey().defaultRandom(),
-    fieldId: uuid().notNull().references(() => formFields.id, { onDelete: "cascade", }), // opsi milik pertanyaan ini
+    fieldId: uuid()
+      .notNull()
+      .references(() => formFields.id, { onDelete: 'cascade' }), // opsi milik pertanyaan ini
     value: text().notNull(), // yang disimpan di payload jawaban
     label: varchar({ length: 255 }), // yang ditulis petugas, mis. "Tidak/Belum Sekolah"
     urutan: integer().notNull().default(0), // urutan pilihan
     aktif: boolean().notNull().default(true),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-}, (t) =>
-[
+  },
+  (t) => [
     // Opsi field selalu ikut section berurutan saat form dirender.
-    index("form_field_options_field_urutan_idx").on(t.fieldId, t.urutan),
-]);
+    index('form_field_options_field_urutan_idx').on(t.fieldId, t.urutan),
+  ],
+)
 
 // tabel hasil dan riwayat survey
-export const surveys = pgTable("surveys", {
+export const surveys = pgTable(
+  'surveys',
+  {
     id: uuid().primaryKey().defaultRandom(),
-    formVersionId: uuid().notNull().references(() => formVersions.id), // penanda terhubung dengan form versi ke berapa
+    formVersionId: uuid()
+      .notNull()
+      .references(() => formVersions.id), // penanda terhubung dengan form versi ke berapa
     // NULLABLE, bukan NOT NULL: Form Kegiatan Pemberdayaan tidak punya warga
     // tetap per-submission, jadi submission kegiatan menyimpan NULL di sini.
     // Aturan "form ini wajib atau tidak terisi warga" datang dari
     // `forms.subjekWargaWajib` dan dijaga di backend, karena butuh isi
     // `form_versions` yang tidak ada di tabel ini.
     wargaNik: varchar({ length: 16 }).references(() => dataWargaTable.nik), // penanda terhubung dengan data warga apa
-    petugasId: uuid().notNull().references(() => users.id), // penanda terhubung dengan petugas atau surveyor
+    petugasId: uuid()
+      .notNull()
+      .references(() => users.id), // penanda terhubung dengan petugas atau surveyor
     tanggal: date().notNull(), // tanggal pelaksanaan survey
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-}, (t) =>
-[
+  },
+  (t) => [
     // Empat filter yang dipakai layar utama: "survey bulan ini", "riwayat warga ini",
     // "survey petugas ini", dan lookup versi saat render. Tanpa index ini tiap filter
     // scan seluruh tabel — dan tabel ini berisi data kesehatan warga.
-    index("surveys_form_version_id_idx").on(t.formVersionId),
-    index("surveys_warga_nik_idx").on(t.wargaNik),
-    index("surveys_petugas_id_idx").on(t.petugasId),
-    index("surveys_tanggal_idx").on(t.tanggal),
+    index('surveys_form_version_id_idx').on(t.formVersionId),
+    index('surveys_warga_nik_idx').on(t.wargaNik),
+    index('surveys_petugas_id_idx').on(t.petugasId),
+    index('surveys_tanggal_idx').on(t.tanggal),
     // Digabung untuk filter "survey petugas X bulan ini" supaya tidak pilih antara
     // index tanggal atau index petugas.
-    index("surveys_petugas_tanggal_idx").on(t.petugasId, t.tanggal),
-]);
+    index('surveys_petugas_tanggal_idx').on(t.petugasId, t.tanggal),
+  ],
+)
 
-export const surveyEntries = pgTable('survey_entries', {
+export const surveyEntries = pgTable(
+  'survey_entries',
+  {
     id: uuid().primaryKey().defaultRandom(),
-    surveyId: uuid().notNull().references(() => surveys.id, { onDelete: "cascade", }), // penanda terhubung dengan survey yang mana
+    surveyId: uuid()
+      .notNull()
+      .references(() => surveys.id, { onDelete: 'cascade' }), // penanda terhubung dengan survey yang mana
     // CATATAN: FK ke form_fields hanya memastikan field-nya ADA, bukan bahwa field itu
     // milik formVersionId milik survey. Aturan itu divalidasi di backend sebelum insert
-    fieldId: uuid().notNull().references(() => formFields.id), // penanda terhubung dengan question apa
+    fieldId: uuid()
+      .notNull()
+      .references(() => formFields.id), // penanda terhubung dengan question apa
     value: jsonb(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-}, (t) =>
-[
-    uniqueIndex("survey_entries_survey_id_field_id").on(t.surveyId, t.fieldId),
+  },
+  (t) => [
+    uniqueIndex('survey_entries_survey_id_field_id').on(t.surveyId, t.fieldId),
     // Recap per field ("berapa warga dengan TD tinggi?") memfilter lewat fieldId.
-    index("survey_entries_field_id_idx").on(t.fieldId),
-]);
-
-
+    index('survey_entries_field_id_idx').on(t.fieldId),
+  ],
+)
 
 // Jejak audit untuk data warga. Sengaja dipisah dari log aplikasi: log aplikasi bisa
 // dirotasi, tabel ini tidak, dan isinya dibutuhkan untuk investigasi kebocoran NIK.
-export const auditLogs = pgTable("audit_logs", {
+export const auditLogs = pgTable(
+  'audit_logs',
+  {
     id: uuid().primaryKey().defaultRandom(),
     // SET NULL: petugas dihapuspun jejaknya harus tetap ada, cuma tidak lagi tertaut akun.
     userId: uuid().references(() => users.id, { onDelete: 'set null' }),
@@ -277,19 +373,20 @@ export const auditLogs = pgTable("audit_logs", {
     sesudah: jsonb(), // nilai baru
     ip: varchar({ length: 64 }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-}, (t) =>
-[
+  },
+  (t) => [
     // "Apa saja yang diubah petugas ini?" dan "siapa yang lihat data warga ini?" —
     // dua pertanyaan yang paling sering ditanya saat investigasi.
-    index("audit_logs_user_created_idx").on(t.userId, t.createdAt),
-    index("audit_logs_entitas_idx").on(t.entitas, t.entitasId),
-    index("audit_logs_created_idx").on(t.createdAt),
-]);
+    index('audit_logs_user_created_idx').on(t.userId, t.createdAt),
+    index('audit_logs_entitas_idx').on(t.entitas, t.entitasId),
+    index('audit_logs_created_idx').on(t.createdAt),
+  ],
+)
 
-export const validSession = pgTable("valid_session",{
-    uid: uuid().primaryKey().defaultRandom(),
-    token: text().notNull().unique(),
-    expiresAt: timestamp({ withTimezone: true }).notNull(),
+export const validSession = pgTable('valid_session', {
+  uid: uuid().primaryKey().defaultRandom(),
+  token: text().notNull().unique(),
+  expiresAt: timestamp({ withTimezone: true }).notNull(),
 })
 
 /**
@@ -305,10 +402,9 @@ export const validSession = pgTable("valid_session",{
  * `ip` adalah kunci: tidak ada tabel user karena tidak ada user per-akun.
  * Baris dihapus setelah tidak ada lock (lihat `bersihkanKedaluwarsa`).
  */
-export const pinAttempts = pgTable("pin_attempts", {
-    ip: varchar({ length: 64 }).primaryKey(),
-    gagalBerturut: integer().notNull().default(0),
-    terkunciSampai: timestamp({ withTimezone: true }),
-    terakhirGagal: timestamp({ withTimezone: true }).notNull().defaultNow(),
+export const pinAttempts = pgTable('pin_attempts', {
+  ip: varchar({ length: 64 }).primaryKey(),
+  gagalBerturut: integer().notNull().default(0),
+  terkunciSampai: timestamp({ withTimezone: true }),
+  terakhirGagal: timestamp({ withTimezone: true }).notNull().defaultNow(),
 })
-

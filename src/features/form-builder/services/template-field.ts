@@ -34,8 +34,6 @@ import type { KelompokTemplate, TemplateField } from './types-template-field'
 
 export type { KelompokTemplate, TemplateField } from './types-template-field'
 
-
-
 /** Field data warga: isinya sama dengan kolom tabel `data_warga`. */
 function warga(
   id: string,
@@ -145,21 +143,100 @@ export const TEMPLATE_FIELD: readonly TemplateField[] = [
   // --- Data warga
   // Tiga yang punya banyak baris di Data Sasaran dapat pencarian. Saran tidak
   // membatasi jawaban: nama yang tidak ada di sana tetap bisa diketik dan disimpan.
-  cariWarga('warga-nama', 'nama', 'Nama warga', 'nama_art', 'User', 'Bisa diisi dari Data Sasaran'),
-  cariWarga('warga-nama-kk', 'nama_kk', 'Nama kepala keluarga', 'nama_kk', 'Users', 'Bisa diisi dari Data Sasaran'),
-  cariWarga('warga-nik', 'nik', 'NIK', 'nik', 'CreditCard', 'Bisa diisi dari Data Sasaran'),
-  warga('warga-tgl-lahir', 'tgl_lahir', 'Tanggal lahir', 'date', 'Calendar', 'Format YYYY-MM-DD'),
-  warga('warga-alamat', 'alamat', 'Alamat', 'text', 'MapPin', 'Alamat lengkap sesuai domisili'),
-  warga('warga-rt', 'rt', 'RT', 'text', 'Hash', 'Nomor RT, boleh dengan nol di depan'),
-  warga('warga-rw', 'rw', 'RW', 'text', 'Hash', 'Nomor RW, boleh dengan nol di depan'),
+  cariWarga(
+    'warga-nama',
+    'nama',
+    'Nama warga',
+    'nama_art',
+    'User',
+    'Bisa diisi dari Data Sasaran',
+  ),
+  cariWarga(
+    'warga-nama-kk',
+    'nama_kk',
+    'Nama kepala keluarga',
+    'nama_kk',
+    'Users',
+    'Bisa diisi dari Data Sasaran',
+  ),
+  cariWarga(
+    'warga-nik',
+    'nik',
+    'NIK',
+    'nik',
+    'CreditCard',
+    'Bisa diisi dari Data Sasaran',
+  ),
+  warga(
+    'warga-tgl-lahir',
+    'tgl_lahir',
+    'Tanggal lahir',
+    'date',
+    'Calendar',
+    'Format YYYY-MM-DD',
+  ),
+  warga(
+    'warga-alamat',
+    'alamat',
+    'Alamat',
+    'text',
+    'MapPin',
+    'Alamat lengkap sesuai domisili',
+  ),
+  warga(
+    'warga-rt',
+    'rt',
+    'RT',
+    'text',
+    'Hash',
+    'Nomor RT, boleh dengan nol di depan',
+  ),
+  warga(
+    'warga-rw',
+    'rw',
+    'RW',
+    'text',
+    'Hash',
+    'Nomor RW, boleh dengan nol di depan',
+  ),
 
   // --- Kategori warga: enum Postgres yang sama dengan kolom `data_warga`
   enumWarga('enum-agama', 'agama', 'Agama', 'agama', 'Sparkles'),
-  enumWarga('enum-jk', 'jenis_kelamin', 'Jenis kelamin', 'jenis_kelamin', 'Circle'),
-  enumWarga('enum-pendidikan', 'pendidikan', 'Pendidikan', 'pendidikan', 'GraduationCap'),
-  enumWarga('enum-pekerjaan', 'pekerjaan', 'Pekerjaan', 'pekerjaan', 'Briefcase'),
-  enumWarga('enum-status-kawin', 'status_kawin', 'Status kawin', 'status_kawin', 'Heart'),
-  enumWarga('enum-hubungan', 'hubungan_keluarga', 'Hubungan dalam keluarga', 'hubungan_keluarga', 'Users'),
+  enumWarga(
+    'enum-jk',
+    'jenis_kelamin',
+    'Jenis kelamin',
+    'jenis_kelamin',
+    'Circle',
+  ),
+  enumWarga(
+    'enum-pendidikan',
+    'pendidikan',
+    'Pendidikan',
+    'pendidikan',
+    'GraduationCap',
+  ),
+  enumWarga(
+    'enum-pekerjaan',
+    'pekerjaan',
+    'Pekerjaan',
+    'pekerjaan',
+    'Briefcase',
+  ),
+  enumWarga(
+    'enum-status-kawin',
+    'status_kawin',
+    'Status kawin',
+    'status_kawin',
+    'Heart',
+  ),
+  enumWarga(
+    'enum-hubungan',
+    'hubungan_keluarga',
+    'Hubungan dalam keluarga',
+    'hubungan_keluarga',
+    'Users',
+  ),
 
   // --- Petugas & fasilitas
   sumberData(

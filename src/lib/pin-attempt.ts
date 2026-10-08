@@ -12,13 +12,13 @@
  */
 
 /** Ambang percobaan gagal sebelum IP dikunci. */
-export const BATAS_GAGAL = 5;
+export const BATAS_GAGAL = 5
 
 /** Jeda awal saat IP pertama kali dikunci. */
-export const COOLDOWN_AWAL_MS = 15_000;
+export const COOLDOWN_AWAL_MS = 15_000
 
 /** Plafon jeda, supaya IP yang terus mencoba tidak terkunci selamanya. */
-export const COOLDOWN_MAKS_MS = 15 * 60_000;
+export const COOLDOWN_MAKS_MS = 15 * 60_000
 
 /**
  * Buang nol di depan, tapi sisakan minimal satu digit: "012345" dan "12345"
@@ -29,9 +29,7 @@ export const COOLDOWN_MAKS_MS = 15 * 60_000;
  * tidak akan pernah bisa login.
  */
 export function normalkanPin(nilai: string): string {
-  return nilai
-    .replace(/\D/g, "")
-    .replace(/^0+(?=\d)/, "");
+  return nilai.replace(/\D/g, '').replace(/^0+(?=\d)/, '')
 }
 
 /**
@@ -48,25 +46,25 @@ export function normalkanPin(nilai: string): string {
  * `pinBenar` di `utils.server.ts` — perbandingannya sama, hanya mekanismenya.
  */
 export function pinBenar(dariUser: string, dariEnv: string): boolean {
-  const a = normalkanPin(dariUser);
-  const b = normalkanPin(dariEnv);
+  const a = normalkanPin(dariUser)
+  const b = normalkanPin(dariEnv)
   // Fail closed: PIN kosong berarti `PIN` tidak terisi di environment atau
   // field dikosongkan. Dua-duanya harus menolak, bukan dianggap cocok.
-  if (a.length === 0 || b.length === 0) return false;
-  if (a.length !== b.length) return false;
-  let beda = 0;
+  if (a.length === 0 || b.length === 0) return false
+  if (a.length !== b.length) return false
+  let beda = 0
   for (let i = 0; i < a.length; i += 1) {
-    beda |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    beda |= a.charCodeAt(i) ^ b.charCodeAt(i)
   }
-  return beda === 0;
+  return beda === 0
 }
 
 /**
  * Status lockout satu IP. `sisaMs` 0 berarti tidak terkunci.
  */
 export interface StatusLockout {
-  terkunci: boolean;
-  sisaMs: number;
+  terkunci: boolean
+  sisaMs: number
 }
 
 /**
@@ -76,9 +74,7 @@ export interface StatusLockout {
  * bisa membedakan "terlalu banyak mencoba" dari "PIN salah". Keduanya tetap
  * ditolak — bentuk hasil tidak pernah membuka akses.
  */
-export type HasilPin =
-  | { ok: true }
-  | { ok: false; sisaLockoutMs: number };
+export type HasilPin = { ok: true } | { ok: false; sisaLockoutMs: number }
 
 /**
  * Sisa lockout dalam menit bulat ke atas, minimal 1.
@@ -88,7 +84,7 @@ export type HasilPin =
  * lalu ketemu lockout yang sama dan mengira sistemnya rusak.
  */
 export function sisaMenit(sisaMs: number): number {
-  return Math.max(1, Math.ceil(sisaMs / 60_000));
+  return Math.max(1, Math.ceil(sisaMs / 60_000))
 }
 
 /**
@@ -97,6 +93,6 @@ export function sisaMenit(sisaMs: number): number {
  * dibatasi dan pesannya perlu menjelaskan ke user.
  */
 export function hitungCooldown(gagal: number): number {
-  const pangkat = Math.max(0, Math.min(gagal - BATAS_GAGAL, 20));
-  return Math.min(COOLDOWN_AWAL_MS * 2 ** pangkat, COOLDOWN_MAKS_MS);
+  const pangkat = Math.max(0, Math.min(gagal - BATAS_GAGAL, 20))
+  return Math.min(COOLDOWN_AWAL_MS * 2 ** pangkat, COOLDOWN_MAKS_MS)
 }

@@ -1,67 +1,76 @@
-import { createMiddleware, createServerFn } from "@tanstack/react-start";
-import { getCookie } from "@tanstack/react-start/server";
-import type { HasilPin } from "@/lib/pin-attempt";
+import { createMiddleware, createServerFn } from '@tanstack/react-start'
+import { getCookie } from '@tanstack/react-start/server'
+import type { HasilPin } from '@/lib/pin-attempt'
 import {
-    destroySession,
-    getKunjunganRumahRecord,
-    getKunjunganRumahTemplateRows,
-    isValidPin,
-    listKunjunganRumahRecords,
-    querySurveyors,
-    querySasaranByNik,
-    querySasaranListPaged,
-    querySasaranWarga,
-    queryFormAdaSubmit,
-    queryJawabanSubmit,
-    queryRiwayatSubmit,
-    queryRingkasanSubmit,
-    querySurveysWithWarga,
-    querySurveyStatsByNik,
-    queryWargaList,
-    queryRiwayatKsUntukNik,
-    removeKunjunganRumahRecord,
-    saveKunjunganRumahRecord,
-    touchSession,
-    updateKunjunganRumahRecord,
-} from "./utils.server";
+  destroySession,
+  getKunjunganRumahRecord,
+  getKunjunganRumahTemplateRows,
+  isValidPin,
+  listKunjunganRumahRecords,
+  querySurveyors,
+  querySasaranByNik,
+  querySasaranListPaged,
+  querySasaranWarga,
+  queryFormAdaSubmit,
+  queryJawabanSubmit,
+  queryRiwayatSubmit,
+  queryRingkasanSubmit,
+  querySurveysWithWarga,
+  querySurveyStatsByNik,
+  queryWargaList,
+  queryRiwayatKsUntukNik,
+  removeKunjunganRumahRecord,
+  saveKunjunganRumahRecord,
+  touchSession,
+  updateKunjunganRumahRecord,
+} from './utils.server'
 import type {
-    BarisIsianForm,
-    BarisJawabanSubmit,
-    BarisRiwayatSubmit,
-    BarisWargaGabungan,
-    RiwayatSasaran,
-} from "./utils.server";
+  BarisIsianForm,
+  BarisJawabanSubmit,
+  BarisRiwayatSubmit,
+  BarisWargaGabungan,
+  RiwayatSasaran,
+} from './utils.server'
 import {
-    listKegiatan as listKegiatanV2,
-    simpanKegiatan,
-} from "@/features/survey/services/kegiatan.server";
+  listKegiatan as listKegiatanV2,
+  simpanKegiatan,
+} from '@/features/survey/services/kegiatan.server'
 import {
-    listFasKes,
-    listKaderAktif,
-    listPengguna,
-    listPetugasOpsi,
-    simpanPengguna,
-    setPenggunaAktif,
-} from "./user-registry.server";
+  listFasKes,
+  listKaderAktif,
+  listPengguna,
+  listPetugasOpsi,
+  simpanPengguna,
+  setPenggunaAktif,
+} from './user-registry.server'
 import {
-    buatFormBaru,
-    daftarVersiForm,
-    hapusForm,
-    listFormBaru,
-    ringkasanHapusForm,
-} from "@/features/form-builder/services/form.server";
-import { ambilDefinisiVersi } from "@/features/form-builder/services/section.server";
-import { buildFormVersion } from "@/features/form-builder/services/build.server";
-import type { BuildFormVersionInput, BuildFormVersionResult } from "@/features/kelola/components/builder/types";
+  buatFormBaru,
+  daftarVersiForm,
+  hapusForm,
+  listFormBaru,
+  ringkasanHapusForm,
+} from '@/features/form-builder/services/form.server'
+import { ambilDefinisiVersi } from '@/features/form-builder/services/section.server'
+import { buildFormVersion } from '@/features/form-builder/services/build.server'
+import type {
+  BuildFormVersionInput,
+  BuildFormVersionResult,
+} from '@/features/kelola/components/builder/types'
 import {
-    buatDraftBerikutnya,
-    terbitkanVersiForm,
-} from "@/features/form-builder/services/form-version.server";
-import { ambilFormulirUntukIsi, daftarFormulirTerisi, simpanFormulir as simpanFormulirRuntime } from "@/features/survey/services/form-runtime.server";
-import type { SimpanFormulirInput } from "@/features/survey/services/form-runtime.server";
-import { KODE_FORM_BAWAAN } from "@/lib/constants";
-import { SEMUA_TIPE_FIELD, TIPE_BUTUH_OPSI } from "@/features/form-builder/services/validasi";
-
+  buatDraftBerikutnya,
+  terbitkanVersiForm,
+} from '@/features/form-builder/services/form-version.server'
+import {
+  ambilFormulirUntukIsi,
+  daftarFormulirTerisi,
+  simpanFormulir as simpanFormulirRuntime,
+} from '@/features/survey/services/form-runtime.server'
+import type { SimpanFormulirInput } from '@/features/survey/services/form-runtime.server'
+import { KODE_FORM_BAWAAN } from '@/lib/constants'
+import {
+  SEMUA_TIPE_FIELD,
+  TIPE_BUTUH_OPSI,
+} from '@/features/form-builder/services/validasi'
 
 /* ALUR LOGIN
 1. cek sessionToken pake beforeLoad di /laporan (form)
@@ -72,68 +81,62 @@ import { SEMUA_TIPE_FIELD, TIPE_BUTUH_OPSI } from "@/features/form-builder/servi
 */
 
 // ganti method GET → POST — expect: login tak bisa dipicu lewat link/GET
-export const pinLogin = createServerFn({ method: "POST" })
-    .validator((data: { pin: string }) => data)
-    .handler(
-        async ({ data }): Promise<HasilPin> => {
-            // Selalu menolak: bentuk hasil hanya membedakan "terkunci" dari
-            // "PIN salah" supaya halaman login bisa memberi tahu sisa waktu.
-            return await isValidPin(data.pin)
-        }
+export const pinLogin = createServerFn({ method: 'POST' })
+  .validator((data: { pin: string }) => data)
+  .handler(async ({ data }): Promise<HasilPin> => {
+    // Selalu menolak: bentuk hasil hanya membedakan "terkunci" dari
+    // "PIN salah" supaya halaman login bisa memberi tahu sisa waktu.
+    return await isValidPin(data.pin)
+  })
+
+export const getSessionToken = createServerFn({ method: 'GET' }).handler(
+  async () => {
+    const sessionToken = getCookie('session')
+    if (!sessionToken) throw new Error('Unauthorized') // gak pernah login
+    return await touchSession(sessionToken)
+  },
 )
 
-export const getSessionToken = createServerFn({ method: "GET" })
-    .handler(
-        async () => {
-            const sessionToken = getCookie('session')
-            if (!sessionToken) throw new Error('Unauthorized') // gak pernah login
-            return await touchSession(sessionToken)
-        }
-)
-
-export const logoutSession = createServerFn({ method: "POST" })
-    .handler(
-        async () => {
-            await destroySession(getCookie('session'))
-        }
+export const logoutSession = createServerFn({ method: 'POST' }).handler(
+  async () => {
+    await destroySession(getCookie('session'))
+  },
 )
 
 //   crosscheck sessionToken ke valid_session ? beres; token bajakan/ kedaluwarsa ditolak.
-export const authSessionToken = createMiddleware({ type: "function" }).server(
-    async ({ next }) => {
-        const sessionToken = getCookie('session')
-        if (!sessionToken) throw new Error("Unauthorized")
-        const session = await touchSession(sessionToken)
-        return next({ context: { sessionToken, profile: session.profile } })
-    }
+export const authSessionToken = createMiddleware({ type: 'function' }).server(
+  async ({ next }) => {
+    const sessionToken = getCookie('session')
+    if (!sessionToken) throw new Error('Unauthorized')
+    const session = await touchSession(sessionToken)
+    return next({ context: { sessionToken, profile: session.profile } })
+  },
 )
 
 // [perbaikan] daftar petugas lewat server fn terproteksi middleware — expect: opsi dropdown
 //   datang dari DB, klien tanpa sesi valid ditolak sebelum data keluar.
-export const listSurveyors = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .handler(
-        async () => {
-            return await querySurveyors()
-        }
-    )
+export const listSurveyors = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async () => {
+    return await querySurveyors()
+  })
 
 // ---- read model DB untuk UI (pengganti data dummy) ----
 export interface SasaranListRow {
-    rawId: string;
-    nik: string;
-    nikValid: boolean;
-    needsUpdate: boolean;
-    nama: string;
-    kelurahan: string;
-    status: "Sudah" | "Belum";
-    tgl: string | null;
-    kunjunganRumah: number;
+  rawId: string
+  nik: string
+  nikValid: boolean
+  needsUpdate: boolean
+  nama: string
+  kelurahan: string
+  status: 'Sudah' | 'Belum'
+  tgl: string | null
+  kunjunganRumah: number
 }
 
 export interface SasaranListResult {
-    rows: SasaranListRow[];
-    total: number;
+  rows: SasaranListRow[]
+  total: number
 }
 
 /**
@@ -145,273 +148,317 @@ export interface SasaranListResult {
  * punya kolom penanda form, jadi nama diambil dari join `form_versions → forms`.
  */
 export interface SurveyRow {
-    id: string;
-    tanggal: string;
-    nik: string | null;
-    nama: string;
-    kelurahan: string;
-    petugas: string;
-    formNama: string;
-    formKode: string | null;
-    formVersion: number;
+  id: string
+  tanggal: string
+  nik: string | null
+  nama: string
+  kelurahan: string
+  petugas: string
+  formNama: string
+  formKode: string | null
+  formVersion: number
 }
 
 export interface KelurahanStat {
-    name: string;
-    total: number;
-    dikunjungi: number;
-    pct: number;
-    sub: string;
+  name: string
+  total: number
+  dikunjungi: number
+  pct: number
+  sub: string
 }
 
 export interface DashboardData {
-    totals: { warga: number; dikunjungi: number; kunjunganRumah: number };
-    kelurahan: KelurahanStat[];
-    recent: SurveyRow[];
+  totals: { warga: number; dikunjungi: number; kunjunganRumah: number }
+  kelurahan: KelurahanStat[]
+  recent: SurveyRow[]
 }
 
 // Halaman /sasaran memakai sumber gabungan (`data_warga` + `data_warga_import`)
 // supaya daftar tidak cuma berisi 1 baris. Filter dan paginasi diproses server
 // (lihat `querySasaranListPaged`) — klien cukup kirim q/status/kel/page.
-export const getSasaranList = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .validator((data: { q?: string; status?: string; kel?: string; page?: number; all?: boolean }) => data)
-    .handler(
-        async ({ data }): Promise<SasaranListResult> => {
-            const q = data.q ?? ""
-            const status = (data.status ?? "all") as "all" | "Sudah" | "Belum"
-            const result = await querySasaranListPaged({
-                q,
-                status,
-                kel: data.kel ?? "all",
-                page: data.page ?? 1,
-                pageSize: 10,
-                all: data.all ?? false,
-            })
-            const stats = await querySurveyStatsByNik()
-            const byNik = new Map(stats.map((s) => [s.nik, s]))
-            const rows: SasaranListRow[] = result.rows.map((w) => {
-                // NIK tampil bisa berupa NIK sementara (derive raw_id) yang bukan
-                // NIK asli di `surveys`; `wargaNik` hanya terisi NIK asli. Jadi
-                // statistik dicocokkan lewat `nik` hasil derive — baris sementara
-                // tidak akan pernah ketemu, dan itu memang benar (belum dikunjungi).
-                const st = byNik.get(w.nik)
-                return {
-                    rawId: w.rawId,
-                    nik: w.nik,
-                    nikValid: w.nikValid,
-                    needsUpdate: w.needsUpdate,
-                    nama: w.nama_art,
-                    kelurahan: w.kelurahan,
-                    status: st ? "Sudah" : "Belum",
-                    tgl: st?.terakhir ?? null,
-                    kunjunganRumah: st?.total ?? 0,
-                }
-            })
-            return { rows, total: result.total }
-        }
-    )
+export const getSasaranList = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .validator(
+    (data: {
+      q?: string
+      status?: string
+      kel?: string
+      page?: number
+      all?: boolean
+    }) => data,
+  )
+  .handler(async ({ data }): Promise<SasaranListResult> => {
+    const q = data.q ?? ''
+    const status = (data.status ?? 'all') as 'all' | 'Sudah' | 'Belum'
+    const result = await querySasaranListPaged({
+      q,
+      status,
+      kel: data.kel ?? 'all',
+      page: data.page ?? 1,
+      pageSize: 10,
+      all: data.all ?? false,
+    })
+    const stats = await querySurveyStatsByNik()
+    const byNik = new Map(stats.map((s) => [s.nik, s]))
+    const rows: SasaranListRow[] = result.rows.map((w) => {
+      // NIK tampil bisa berupa NIK sementara (derive raw_id) yang bukan
+      // NIK asli di `surveys`; `wargaNik` hanya terisi NIK asli. Jadi
+      // statistik dicocokkan lewat `nik` hasil derive — baris sementara
+      // tidak akan pernah ketemu, dan itu memang benar (belum dikunjungi).
+      const st = byNik.get(w.nik)
+      return {
+        rawId: w.rawId,
+        nik: w.nik,
+        nikValid: w.nikValid,
+        needsUpdate: w.needsUpdate,
+        nama: w.nama_art,
+        kelurahan: w.kelurahan,
+        status: st ? 'Sudah' : 'Belum',
+        tgl: st?.terakhir ?? null,
+        kunjunganRumah: st?.total ?? 0,
+      }
+    })
+    return { rows, total: result.total }
+  })
 
 /** Baris warga di halaman detail: bentuk gabungan + kolom riwayat KS yang
  *  ditambahkan opsional. Yang tidak ada di `riwayat_ks_import` tetap `null`. */
 export type SasaranDetailRow = BarisWargaGabungan & RiwayatSasaran
 
-export const getSasaranDetail = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .validator((data: { nik: string }) => data)
-    .handler(
-        async ({ data }): Promise<{ warga: SasaranDetailRow | null; surveys: SurveyRow[] }> => {
-            const [warga, surveys] = await Promise.all([querySasaranByNik(data.nik), querySurveysWithWarga(500)])
-            // NIK yang hanya ada di `data_warga_import` juga ketemu di sini, jadi
-            // detail menampilkan data awal import dan tidak lagi "tidak ditemukan"
-            // — pencariannya per NIK (bukan scan daftar penuh seperti sebelumnya).
-            const found = warga
-            if (!found) return { warga: null, surveys: [] as SurveyRow[] }
-            const riwayat = await queryRiwayatKsUntukNik(found.rawId ? found.rawId : data.nik)
-            return {
-                warga: { ...found, ...riwayat },
-                surveys: surveys.filter((s) => s.nik === found.nik || s.nik === data.nik),
-            }
-        }
-    )
+export const getSasaranDetail = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .validator((data: { nik: string }) => data)
+  .handler(
+    async ({
+      data,
+    }): Promise<{ warga: SasaranDetailRow | null; surveys: SurveyRow[] }> => {
+      const [warga, surveys] = await Promise.all([
+        querySasaranByNik(data.nik),
+        querySurveysWithWarga(500),
+      ])
+      // NIK yang hanya ada di `data_warga_import` juga ketemu di sini, jadi
+      // detail menampilkan data awal import dan tidak lagi "tidak ditemukan"
+      // — pencariannya per NIK (bukan scan daftar penuh seperti sebelumnya).
+      const found = warga
+      if (!found) return { warga: null, surveys: [] as SurveyRow[] }
+      const riwayat = await queryRiwayatKsUntukNik(
+        found.rawId ? found.rawId : data.nik,
+      )
+      return {
+        warga: { ...found, ...riwayat },
+        surveys: surveys.filter(
+          (s) => s.nik === found.nik || s.nik === data.nik,
+        ),
+      }
+    },
+  )
 
-export const getDashboardData = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .handler(
-        async (): Promise<DashboardData> => {
-            const [warga, stats, recent] = await Promise.all([
-                queryWargaList(),
-                querySurveyStatsByNik(),
-                querySurveysWithWarga(50),
-            ])
-            const visited = new Set(stats.map((s) => s.nik))
-            const byKel = new Map<string, { total: number; dikunjungi: number }>()
-            for (const w of warga) {
-                const cur = byKel.get(w.kelurahan) ?? { total: 0, dikunjungi: 0 }
-                cur.total += 1
-                if (visited.has(w.nik)) cur.dikunjungi += 1
-                byKel.set(w.kelurahan, cur)
-            }
-            const kelurahan: KelurahanStat[] = [...byKel.entries()].map(([name, v]) => ({
-                name,
-                total: v.total,
-                dikunjungi: v.dikunjungi,
-                pct: v.total ? Math.round((v.dikunjungi / v.total) * 100) : 0,
-                sub: `${v.dikunjungi} / ${v.total} jiwa dikunjungi`,
-            }))
-            return {
-                totals: {
-                    warga: warga.length,
-                    dikunjungi: visited.size,
-                    kunjunganRumah: stats.reduce((a, s) => a + s.total, 0),
-                },
-                kelurahan,
-                recent,
-            }
-        }
+export const getDashboardData = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async (): Promise<DashboardData> => {
+    const [warga, stats, recent] = await Promise.all([
+      queryWargaList(),
+      querySurveyStatsByNik(),
+      querySurveysWithWarga(50),
+    ])
+    const visited = new Set(stats.map((s) => s.nik))
+    const byKel = new Map<string, { total: number; dikunjungi: number }>()
+    for (const w of warga) {
+      const cur = byKel.get(w.kelurahan) ?? { total: 0, dikunjungi: 0 }
+      cur.total += 1
+      if (visited.has(w.nik)) cur.dikunjungi += 1
+      byKel.set(w.kelurahan, cur)
+    }
+    const kelurahan: KelurahanStat[] = [...byKel.entries()].map(
+      ([name, v]) => ({
+        name,
+        total: v.total,
+        dikunjungi: v.dikunjungi,
+        pct: v.total ? Math.round((v.dikunjungi / v.total) * 100) : 0,
+        sub: `${v.dikunjungi} / ${v.total} jiwa dikunjungi`,
+      }),
     )
+    return {
+      totals: {
+        warga: warga.length,
+        dikunjungi: visited.size,
+        kunjunganRumah: stats.reduce((a, s) => a + s.total, 0),
+      },
+      kelurahan,
+      recent,
+    }
+  })
 
-export const getLaporanKunjunganRumah = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .handler(
-        async (): Promise<SurveyRow[]> => {
-            return await querySurveysWithWarga(500)
-        }
-    )
+export const getLaporanKunjunganRumah = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async (): Promise<SurveyRow[]> => {
+    return await querySurveysWithWarga(500)
+  })
 
 // ---- riwayat submit semua form ----
 // Dipisah dari laporan kunjungan: di sini yang penting form mana, bukan cakupan
 // warga. Record form buatan Form Builder tidak punya kolom penanda di `surveys`,
 // jadi identitasnya selalu dibaca lewat join ke `forms` dan ditampilkan apa adanya.
 
-export const getRiwayatSubmit = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .validator((data: { formId?: number | null; limit?: number }) => data)
-    .handler(
-        async ({ data }): Promise<BarisRiwayatSubmit[]> =>
-            await queryRiwayatSubmit({ formId: data.formId ?? null, limit: data.limit ?? 200 }),
-    )
+export const getRiwayatSubmit = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .validator((data: { formId?: number | null; limit?: number }) => data)
+  .handler(
+    async ({ data }): Promise<BarisRiwayatSubmit[]> =>
+      await queryRiwayatSubmit({
+        formId: data.formId ?? null,
+        limit: data.limit ?? 200,
+      }),
+  )
 
 /** Daftar form yang punya submission, untuk dropdown filter riwayat. */
-export const getFormAdaSubmit = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .handler(async (): Promise<Array<{ formId: number; nama: string; jumlahSubmit: number }>> =>
-        await queryFormAdaSubmit(),
-    )
+export const getFormAdaSubmit = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(
+    async (): Promise<
+      Array<{ formId: number; nama: string; jumlahSubmit: number }>
+    > => await queryFormAdaSubmit(),
+  )
 
-export const getDetailSubmit = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .validator((data: { surveyId: string }) => data)
-    .handler(
-        async ({ data }): Promise<{ answers: BarisJawabanSubmit[]; row: BarisIsianForm | null }> => {
-            const answers = await queryJawabanSubmit(data.surveyId)
-            return { answers, row: await queryRingkasanSubmit(data.surveyId) }
-        },
-    )
+export const getDetailSubmit = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .validator((data: { surveyId: string }) => data)
+  .handler(
+    async ({
+      data,
+    }): Promise<{
+      answers: BarisJawabanSubmit[]
+      row: BarisIsianForm | null
+    }> => {
+      const answers = await queryJawabanSubmit(data.surveyId)
+      return { answers, row: await queryRingkasanSubmit(data.surveyId) }
+    },
+  )
 
 // ---- kunjungan rumah — CRUD langsung ke DB, tanpa localStorage ----
 // Definisi form (section + question + opsi select) dibaca dari DB. Dipisah dari record
 // karena bentuknya berbeda: yang ini bisa berubah tiap admin menyunting form, yang
 // record tidak boleh ikut berubah bentuk.
-export const getKunjunganRumahTemplate = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .handler(async () => {
-        const rows = await getKunjunganRumahTemplateRows()
-        if (!rows) return null
-        return rows
-    })
+export const getKunjunganRumahTemplate = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async () => {
+    const rows = await getKunjunganRumahTemplateRows()
+    if (!rows) return null
+    return rows
+  })
 
-export const listKunjunganRumah = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .handler(async () => await listKunjunganRumahRecords())
+export const listKunjunganRumah = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async () => await listKunjunganRumahRecords())
 
 /** Suggestion warga sasaran untuk form Kunjungan Rumah, dibaca dari
  *  `data_warga_import`. Dipakai saat user mengetik NIK atau nama KK; hasilnya
  *  hanya mengisi form, tidak menyentuh `data_warga` — insert ke sana tetap
  *  terjadi saat user menekan Simpan. */
-export const cariSasaranWarga = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: { q: string }) => data)
-    .handler(async ({ data }) => await querySasaranWarga(data.q))
+export const cariSasaranWarga = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { q: string }) => data)
+  .handler(async ({ data }) => await querySasaranWarga(data.q))
 
-export const getKunjunganRumah = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .validator((data: { id: string }) => data)
-    .handler(async ({ data }) => await getKunjunganRumahRecord(data.id))
+export const getKunjunganRumah = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .validator((data: { id: string }) => data)
+  .handler(async ({ data }) => await getKunjunganRumahRecord(data.id))
 
-export const saveKunjunganRumah = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: { record: Record<string, unknown> }) => data)
-    .handler(async ({ data }) => await saveKunjunganRumahRecord(data.record))
+export const saveKunjunganRumah = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { record: Record<string, unknown> }) => data)
+  .handler(async ({ data }) => await saveKunjunganRumahRecord(data.record))
 
-export const updateKunjunganRumah = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: { id: string; record: Record<string, unknown> }) => data)
-    .handler(async ({ data }) => await updateKunjunganRumahRecord(data.id, data.record))
+export const updateKunjunganRumah = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { id: string; record: Record<string, unknown> }) => data)
+  .handler(
+    async ({ data }) => await updateKunjunganRumahRecord(data.id, data.record),
+  )
 
-export const removeKunjunganRumah = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: { id: string }) => data)
-    .handler(async ({ data }) => {
-        await removeKunjunganRumahRecord(data.id)
-    })
+export const removeKunjunganRumah = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { id: string }) => data)
+  .handler(async ({ data }) => {
+    await removeKunjunganRumahRecord(data.id)
+  })
 
 // ---- kegiatan pemberdayaan — generic submission v2 ----
 // formerly ditulis ke tabel `kegiatan_records`, yang sudah dihapus dari database
 // sehingga fitur ini mati saat runtime. Sekarang lewat `surveys` + `survey_entries`
 // dengan `surveys.petugasId` menunjuk `users.id` hasil dropdown Petugas.
-export const listKegiatan = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .handler(async () => await listKegiatanV2())
+export const listKegiatan = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async () => await listKegiatanV2())
 
-export const getKegiatanMonthlyStats = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .handler(async () => {
-        const kegiatan = await listKegiatanV2()
-        const now = new Date()
-        const months: Array<{ key: string; label: string }> = []
-        for (let i = 11; i >= 0; i--) {
-            const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-            const key = d.toISOString().slice(0, 7)
-            const label = d.toLocaleString("id-ID", { month: "short", year: "2-digit" })
-            months.push({ key, label })
-        }
-        const byMonth = new Map<string, {
-            totalKegiatan: number
-            totalHadir: number
-            totalPeserta: number
-            byJenis: Map<string, number>
-        }>()
-        months.forEach(m => byMonth.set(m.key, { totalKegiatan: 0, totalHadir: 0, totalPeserta: 0, byJenis: new Map() }))
-        kegiatan.forEach(k => {
-            const monthKey = k.tgl.slice(0, 7)
-            const bucket = byMonth.get(monthKey)
-            if (!bucket) return
-            bucket.totalKegiatan += 1
-            bucket.totalHadir += k.hadir
-            bucket.totalPeserta += k.total
-            const jenisCount = bucket.byJenis.get(k.jenis) ?? 0
-            bucket.byJenis.set(k.jenis, jenisCount + 1)
-        })
-        return months.map(m => {
-            const b = byMonth.get(m.key)!
-            const pctHadir = b.totalPeserta > 0 ? Math.round((b.totalHadir / b.totalPeserta) * 100) : 0
-            return {
-                month: m.key,
-                label: m.label,
-                totalKegiatan: b.totalKegiatan,
-                totalHadir: b.totalHadir,
-                totalPeserta: b.totalPeserta,
-                pctHadir,
-                byJenis: Array.from(b.byJenis.entries()).map(([jenis, count]) => ({ jenis, count })),
-            }
-        })
+export const getKegiatanMonthlyStats = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async () => {
+    const kegiatan = await listKegiatanV2()
+    const now = new Date()
+    const months: Array<{ key: string; label: string }> = []
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const key = d.toISOString().slice(0, 7)
+      const label = d.toLocaleString('id-ID', {
+        month: 'short',
+        year: '2-digit',
+      })
+      months.push({ key, label })
+    }
+    const byMonth = new Map<
+      string,
+      {
+        totalKegiatan: number
+        totalHadir: number
+        totalPeserta: number
+        byJenis: Map<string, number>
+      }
+    >()
+    months.forEach((m) =>
+      byMonth.set(m.key, {
+        totalKegiatan: 0,
+        totalHadir: 0,
+        totalPeserta: 0,
+        byJenis: new Map(),
+      }),
+    )
+    kegiatan.forEach((k) => {
+      const monthKey = k.tgl.slice(0, 7)
+      const bucket = byMonth.get(monthKey)
+      if (!bucket) return
+      bucket.totalKegiatan += 1
+      bucket.totalHadir += k.hadir
+      bucket.totalPeserta += k.total
+      const jenisCount = bucket.byJenis.get(k.jenis) ?? 0
+      bucket.byJenis.set(k.jenis, jenisCount + 1)
     })
+    return months.map((m) => {
+      const b = byMonth.get(m.key)!
+      const pctHadir =
+        b.totalPeserta > 0
+          ? Math.round((b.totalHadir / b.totalPeserta) * 100)
+          : 0
+      return {
+        month: m.key,
+        label: m.label,
+        totalKegiatan: b.totalKegiatan,
+        totalHadir: b.totalHadir,
+        totalPeserta: b.totalPeserta,
+        pctHadir,
+        byJenis: Array.from(b.byJenis.entries()).map(([jenis, count]) => ({
+          jenis,
+          count,
+        })),
+      }
+    })
+  })
 
-export const saveKegiatan = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: { record: Record<string, unknown> }) => data)
-    .handler(async ({ data }) => await simpanKegiatan(data.record))
+export const saveKegiatan = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { record: Record<string, unknown> }) => data)
+  .handler(async ({ data }) => await simpanKegiatan(data.record))
 
 // ---- registry pengguna (pengganti master admin /kelola) ----
 // Penulisan hanya bisa dari /kelola, yang route-nya dilindungi `requireAuth`.
@@ -421,37 +468,37 @@ export const saveKegiatan = createServerFn({ method: "POST" })
 // valid sudah setara dengan admin (lihat catatan di `src/lib/auth.ts`).
 // Yang divalidasi di sini murni data: fasilitas yang dipilih harus benar-benar
 // ada, dan akun petugas harus aktif.
-export const listUserRegistry = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .handler(async () => await listPengguna());
+export const listUserRegistry = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async () => await listPengguna())
 
-export const listFasKesOpsi = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .handler(async () => await listFasKes());
+export const listFasKesOpsi = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async () => await listFasKes())
 
-export const saveUserRegistry = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: { namaLama: string | null; row: unknown }) => data)
-    .handler(async ({ data }) => await simpanPengguna(data.namaLama, data.row));
+export const saveUserRegistry = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { namaLama: string | null; row: unknown }) => data)
+  .handler(async ({ data }) => await simpanPengguna(data.namaLama, data.row))
 
-export const setUserRegistryAktif = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: { nama: string; aktif: boolean }) => data)
-    .handler(async ({ data }) => {
-        await setPenggunaAktif(data.nama, data.aktif);
-    });
+export const setUserRegistryAktif = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { nama: string; aktif: boolean }) => data)
+  .handler(async ({ data }) => {
+    await setPenggunaAktif(data.nama, data.aktif)
+  })
 
 /** Dipakai /kelola untuk mengisi dropdown kader, dan Form Kunjungan Rumah untuk petugas. */
-export const listPetugasAktif = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .validator((data: { fasKesId?: number | null }) => data)
-    .handler(async ({ data }) => await listPetugasOpsi(data.fasKesId ?? null));
+export const listPetugasAktif = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .validator((data: { fasKesId?: number | null }) => data)
+  .handler(async ({ data }) => await listPetugasOpsi(data.fasKesId ?? null))
 
 /** Daftar kader aktif untuk filter Rekap Kunjungan Rumah. */
-export const listKaderUntukRekap = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .validator((data: { fasKesId?: number | null }) => data)
-    .handler(async ({ data }) => await listKaderAktif(data.fasKesId ?? null));
+export const listKaderUntukRekap = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .validator((data: { fasKesId?: number | null }) => data)
+  .handler(async ({ data }) => await listKaderAktif(data.fasKesId ?? null))
 
 // ---- form builder (tab /kelola) ----
 // Lapisan server function untuk editor form. Semua bentuk datanya milik
@@ -466,46 +513,62 @@ export const listKaderUntukRekap = createServerFn({ method: "GET" })
 // `KesalahanValidasi` sengaja dibiarkan terlempar apa adanya supaya petugas
 // melihat `pesan` yang sudah ditulis services, bukan pesan generik.
 
-export const listFormBuilder = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .handler(async () => await listFormBaru());
+export const listFormBuilder = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async () => await listFormBaru())
 
-export const ambilEditorForm = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .validator((data: { formVersionId: string }) => data)
-    .handler(async ({ data }) => await ambilDefinisiVersi(data.formVersionId));
+export const ambilEditorForm = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .validator((data: { formVersionId: string }) => data)
+  .handler(async ({ data }) => await ambilDefinisiVersi(data.formVersionId))
 
-export const daftarVersiBuilder = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .validator((data: { formId: number }) => data)
-    .handler(async ({ data }) => await daftarVersiForm(data.formId));
+export const daftarVersiBuilder = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .validator((data: { formId: number }) => data)
+  .handler(async ({ data }) => await daftarVersiForm(data.formId))
 
 /** Daftar tipe field untuk editor. Satu-satunya sumbernya `SEMUA_TIPE_FIELD` dan
  *  `TIPE_BUTUH_OPSI` di services/validasi.ts — backend yang menolak field tanpa
  *  opsi, jadi UI tidak boleh menyimpan salinannya sendiri karena cepat berbeda.
  *  Enum `form_field_type` tidak dibaca langsung: mengimpornya menarik drizzle
  *  pg-core ke bundle klien. */
-export const daftarJenisField = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .handler(async () => ({ semua: [...SEMUA_TIPE_FIELD], butuhOpsi: [...TIPE_BUTUH_OPSI] }));
+export const daftarJenisField = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async () => ({
+    semua: [...SEMUA_TIPE_FIELD],
+    butuhOpsi: [...TIPE_BUTUH_OPSI],
+  }))
 
-export const buatFormBuilder = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: { nama: string; deskripsi?: string }) => data)
-    .handler(async ({ data }) => await buatFormBaru({ nama: data.nama, deskripsi: data.deskripsi, actorId: null }));
+export const buatFormBuilder = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { nama: string; deskripsi?: string }) => data)
+  .handler(
+    async ({ data }) =>
+      await buatFormBaru({
+        nama: data.nama,
+        deskripsi: data.deskripsi,
+        actorId: null,
+      }),
+  )
 
 /** Versi published dibekukan, jadi perubahan struktur harus punya draft baru.
  *  `dariVersiId` hanya dipakai service untuk memastikan versi asal benar milik
  *  form ini; tidak diisi berarti pemanggil memang meminta versi berikutnya. */
-export const buatDraftBuilder = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: { formId: number; dariVersiId?: string }) => data)
-    .handler(async ({ data }) => await buatDraftBerikutnya(data.formId, { dariVersiId: data.dariVersiId }));
+export const buatDraftBuilder = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { formId: number; dariVersiId?: string }) => data)
+  .handler(
+    async ({ data }) =>
+      await buatDraftBerikutnya(data.formId, { dariVersiId: data.dariVersiId }),
+  )
 
-export const terbitkanVersiBuilder = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: { formVersionId: string }) => data)
-    .handler(async ({ data }) => await terbitkanVersiForm(data.formVersionId, { actorId: null }));
+export const terbitkanVersiBuilder = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { formVersionId: string }) => data)
+  .handler(
+    async ({ data }) =>
+      await terbitkanVersiForm(data.formVersionId, { actorId: null }),
+  )
 
 /**
  * Ringkasan isi form (versi, submit, jawaban, warga, tanggal terakhir).
@@ -514,38 +577,41 @@ export const terbitkanVersiBuilder = createServerFn({ method: "POST" })
  * hilang, bukan sekadar konfirmasi buta. Server yang menghitungnya — angka
  * dari klien bisa saja kedaluwarsa di antara dialog dibuka dan tombol ditekan.
  */
-export const ringkasanHapusFormBuilder = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .validator((data: { formId: number }) => data)
-    .handler(async ({ data }) => await ringkasanHapusForm(data.formId));
+export const ringkasanHapusFormBuilder = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .validator((data: { formId: number }) => data)
+  .handler(async ({ data }) => await ringkasanHapusForm(data.formId))
 
 /**
  * Hapus form. `hapusPermanent` + `konfirmasiNama` hanya perlu diisi kalau form
  * sudah punya isian: tanpa itu server menolak dengan `FORM_PUNYA_ISIAN` dan
  * pesan yang menyebutkan berapa banyak data yang akan hilang.
  */
-export const hapusFormBuilder = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: {
-        formId: number
-        hapusPermanent?: boolean
-        konfirmasiNama?: string | null
-    }) => data)
-    .handler(async ({ data }) =>
-        await hapusForm({
-            formId: data.formId,
-            hapusPermanent: data.hapusPermanent,
-            konfirmasiNama: data.konfirmasiNama ?? null,
-            actorId: null,
-        }),
-    );
+export const hapusFormBuilder = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator(
+    (data: {
+      formId: number
+      hapusPermanent?: boolean
+      konfirmasiNama?: string | null
+    }) => data,
+  )
+  .handler(
+    async ({ data }) =>
+      await hapusForm({
+        formId: data.formId,
+        hapusPermanent: data.hapusPermanent,
+        konfirmasiNama: data.konfirmasiNama ?? null,
+        actorId: null,
+      }),
+  )
 
-export const buildFormBuilder = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: BuildFormVersionInput) => data)
-    .handler(async ({ data }): Promise<BuildFormVersionResult> => {
-        return await buildFormVersion(data);
-    });
+export const buildFormBuilder = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: BuildFormVersionInput) => data)
+  .handler(async ({ data }): Promise<BuildFormVersionResult> => {
+    return await buildFormVersion(data)
+  })
 
 // ---- runtime form generik (isi form dari definisi yang tayang) ----
 // Lawanan dari Form Builder di atas: Builder memegang definisi form (forms,
@@ -569,23 +635,25 @@ export const buildFormBuilder = createServerFn({ method: "POST" })
 // `pesan` yang sudah ditulis services — termasuk daftar field wajib yang kosong
 // sekaligus, bukan satu per permintaan.
 
-export const listFormulir = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .handler(async () => await daftarFormulirTerisi());
+export const listFormulir = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async () => await daftarFormulirTerisi())
 
-export const listFormulirForNav = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .handler(async () => {
-        const all = await daftarFormulirTerisi();
-        return all.filter((f) => f.kode !== KODE_FORM_BAWAAN.kunjunganRumah);
-    });
+export const listFormulirForNav = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .handler(async () => {
+    const all = await daftarFormulirTerisi()
+    return all.filter((f) => f.kode !== KODE_FORM_BAWAAN.kunjunganRumah)
+  })
 
-export const ambilFormulir = createServerFn({ method: "GET" })
-    .middleware([authSessionToken])
-    .validator((data: { formVersionId: string }) => data)
-    .handler(async ({ data }) => await ambilFormulirUntukIsi(data.formVersionId));
+export const ambilFormulir = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .validator((data: { formVersionId: string }) => data)
+  .handler(async ({ data }) => await ambilFormulirUntukIsi(data.formVersionId))
 
-export const simpanFormulir = createServerFn({ method: "POST" })
-    .middleware([authSessionToken])
-    .validator((data: Omit<SimpanFormulirInput, "actorId">) => data)
-    .handler(async ({ data }) => await simpanFormulirRuntime({ ...data, actorId: null }));
+export const simpanFormulir = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: Omit<SimpanFormulirInput, 'actorId'>) => data)
+  .handler(
+    async ({ data }) => await simpanFormulirRuntime({ ...data, actorId: null }),
+  )

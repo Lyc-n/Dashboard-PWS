@@ -1,7 +1,11 @@
-import type { SurveyRow } from "@/lib/utils.functions";
+import type { SurveyRow } from '@/lib/utils.functions'
 
 /** Bentuk baris dari `getFormAdaSubmit()`: satu baris per form yang punya submit. */
-export type BarisFormFilter = { formId: number; nama: string; jumlahSubmit: number };
+export type BarisFormFilter = {
+  formId: number
+  nama: string
+  jumlahSubmit: number
+}
 
 /**
  * formId untuk satu baris isian, dicocokkan lewat `formNama`.
@@ -17,6 +21,9 @@ export type BarisFormFilter = { formId: number; nama: string; jumlahSubmit: numb
  * bukan daftar isian — ukurannya kecil dan tidak bertambah saat baris bertambah.
  * Kalau nanti jadi bottleneck, ganti dengan Map yang dibangun sekali per render.
  */
-export function formIdOf(r: Pick<SurveyRow, "formNama">, forms: BarisFormFilter[]): number {
-  return forms.find((f) => f.nama === r.formNama)?.formId ?? -1;
+export function formIdOf(
+  r: Pick<SurveyRow, 'formNama'>,
+  forms: BarisFormFilter[],
+): number {
+  return forms.find((f) => f.nama === r.formNama)?.formId ?? -1
 }

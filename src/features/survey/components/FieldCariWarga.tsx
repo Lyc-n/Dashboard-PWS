@@ -16,21 +16,21 @@
  * `memo`-nya menahan render form yang punya ratusan field. Field yang tidak
  * mencari warga tidak akan punya watcher, debounce, dan query sama sekali.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Input } from "@/components/atoms";
-import { FormField } from "@/components/molecules";
-import { SaranWargaDropdown } from "@/features/survey/components/SaranWargaDropdown";
-import { cariSasaranWarga } from "@/lib/utils.functions";
-import { pesanError } from "@/lib/utils";
-import type { SasaranSuggestion } from "@/features/kunjungan-rumah/lib/warga-row";
-import type { KolomWarga } from "@/features/form-builder/services/sumber-opsi";
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Input } from '@/components/atoms'
+import { FormField } from '@/components/molecules'
+import { SaranWargaDropdown } from '@/features/survey/components/SaranWargaDropdown'
+import { cariSasaranWarga } from '@/lib/utils.functions'
+import { pesanError } from '@/lib/utils'
+import type { SasaranSuggestion } from '@/features/kunjungan-rumah/lib/warga-row'
+import type { KolomWarga } from '@/features/form-builder/services/sumber-opsi'
 
 /** Panjang ketikan minimum sebelum server mencari — 3 huruf sudah cukup unik di 20 ribu baris. */
-const MIN_KETIK = 3;
+const MIN_KETIK = 3
 /** Tunda pencarian supaya satu ketikan tidak jadi satu round-trip ke server. */
-const DEBOUNCE_MS = 300;
+const DEBOUNCE_MS = 300
 
-const BARIS_KOSONG: SasaranSuggestion[] = [];
+const BARIS_KOSONG: SasaranSuggestion[] = []
 
 /**
  * Nama property di {@link SasaranSuggestion} untuk tiap kolom.
@@ -42,28 +42,28 @@ const PROPERTI_KOLOM: Record<KolomWarga, 'namaArt' | 'namaKk' | 'nik'> = {
   nama_art: 'namaArt',
   nama_kk: 'namaKk',
   nik: 'nik',
-};
+}
 
 /** Placeholder per kolom, supaya petugas tahu yang diketik boleh apa. */
 const PLACEHOLDER: Record<KolomWarga, string> = {
-  nama_art: "cari nama warga…",
-  nama_kk: "cari nama kepala keluarga…",
-  nik: "cari NIK…",
-};
+  nama_art: 'cari nama warga…',
+  nama_kk: 'cari nama kepala keluarga…',
+  nik: 'cari NIK…',
+}
 
 export interface FieldCariWargaProps {
   /** Kolom yang diambil dari baris yang dipilih. */
-  kolom: KolomWarga;
-  label: string;
+  kolom: KolomWarga
+  label: string
   /** Nilai field sekarang, sesuai `validasiNilaiField` untuk tipe `text`. */
-  value: unknown;
-  onChange: (value: unknown) => void;
+  value: unknown
+  onChange: (value: unknown) => void
   /** Petunjuk di bawah label. null kalau field tidak punya deskripsi. */
-  hint?: string | null;
-  error?: string | null;
-  invalid?: boolean;
-  placeholder?: string;
-  required?: boolean;
+  hint?: string | null
+  error?: string | null
+  invalid?: boolean
+  placeholder?: string
+  required?: boolean
 }
 
 export function FieldCariWarga({
@@ -77,13 +77,13 @@ export function FieldCariWarga({
   placeholder,
   required,
 }: FieldCariWargaProps) {
-  const [rows, setRows] = useState<SasaranSuggestion[]>(BARIS_KOSONG);
-  const [busy, setBusy] = useState(false);
-  const [errorCari, setErrorCari] = useState<string | null>(null);
+  const [rows, setRows] = useState<SasaranSuggestion[]>(BARIS_KOSONG)
+  const [busy, setBusy] = useState(false)
+  const [errorCari, setErrorCari] = useState<string | null>(null)
   /** null = dropdown ditutup. Array kosong = dibuka tapi belum ada hasil. */
-  const [terbuka, setTerbuka] = useState<SasaranSuggestion[] | null>(null);
+  const [terbuka, setTerbuka] = useState<SasaranSuggestion[] | null>(null)
 
-  const teks = typeof value === "string" ? value : "";
+  const teks = typeof value === 'string' ? value : ''
 
   /**
    * Callback refetch terakhir.
@@ -92,60 +92,60 @@ export function FieldCariWarga({
    * Tanpa ini, mengetik cepat lalu memilih baris bisa menulis hasil query lama
    * ke field yang isinya sudah diganti.
    */
-  const requestId = useRef(0);
+  const requestId = useRef(0)
 
   useEffect(() => {
-    const q = teks.trim();
+    const q = teks.trim()
     if (q.length < MIN_KETIK) {
-      setTerbuka(null);
-      setRows(BARIS_KOSONG);
-      return;
+      setTerbuka(null)
+      setRows(BARIS_KOSONG)
+      return
     }
 
-    setTerbuka((prev) => prev ?? BARIS_KOSONG);
-    setBusy(true);
-    setErrorCari(null);
-    const iniRequest = requestId.current + 1;
-    requestId.current = iniRequest;
+    setTerbuka((prev) => prev ?? BARIS_KOSONG)
+    setBusy(true)
+    setErrorCari(null)
+    const iniRequest = requestId.current + 1
+    requestId.current = iniRequest
 
     const timer = setTimeout(() => {
       void cariSasaranWarga({ data: { q } })
         .then((hasil) => {
           // Query yang sudah dibatalkan (user ketik lagi) tidak boleh menulis apa pun.
-          if (requestId.current !== iniRequest) return;
-          setRows(hasil);
-          setTerbuka(hasil);
+          if (requestId.current !== iniRequest) return
+          setRows(hasil)
+          setTerbuka(hasil)
         })
         .catch((err: unknown) => {
-          if (requestId.current !== iniRequest) return;
-          setRows(BARIS_KOSONG);
-          setTerbuka(null);
-          setErrorCari(pesanError(err, "Gagal mencari warga di Data Sasaran."));
+          if (requestId.current !== iniRequest) return
+          setRows(BARIS_KOSONG)
+          setTerbuka(null)
+          setErrorCari(pesanError(err, 'Gagal mencari warga di Data Sasaran.'))
         })
         .finally(() => {
-          if (requestId.current !== iniRequest) return;
-          setBusy(false);
-        });
-    }, DEBOUNCE_MS);
+          if (requestId.current !== iniRequest) return
+          setBusy(false)
+        })
+    }, DEBOUNCE_MS)
 
-    return () => clearTimeout(timer);
-  }, [teks]);
+    return () => clearTimeout(timer)
+  }, [teks])
 
   const pilih = useCallback(
     (row: SasaranSuggestion) => {
-      requestId.current += 1;
-      setTerbuka(null);
-      setRows(BARIS_KOSONG);
-      setBusy(false);
+      requestId.current += 1
+      setTerbuka(null)
+      setRows(BARIS_KOSONG)
+      setBusy(false)
       // Kolom yang dipilih. Untuk NIK, 8.277 dari 20.454 baris import tidak punya
       // NIK: nilainya string kosong, jadi `onChange("")` dan petugas bisa ketik
       // sendiri. Tipe barisnya sudah `string`, jadi tidak perlu penjaga null.
-      onChange(row[PROPERTI_KOLOM[kolom]]);
+      onChange(row[PROPERTI_KOLOM[kolom]])
     },
     [kolom, onChange],
-  );
+  )
 
-  const tutup = useCallback(() => setTerbuka(null), []);
+  const tutup = useCallback(() => setTerbuka(null), [])
 
   return (
     <FormField
@@ -160,7 +160,7 @@ export function FieldCariWarga({
           value={teks}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => {
-            if (teks.trim().length >= MIN_KETIK) setTerbuka(rows);
+            if (teks.trim().length >= MIN_KETIK) setTerbuka(rows)
           }}
           placeholder={placeholder ?? PLACEHOLDER[kolom]}
           invalid={invalid}
@@ -174,10 +174,10 @@ export function FieldCariWarga({
             busy={busy}
             onPilih={pilih}
             onTutup={tutup}
-            pesanKosong={errorCari ?? "Tidak ada di Data Sasaran. Isi manual."}
+            pesanKosong={errorCari ?? 'Tidak ada di Data Sasaran. Isi manual.'}
           />
         ) : null}
       </div>
     </FormField>
-  );
+  )
 }

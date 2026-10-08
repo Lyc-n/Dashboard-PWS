@@ -1,6 +1,6 @@
-import { useAsyncData } from "@/hooks/use-async-data";
-import { listKaderUntukRekap } from "@/lib/utils.functions";
-import type { Staff } from "@/lib/staff";
+import { useAsyncData } from '@/hooks/use-async-data'
+import { listKaderUntukRekap } from '@/lib/utils.functions'
+import type { Staff } from '@/lib/staff'
 
 /**
  * Daftar kader aktif untuk filter di Rekap Kunjungan Rumah.
@@ -17,15 +17,20 @@ import type { Staff } from "@/lib/staff";
  * fasilitas.
  */
 export function useKaderAktif() {
-  const { data: kader, loading, error, reload } = useAsyncData(
+  const {
+    data: kader,
+    loading,
+    error,
+    reload,
+  } = useAsyncData(
     () => listKaderUntukRekap({ data: { fasKesId: null } }),
     [],
     [] as Staff[],
     {
       cancel: false,
-      mapError: () => "Gagal memuat daftar kader.",
+      mapError: () => 'Gagal memuat daftar kader.',
     },
-  );
+  )
 
-  return { kader, staff: kader, loading, error, refresh: reload };
+  return { kader, staff: kader, loading, error, refresh: reload }
 }

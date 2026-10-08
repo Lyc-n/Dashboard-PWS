@@ -1,5 +1,5 @@
-import { redirect } from "@tanstack/react-router";
-import { getSessionToken } from "@/lib/utils.functions";
+import { redirect } from '@tanstack/react-router'
+import { getSessionToken } from '@/lib/utils.functions'
 
 /**
  * Identitas satu-satunya yang ada di sistem ini: satu profil konstan, bukan
@@ -26,9 +26,9 @@ import { getSessionToken } from "@/lib/utils.functions";
  * `src/lib/user-registry.server.ts` yang menjelaskan konsekuensinya.
  */
 export interface AuthUser {
-  username: string;
-  name: string;
-  role: string;
+  username: string
+  name: string
+  role: string
 }
 
 /** Bentuk return `beforeLoad`. `user` diteruskan ke router context supaya
@@ -36,19 +36,19 @@ export interface AuthUser {
  *  `getSessionToken()` sendiri lewat `useEffect` — itu hop ketiga ke
  *  `valid_session` per page view, padahal `beforeLoad` sudah memvalidasinya. */
 export interface AuthContext {
-  user: AuthUser;
+  user: AuthUser
 }
 
 // baca sesi dari cookie httpOnly via server fn expect: sesi palsu di localStorage tak menembus route; tanpa sesi valid → redirect /pin.
 async function ambilProfil(): Promise<AuthUser> {
   try {
-    const session = await getSessionToken();
-    return session.profile;
+    const session = await getSessionToken()
+    return session.profile
   } catch {
-    throw redirect({ to: "/pin" });
+    throw redirect({ to: '/pin' })
   }
 }
 
 export async function requireAuth(): Promise<AuthContext> {
-  return { user: await ambilProfil() };
+  return { user: await ambilProfil() }
 }
