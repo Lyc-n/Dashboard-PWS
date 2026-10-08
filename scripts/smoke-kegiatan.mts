@@ -18,35 +18,16 @@
  */
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db.server";
+import { pastikanDatabaseUji } from "@/lib/database-uji";
 import { surveys } from "@/lib/schema/schema";
 import { simpanKegiatan, listKegiatan } from "@/features/survey/services/kegiatan.server";
 import { listPetugasOpsi } from "@/lib/user-registry.server";
 import { querySurveyStatsByNik } from "@/lib/utils.server";
 import { resolveOpsiDinamis } from "@/features/form-builder/services/option-source.server";
 
-const NAMA_DB_DIIZINKAN = /(uji|trial|test|staging|dev|localhost|127\.0\.0\.1)/i;
-
-function pastikanDatabaseUji(): void {
-  const url = process.env.DATABASE_URL ?? "";
-  if (!url) throw new Error("DATABASE_URL belum diisi.");
-  const nama = (() => {
-    try {
-      return new URL(url).pathname.replace(/^\//, "");
-    } catch {
-      return "";
-    }
-  })();
-  if (!NAMA_DB_DIIZINKAN.test(`${url} ${nama}`)) {
-    throw new Error(
-      `Database "${nama || "tidak dikenal"}" bukan database uji. ` +
-        "Set DATABASE_URL ke database uji sebelum menjalankan smoke test ini.",
-    );
-  }
-  console.log(`Database uji: ${nama}`);
-}
 
 async function main(): Promise<void> {
-  pastikanDatabaseUji();
+  pastikanDatabaseUji("smoke test");
   const petugas = await listPetugasOpsi(null);
   console.log(`Petugas aktif yang bisa dipilih: ${petugas.length}`);
   for (const p of petugas) console.log(`  - ${p.nama} (${p.fasKes}) id=${p.id}`);

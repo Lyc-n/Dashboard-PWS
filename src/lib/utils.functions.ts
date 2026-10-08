@@ -1,5 +1,6 @@
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
+import type { HasilPin } from "@/lib/pin-attempt";
 import {
     destroySession,
     getKunjunganRumahRecord,
@@ -74,8 +75,10 @@ import { SEMUA_TIPE_FIELD, TIPE_BUTUH_OPSI } from "@/features/form-builder/servi
 export const pinLogin = createServerFn({ method: "POST" })
     .validator((data: { pin: string }) => data)
     .handler(
-        async ({ data }) => {
-            return await isValidPin(data.pin) // selalu return boolean
+        async ({ data }): Promise<HasilPin> => {
+            // Selalu menolak: bentuk hasil hanya membedakan "terkunci" dari
+            // "PIN salah" supaya halaman login bisa memberi tahu sisa waktu.
+            return await isValidPin(data.pin)
         }
 )
 

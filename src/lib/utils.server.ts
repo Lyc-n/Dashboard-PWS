@@ -8,6 +8,7 @@ import { and, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 import { KODE_FORM_BAWAAN, SESSION_IDLE_MS, SESSION_PROFILE, SESSION_TTL_MS } from './constants'
 import { BATAS_GAGAL, hitungCooldown, normalkanPin } from './pin-attempt'
+import type { HasilPin, StatusLockout } from './pin-attempt'
 import { isValidNik } from './utils'
 import type { AuthUser } from './auth'
 import { PEMBATAS_NAMA_FIELD } from '@/features/kunjungan-rumah/lib/template-from-rows'
@@ -106,14 +107,15 @@ async function ipPemohon(): Promise<string> {
  * rate limit sementara. Konsekuensinya jelas dan dicatat di sini: selama DB
  * tidak terbaca, attacker mendapat laju 1 percobaan/detik tanpa lockout.
  */
-async function sudahTerkunci(ip: string): Promise<boolean> {
+async function sudahTerkunci(ip: string): Promise<StatusLockout> {
     try {
         const baris = await ambilPercobaan(ip)
-        if (!baris?.terkunciSampai) return false
-        return baris.terkunciSampai.getTime() > Date.now()
+        if (!baris?.terkunciSampai) return { terkunci: false, sisaMs: 0 }
+        const sisa = baris.terkunciSampai.getTime() - Date.now()
+        return { terkunci: sisa > 0, sisaMs: Math.max(0, sisa) }
     } catch (err) {
         console.error('[pin] gagal cek status lockout, lanjut tanpa rate limit', err)
-        return false
+        return { terkunci: false, sisaMs: 0 }
     }
 }
 
@@ -166,7 +168,7 @@ async function bersihkanKedaluwarsa(): Promise<void> {
     )
 }
 
-export async function isValidPin(pin: string) {
+export async function isValidPin(pin: string): Promise<HasilPin> {
   await sleep(1000)
   const ip = await ipPemohon()
 
@@ -174,11 +176,16 @@ export async function isValidPin(pin: string) {
   // di-await, cukup dijadwalkan supaya error-nya tidak menimpa jawaban.
   void bersihkanKedaluwarsa().catch((err) => console.error('[pin] gagal bersihkan baris basi', err))
 
-  if (await sudahTerkunci(ip)) return false
+  const { terkunci, sisaMs } = await sudahTerkunci(ip)
+  // Dikembalikan apa adanya supaya halaman login bisa memberi tahu sisa
+  // waktunya. Tidak membocorkan apa pun soal PIN: pengguna bisa mengamatinya
+  // sendiri dengan cara mencoba, dan dijawabnya hanya "belum terkunci" atau
+  // "sudah terkunci" — bukan apakah PIN-nya benar.
+  if (terkunci) return { ok: false, sisaLockoutMs: sisaMs }
 
   if (!pinBenar(pin, process.env.PIN ?? '')) {
     void catatGagal(ip).catch((err) => console.error('[pin] gagal mencatat percobaan gagal', err))
-    return false
+    return { ok: false, sisaLockoutMs: 0 }
   }
   await resetPercobaan(ip).catch((err) => console.error('[pin] gagal reset percobaan', err))
   setCookie('session', await createSessionHelper(), {
@@ -187,7 +194,7 @@ export async function isValidPin(pin: string) {
     path: '/',
     maxAge: SESSION_TTL_MS / 1000,
   })
-  return true
+  return { ok: true }
 }
 
 async function createSessionHelper() {
@@ -204,9 +211,17 @@ async function createSessionHelper() {
         .sign(secretKey);
 
 
+    // Penulisan sesi tidak dibungkus catch: tanpa baris ini, cookie tidak
+    // pernah terpasang dan login selalu gagal. Kegagalan di sini sering berarti
+    // database tidak bisa ditulis, jadi dicatat agar penyebabnya terlihat di
+    // log — `pin.tsx` hanya menampilkan "Gagal masuk. Coba lagi." dan tidak
+    // boleh menyebut apa pun soal infrastruktur.
     await db.insert(validSession).values({
         token: hashToken(token), // token session
         expiresAt: new Date(Date.now() + SESSION_IDLE_MS), // pastikan session hanya 1 jam
+    }).catch((err) => {
+        console.error('[auth] gagal menulis baris sesi', err)
+        throw err
     })
     return token;
 }
@@ -281,7 +296,12 @@ export async function touchSession(sessionToken: string): Promise<{ profile: Aut
         const expiresAtMs = Number(exp) * 1000
         cacheSesiSimpan(tokenHash, expiresAtMs)
         return { profile, expiresAt: new Date(expiresAtMs) }
-    } catch {
+    } catch (err) {
+        // Tanpa ini, outage database terlihat sama dengan PIN salah: pengguna
+        // mencoba login berulang sepanjang DB belum pulih, dan tidak ada jejak
+        // di server untuk membedakan keduanya. Detail tetap TIDAK dikirim ke
+        // client — fail-closed, `Unauthorized` seperti biasa.
+        console.error('[auth] gagal verifikasi sesi', err)
         throw new Error('Unauthorized')
     }
 }
@@ -1021,6 +1041,10 @@ export async function querySasaranListPaged(p: QuerySasaranParams): Promise<{ ro
     const whereSql = where.length ? sql`WHERE ${sql.join(where, sql` AND `)}` : sql``
     const limit = p.all ? null : p.pageSize
     const offset = p.all ? null : (p.page - 1) * p.pageSize
+    // LIMIT/OFFSET sebagai bind parameter, bukan `sql.raw`. `sql.raw` menerima
+    // teks SQL mentah, jadi nilainya jadi bagian dari query — aman hanya
+    // selama tipe `number` yang menahan, dan tipe itu tidak ditegakkan runtime.
+    const batas = limit !== null ? sql`LIMIT ${limit} OFFSET ${offset}` : sql``
 
     const rows = await db.execute(sql`
         WITH gabungan AS (
@@ -1041,7 +1065,7 @@ export async function querySasaranListPaged(p: QuerySasaranParams): Promise<{ ro
         FROM gabungan g
         ${whereSql}
         ORDER BY g."nama_art" ASC, g."nik_tampil"
-        ${limit !== null ? sql.raw(`LIMIT ${limit} OFFSET ${offset}`) : sql``}
+        ${batas}
     `)
     const rowsOut = (rows as unknown as Array<Record<string, unknown>>).map((r) => ({
         rawId: String(r.raw_id ?? ""),

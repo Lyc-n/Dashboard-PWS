@@ -103,7 +103,10 @@ export function triggerDownload(filename: string, blob: Blob) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function escapeCsvCell(v: string | number): string {
+/** Dipakai `downloadCsv` untuk setiap sel. Diekspor supaya perilaku
+ *  pencegahan formula injection bisa diuji tanpa DOM — `downloadCsv` sendiri
+ *  tidak bisa diuji di environment node karena menyentuh `document`. */
+export function escapeCsvCell(v: string | number): string {
   let s = String(v);
   // cegah formula injection saat dibuka di Excel: = + - @_TAB \r
   if (/^[=+\-@\t\r]/.test(s)) s = `\t${s}`;

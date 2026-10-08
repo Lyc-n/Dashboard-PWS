@@ -6,6 +6,7 @@ import {
   hitungCooldown,
   normalkanPin,
   pinBenar,
+  sisaMenit,
 } from "./pin-attempt";
 
 describe("normalkanPin", () => {
@@ -68,6 +69,36 @@ describe("pinBenar", () => {
     expect(pinBenar("123456", "")).toBe(false);
     expect(pinBenar("", "")).toBe(false);
     expect(pinBenar("abc", "")).toBe(false);
+  });
+});
+
+describe("sisaMenit", () => {
+  it("membulatkan ke atas", () => {
+    expect(sisaMenit(60_000)).toBe(1);
+    expect(sisaMenit(61_000)).toBe(2);
+    expect(sisaMenit(90_000)).toBe(2);
+  });
+
+  it("minimal 1 menit walau sisa sangat pendek", () => {
+    // "0 menit" akan membuat pengguna mencoba lagi, lalu ketemu lockout yang
+    // sama dan mengira sistemnya rusak.
+    expect(sisaMenit(30_000)).toBe(1);
+    expect(sisaMenit(1)).toBe(1);
+    expect(sisaMenit(0)).toBe(1);
+    expect(sisaMenit(-5_000)).toBe(1);
+  });
+
+  it("tidak membulatkan ke bawah pada batas menit", () => {
+    expect(sisaMenit(119_000)).toBe(2);
+    expect(sisaMenit(15 * 60_000)).toBe(15);
+  });
+
+  it("selalu menghasilkan bilangan bulat positif", () => {
+    for (const ms of [0, 1, 999, 60_000, 61_000, 900_000, -1]) {
+      const nilai = sisaMenit(ms);
+      expect(Number.isInteger(nilai)).toBe(true);
+      expect(nilai).toBeGreaterThanOrEqual(1);
+    }
   });
 });
 

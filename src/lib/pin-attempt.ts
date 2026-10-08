@@ -62,6 +62,36 @@ export function pinBenar(dariUser: string, dariEnv: string): boolean {
 }
 
 /**
+ * Status lockout satu IP. `sisaMs` 0 berarti tidak terkunci.
+ */
+export interface StatusLockout {
+  terkunci: boolean;
+  sisaMs: number;
+}
+
+/**
+ * Hasil percobaan login.
+ *
+ * `sisaLockoutMs` hanya diisi kalau alasannya lockout, supaya halaman login
+ * bisa membedakan "terlalu banyak mencoba" dari "PIN salah". Keduanya tetap
+ * ditolak — bentuk hasil tidak pernah membuka akses.
+ */
+export type HasilPin =
+  | { ok: true }
+  | { ok: false; sisaLockoutMs: number };
+
+/**
+ * Sisa lockout dalam menit bulat ke atas, minimal 1.
+ *
+ * `Math.max(1, ...)` itu wajib: sisa 30 detik harus tampil "1 menit", bukan
+ * "0 menit" — kalau "0 menit" tampil, pengguna akan langsung mencoba lagi,
+ * lalu ketemu lockout yang sama dan mengira sistemnya rusak.
+ */
+export function sisaMenit(sisaMs: number): number {
+  return Math.max(1, Math.ceil(sisaMs / 60_000));
+}
+
+/**
  * Jeda lockout untuk kegagalan ke-`gagal`: 15s, 30s, 60s, ... sampai plafon 15
  * menit. Pengguna sah yang salah ketik bisa terjebak cukup lama, jadi plafonnya
  * dibatasi dan pesannya perlu menjelaskan ke user.

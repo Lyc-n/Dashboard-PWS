@@ -27,8 +27,8 @@ import {
   users,
 } from "@/lib/schema/schema";
 import { PENANDA_PIN_TIDAK_DIGUNAKAN } from "@/lib/user-registry.server";
+import { pastikanDatabaseUji } from "@/lib/database-uji";
 
-const NAMA_DB_DIIZINKAN = /(uji|trial|test|staging|dev|localhost|127\.0\.0\.1)/i;
 const NIK_DUMMY = ["9000000000000001", "9000000000000002"] as const;
 
 const PENGGUNA_UJI = [
@@ -54,27 +54,8 @@ const PENGGUNA_UJI = [
   },
 ] as const;
 
-function pastikanDatabaseUji(): void {
-  const url = process.env.DATABASE_URL ?? "";
-  if (!url) throw new Error("DATABASE_URL belum diisi.");
-  const nama = (() => {
-    try {
-      return new URL(url).pathname.replace(/^\//, "");
-    } catch {
-      return "";
-    }
-  })();
-  if (!NAMA_DB_DIIZINKAN.test(`${url} ${nama}`)) {
-    throw new Error(
-      `Database "${nama || "tidak dikenal"}" bukan database uji. ` +
-        "Set DATABASE_URL ke database uji sebelum menjalankan seed ini.",
-    );
-  }
-  console.log(`Database uji: ${nama}`);
-}
-
 async function utama(): Promise<void> {
-  pastikanDatabaseUji();
+  pastikanDatabaseUji("seed");
 
   const [jumlahSurvey] = await db
     .select({ n: sql<number>`count(*)::int` })

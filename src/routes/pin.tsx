@@ -9,6 +9,7 @@ import { Button, Input } from "@/components/atoms";
 import { FormField } from "@/components/molecules";
 import ThemeToggle from "@/components/ThemeToggle";
 import { normalkanPin } from "@/lib/utils";
+import { sisaMenit } from "@/lib/pin-attempt";
 
 /* ALUR LOGIN
 1. cek sessionToken pake beforeLoad di /laporan (form)
@@ -50,8 +51,17 @@ function RouteComponent() {
       // berawalan nol dan `Number` akan membuangnya, sehingga PIN itu tidak
       // akan pernah bisa dipakai login. Normalisasi ada di `isValidPin`.
       const ok = await pinLogin({ data: { pin } });
-      if (!ok) {
-        setError("PIN salah.");
+      if (!ok.ok) {
+        // Dua alasan ditolak, dua pesan berbeda. Keduanya tetap menolak — yang
+        // dibedakan hanya penjelasan, bukan hasilnya. Error database sengaja
+        // TIDAK dibedakan: user tidak boleh bisa tahu soal infrastruktur, dan
+        // pesan "Gagal masuk. Coba lagi." di `catch` di bawah sudah jujur
+        // tanpa menyebut penyebabnya.
+        setError(
+          ok.sisaLockoutMs > 0
+            ? `Terlalu banyak percobaan. Coba lagi dalam ${sisaMenit(ok.sisaLockoutMs)} menit.`
+            : "PIN salah.",
+        );
         return;
       }
       toast("Berhasil masuk. Selamat bekerja!");

@@ -25,11 +25,22 @@
  * Nilai `forms.subjek_warga_wajib` untuk form Form Builder juga sudah false
  * sejak `buatFormBaru`, jadi kalau semua form sudah/sekarang dibuat baru,
  * skrip ini akan melaporkan 0 baris berubah.
+ *
+ * HANYA UNTUK DATABASE UJI
+ * -----------------------
+ * Skrip ini memanggil `pastikanDatabaseUji`, jadi ia menolak menunjuk database
+ * yang namanya tidak ditandai uji. Itu disengaja, bukan sekadar formalitas:
+ * jalur resmi untuk menerapkan perubahan ini ke produksi adalah berkas SQL di
+ * `drizzle/manual/20261003_form-builder-tanpa-warga-wajib.sql`, yang isinya sama
+ * persis dan bisa ditinjau sebelum dieksekusi. Versi TypeScript ini untuk
+ * pengembangan dan percobaan di database uji. Kalau suatu saat memang perlu
+ * dijalankan ke produksi, jalankan SQL-nya — bukan lewat skrip ini.
  */
 import 'dotenv/config'
 import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '@/lib/db.server'
 import { forms } from '@/lib/schema/schema'
+import { pastikanDatabaseUji } from '@/lib/database-uji'
 
 async function hitung(): Promise<
   Array<{ nama: string; kode: string | null; wajib: boolean }>
@@ -48,6 +59,11 @@ async function hitung(): Promise<
 }
 
 async function main(): Promise<void> {
+  // Skrip ini menulis ke production-grade forms, jadi ia tunduk pada penjaga
+  // database uji yang sama seperti smoke test dan seed. Semula tidak punya,
+  // sehingga bisa dijalankan ke database mana saja yang ada di DATABASE_URL.
+  pastikanDatabaseUji('skrip set-non-warga')
+
   const sebelum = await hitung()
   const akanBerubah = sebelum.filter((f) => f.wajib)
 
