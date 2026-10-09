@@ -165,6 +165,14 @@ export const opsiPekerjaan = (v: string | null | undefined) =>
  *  untuk baris import. */
 export interface SasaranSuggestion {
   rawId: string
+  /**
+   * Jumlah anggota keluarga yang tercatat pada baris import ini (`jumlah_art`).
+   *
+   * Hanya ada untuk baris `data_warga_import`; `null` untuk warga yang sudah
+   * tersimpan di `data_warga` karena tabel itu tidak punya kolom tersebut.
+   * Dipakai server untuk membatasi anggota yang ikut terisi otomatis.
+   */
+  jumlahArt?: number | null
   nik: string
   namaArt: string
   namaKk: string

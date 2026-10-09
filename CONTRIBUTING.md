@@ -45,14 +45,14 @@ src/
     db.server.ts              # Klien Drizzle (postgres-js, prepare:false)
     utils.functions.ts        # Batas createServerFn (42 fn) - client hanya boleh memanggil ini
     utils.server.ts           # Implementasi server: session/JWT, query, simpan/list
-    user-registry.server.ts   # Petugas pencatat (tabel users, murni data referensi)
+    user-registry.server.ts   # Daftar kader (tabel users, murni data referensi)
     auth.ts                   # AuthUser, SESSION_PROFILE, requireAuth()  <- TIDAK ada requireAdmin
     constants.ts              # KELS, PRIOS, POSY, JENIS_KEGIATAN, KODE_FORM_BAWAAN, TTL sesi, batas foto
     nav.ts                    # NAV_ITEMS + navItemsForUser / bottomNavItemsForUser
     utils.ts                  # cn(), PILL_STYLES, fmtDate, downloadCsv, normalkanNik, pesanError
     theme.ts                  # readThemeMode/applyThemeMode/THEME_INIT_SCRIPT
     hasil.ts                  # hasilKind() classifier
-    events.ts, enum-values.ts, nav-forms-cache.ts, staff.ts
+    events.ts, enum-values.ts, nav-forms-cache.ts, staff.ts  # staff.ts = bentuk rekap, bukan akun
     kunjungan-rumah-form.ts       # Definisi sasaran statis (SASARAN_KEYS)
     kunjungan-rumah-templates.ts  # Template KR lokal + engine parsing baris DB
     rekap-kunjungan-rumah.ts      # Engine rekap murni
@@ -123,7 +123,7 @@ Config: `vite.config.ts` (tanstackStart + nitro + tailwindcss), `drizzle.config.
 
 ## Architecture rules
 
-- **Routing:** file di `src/routes/` = route. `src/routeTree.gen.ts` generated. Guard tunggal: `requireAuth()` dari `src/lib/auth.ts` yang mengembalikan `{ user }` untuk router context; sesi tidak valid -> redirect `/pin`. **Tidak ada `requireAdmin`.** Semua pengguna dengan sesi valid setara; tabel `users` hanya daftar petugas pencatat. Alasan lengkap ada di `src/lib/auth.ts` dan `src/lib/user-registry.server.ts`.
+- **Routing:** file di `src/routes/` = route. `src/routeTree.gen.ts` generated. Guard tunggal: `requireAuth()` dari `src/lib/auth.ts` yang mengembalikan `{ user }` untuk router context; sesi tidak valid -> redirect `/pin`. **Tidak ada `requireAdmin`.** Semua pengguna dengan sesi valid setara; tabel `users` adalah daftar kader/petugas pencatat, bukan tabel akun — kolom `role` dan `pinHash` sudah dihapus dari skema (`drizzle/manual/20261008_users-buang-role-dan-pinhash.sql`). Alasan lengkap ada di `src/lib/auth.ts` dan `src/lib/user-registry.server.ts`.
 - **Backend:** tidak ada `server.handlers` API route. Semua backend = `createServerFn({ method: 'GET' | 'POST' })` di `src/lib/utils.functions.ts` (42 fn) yang mendelegasikan ke file `*.server.ts`. GET = baca, POST = login/mutasi. Fn terproteksi pasang `.middleware([authSessionToken])`. Client tidak pernah mengimpor `db.server.ts` atau `*.server.ts` langsung.
 - **DB:** definisi tabel hanya di `src/lib/schema/` (3 file). Import `src/lib/db.server.ts` hanya dari `*.server.ts` dan `scripts/`.
 - **Auth:** satu PIN global. `routes/pin.tsx` -> `pinLogin()` -> `isValidPin()` (bandingkan `process.env.PIN`) -> cookie httpOnly (TTL 12 jam) + baris `valid_session` (hash SHA256, sliding idle 1 jam lewat `touchSession`). TTL di `src/lib/constants.ts`. Client baca sesi lewat `useAuth()`, tidak pernah localStorage.
@@ -157,11 +157,11 @@ Kalau menambah form bawaan baru, tambahkan entri di `ATURAN_BAWAAN` (`kode-bawaa
 
 Tiga kanal, jangan dicampur:
 
-| Lokasi                        | Isi                                                                                                          | Kapan dipakai                                                                                                                        |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `drizzle/<timestamp>_<nama>/` | Hasil `pnpm db:sql` (`drizzle-kit generate`). 10 direktori, masing-masing `migration.sql` + `snapshot.json`. | Perubahan skema biasa. Edit `src/lib/schema/` dulu, lalu generate, lalu periksa `migration.sql` sebelum dipakai.                     |
-| `drizzle/manual/`             | 15 file `.sql` tulis tangan, berawalan tanggal.                                                              | Perbaikan/transformasi data yang tidak terepresentasi sebagai perubahan skema (mis. hapus kolom, ubah unique index, seed referensi). |
-| `drizzle/backup/`             | Dump `pg_dump` pra-perubahan. Tidak di-version-control.                                                      | Ambil sebelum migrasi destruktif. Jangan commit.                                                                                     |
+| Lokasi                        | Isi                                                                                                          | Kapan dipakai                                                                                                                                                                                             |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `drizzle/<timestamp>_<nama>/` | Hasil `pnpm db:sql` (`drizzle-kit generate`). 10 direktori, masing-masing `migration.sql` + `snapshot.json`. | Perubahan skema biasa. Edit `src/lib/schema/` dulu, lalu generate, lalu periksa `migration.sql` sebelum dipakai.                                                                                          |
+| `drizzle/manual/`             | File `.sql` tulis tangan, berawalan tanggal.                                                                 | Perubahan yang tidak bisa lewat `db:sql`: hapus kolom, ubah unique index, seed referensi, atau saat `drizzle-kit generate` terblokir konflik histori (lihat `20261008_users-buang-role-dan-pinhash.sql`). |
+| `drizzle/backup/`             | Dump `pg_dump` pra-perubahan. Tidak di-version-control.                                                      | Ambil sebelum migrasi destruktif. Jangan commit.                                                                                                                                                          |
 
 `drizzle.config.ts` memakai glob `./src/lib/schema/*.ts` karena definisi skemanya sudah terbagi tiga file; comentário di file itu menjelaskan alasannya.
 

@@ -46,9 +46,10 @@ function Kelola() {
       (a, s) => a + s.fields.filter((f) => f.active).length,
       0,
     )
-  const petugasAktif = pengguna.filter(
-    (p) => p.aktif && p.role !== 'admin',
-  ).length
+  // Semua baris di registry adalah kader, jadi "petugas aktif" tinggal menghitung
+  // yang `aktif`. Tidak ada peran yang perlu disaring: kolom `users.role` sudah
+  // dihapus dari skema karena tidak pernah membatasi apa pun.
+  const petugasAktif = pengguna.filter((p) => p.aktif).length
 
   return (
     <AppShell>
@@ -62,7 +63,7 @@ function Kelola() {
       ) : null}
       {registryLoading ? (
         <p className="mt-3 text-sm text-muted-foreground">
-          Memuat daftar akun…
+          Memuat daftar kader…
         </p>
       ) : null}
       {templateError ? (

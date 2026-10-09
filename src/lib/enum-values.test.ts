@@ -45,7 +45,11 @@ const typeEnumSrc = readFileSync(
 
 describe('katalog nilai enum', () => {
   it('hanya berisi array string dan tidak kosong', () => {
-    expect(SEMUA_DAFTAR.length).toBeGreaterThanOrEqual(8)
+    // Ambang bawah, bukan jumlah daftar yang harus dijaga: yang diuji adalah
+    // katalognya masih hidup (tidak ada daftar yang hilang diam-diam). Jumlahnya
+    // turun kalau ada enum yang dihapus — `role` hilang bersama kolomnya di
+    // `users`, jadi katalog sekarang ada tujuh daftar.
+    expect(SEMUA_DAFTAR.length).toBeGreaterThanOrEqual(7)
     for (const [nama, nilai] of SEMUA_DAFTAR) {
       expect(nilai.length, `${nama} kosong`).toBeGreaterThan(0)
     }
@@ -72,14 +76,19 @@ describe('katalog nilai enum', () => {
   it('setiap daftar dikonsumsi pgEnum di type-enum.ts', () => {
     // Kalau satu daftar baru ditambahkan tanpa didaftarkan sebagai enum, `tsc`
     // tetap hijau karena array-nya diekspor dan valid. Yang hilang: kolom enumnya.
+    //
+    // Regex di bawah harus tahan dua bentuk penulisan. `pgEnum` yang argumennya
+    // panjang dipecah prettier jadi beberapa baris DAN diberi koma di akhir,
+    // jadi pola `\s*\)` saja tidak akan mematch — enum yang lolos tak sengaja
+    // membuat test ini menghitung kurang dari kenyataan dan gagal lewat.
     const enumTerdaftar = new Set(
       [
         ...typeEnumSrc.matchAll(
-          /pgEnum\(\s*['"][a-z_]+['"]\s*,\s*([A-Z0-9_]+)\s*\)/g,
+          /pgEnum\(\s*['"][a-z_]+['"]\s*,\s*([A-Z0-9_]+)\s*,?\s*\)/g,
         ),
       ].map((m) => m[1] ?? ''),
     )
-    expect(enumTerdaftar.size).toBeGreaterThanOrEqual(8)
+    expect(enumTerdaftar.size).toBeGreaterThanOrEqual(7)
 
     const takPakai = SEMUA_DAFTAR.map(([nama]) => nama).filter(
       (n) => !enumTerdaftar.has(n),
@@ -95,7 +104,7 @@ describe('katalog nilai enum', () => {
     const adaDiKatalog = new Set(SEMUA_DAFTAR.map(([nama]) => nama))
     const hilang = [
       ...typeEnumSrc.matchAll(
-        /pgEnum\(\s*['"][a-z_]+['"]\s*,\s*([A-Z0-9_]+)\s*\)/g,
+        /pgEnum\(\s*['"][a-z_]+['"]\s*,\s*([A-Z0-9_]+)\s*,?\s*\)/g,
       ),
     ]
       .map((m) => m[1] ?? '')

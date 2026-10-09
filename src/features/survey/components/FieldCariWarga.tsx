@@ -147,6 +147,29 @@ export function FieldCariWarga({
 
   const tutup = useCallback(() => setTerbuka(null), [])
 
+  // [perbaikan] ref input dipakai dropdown sebagai `anchorRef` agar `mousedown`
+  //   di input sendiri tidak dihitung klik luar — tanpa ini, `onFocus` tidak
+  //   pernah jalan lagi karena inputnya sudah fokus.
+  const anchor = useRef<HTMLInputElement>(null)
+  const buka = useCallback(() => {
+    if (teks.trim().length >= MIN_KETIK) setTerbuka(rows)
+  }, [teks, rows])
+
+  // [perbaikan] klik pada field menerima suggestion teratas, bukan hanya
+  //   membuka dropdown — expect: ketik sebagian nama lalu klik field, isian
+  //   langsung lengkap dari Data Sasaran tanpa mengetik sisa manual.
+  //   Baris teratas dipakai apa adanya karena server sudah mengurutkan hasil;
+  //   baris tanpa nilai untuk kolom ini dilewati supaya klik tidak menghapus
+  //   ketikan.
+  const klik = useCallback(() => {
+    const row =
+      rows.find(
+        (r) => (r[PROPERTI_KOLOM[kolom]] || '').trim() !== '',
+      ) ?? null
+    if (row) pilih(row)
+    else buka()
+  }, [rows, kolom, pilih, buka])
+
   return (
     <FormField
       label={label}
@@ -158,10 +181,13 @@ export function FieldCariWarga({
       <div className="relative">
         <Input
           value={teks}
+          ref={anchor}
           onChange={(e) => onChange(e.target.value)}
-          onFocus={() => {
-            if (teks.trim().length >= MIN_KETIK) setTerbuka(rows)
-          }}
+          onFocus={buka}
+          // [perbaikan] klik membuka suggestion, bukan cuma fokus — expect: field
+          //   yang sedang diketik langsung menampilkan pilihan walaupun inputnya
+          //   sudah fokus dan dropdown sempat tertutup, dan menerima suggestion teratas.
+          onClick={klik}
           placeholder={placeholder ?? PLACEHOLDER[kolom]}
           invalid={invalid}
           disabled={false}
@@ -174,6 +200,7 @@ export function FieldCariWarga({
             busy={busy}
             onPilih={pilih}
             onTutup={tutup}
+            anchorRef={anchor}
             pesanKosong={errorCari ?? 'Tidak ada di Data Sasaran. Isi manual.'}
           />
         ) : null}

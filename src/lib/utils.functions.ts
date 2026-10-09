@@ -8,6 +8,8 @@ import {
   isValidPin,
   listKunjunganRumahRecords,
   querySurveyors,
+  queryAnggotaKeluarga,
+  queryRiwayatKsUntukWarga,
   querySasaranByNik,
   querySasaranListPaged,
   querySasaranWarga,
@@ -360,6 +362,40 @@ export const cariSasaranWarga = createServerFn({ method: 'POST' })
   .validator((data: { q: string }) => data)
   .handler(async ({ data }) => await querySasaranWarga(data.q))
 
+/**
+ * Semua warga satu keluarga untuk mengisi tabel anggota.
+ *
+ * Dipanggil setelah suggestion dipilih: form hanya dapat satu warga, padahal
+ * yang perlu didaftarkan seluruh anggota household-nya. NIK ikut dikirim di
+ * samping nama KK supaya dua keluarga dengan nama KK sama masih bisa dibedakan.
+ */
+/**
+ * Riwayat kesehatan keluarga untuk mengisi isian awal section Sanitasi.
+ *
+ * Berbeda dari `getSasaranDetail` yang join ke `data_warga` untuk halaman detail
+ * sasaran, ini murni untuk form: dipanggil sekali saat suggestion dipilih, lalu
+ * dipakai sebagai isian awal dan tidak disimpan.
+ */
+export const cariRiwayatKs = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { rawId: string; nik: string }) => data)
+  .handler(async ({ data }) => await queryRiwayatKsUntukWarga(data))
+
+export const cariAnggotaKeluarga = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator(
+    (data: {
+      namaKk: string
+      nik: string
+      kelurahan?: string | null
+      kecamatan?: string | null
+      rt?: string | null
+      rw?: string | null
+      jumlahArt?: number | null
+    }) => data,
+  )
+  .handler(async ({ data }) => await queryAnggotaKeluarga(data))
+
 export const getKunjunganRumah = createServerFn({ method: 'GET' })
   .middleware([authSessionToken])
   .validator((data: { id: string }) => data)
@@ -460,14 +496,14 @@ export const saveKegiatan = createServerFn({ method: 'POST' })
   .validator((data: { record: Record<string, unknown> }) => data)
   .handler(async ({ data }) => await simpanKegiatan(data.record))
 
-// ---- registry pengguna (pengganti master admin /kelola) ----
+// ---- registry kader (pengganti master admin /kelola) ----
 // Penulisan hanya bisa dari /kelola, yang route-nya dilindungi `requireAuth`.
 //
 // CATATAN: di sistem ini tidak ada penjaga akses berbasis peran sama sekali.
 // Satu PIN global, satu profil sesi konstan, jadi siapa pun yang punya sesi
 // valid sudah setara dengan admin (lihat catatan di `src/lib/auth.ts`).
 // Yang divalidasi di sini murni data: fasilitas yang dipilih harus benar-benar
-// ada, dan akun petugas harus aktif.
+// ada, dan kader yang dipilih harus aktif.
 export const listUserRegistry = createServerFn({ method: 'GET' })
   .middleware([authSessionToken])
   .handler(async () => await listPengguna())

@@ -24,8 +24,9 @@ begin
   insert into fasilitas_kesehatan ("wilayahKerjaId", "fasKesType", nama, alamat)
   values (v_wil, 'Posyandu', 'Posyandu 1', 'Jl. 1') returning id into v_fas;
 
-  insert into users ("fasKesId", nama, "pinHash")
-  values (v_fas, 'Petugas 1', 'x') returning id into v_user;
+  -- `users` adalah daftar kader murni: tanpa kolom `role` maupun `pinHash`.
+  insert into users ("fasKesId", nama)
+  values (v_fas, 'Petugas 1') returning id into v_user;
 
   insert into forms (nama) values ('Form Uji') returning id into v_form;
   insert into form_versions ("formId", version) values (v_form, 1) returning id into v_ver;

@@ -106,9 +106,7 @@ export function computeStepState(args: {
       : args.anggota.length > 0
         ? 1
         : 0
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- map narrows to union
-  return ([0, 1, 2] as const).map(
-    (s) =>
-      (s < n ? 'done' : s === n ? 'now' : 'todo') as 'done' | 'now' | 'todo',
+return ([0,1,2] as const).map(
+    (s) => (s < n ? 'done' : s === n ? 'now' : 'todo'),
   )
 }

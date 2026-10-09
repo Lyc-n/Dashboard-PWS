@@ -24,7 +24,6 @@ import {
   pekerjaan,
   pendidikanEnum,
   fasKes,
-  role,
   formFieldType,
   auditAction,
 } from './type-enum'
@@ -108,6 +107,21 @@ export const fasilitasKesehatan = pgTable(
   ],
 )
 
+/**
+ * Daftar kader — bukan tabel akun.
+ *
+ * Dulunya tabel ini punya kolom `role` (enum 'admin'/'kader') dan `pinHash`.
+ * Keduanya dihapus: login memakai satu PIN global dari environment
+ * (`isValidPin` di `src/lib/utils.server.ts`), jadi tidak ada hash per-akun yang
+ * perlu diverifikasi, dan `role` tidak pernah membatasi apa pun — semua sesi
+ * valid setara (lihat `src/lib/auth.ts`). Yang tersisa adalah data referensi:
+ * siapa saja yang boleh dipilih sebagai petugas pencatat.
+ *
+ * `pinHash` dihapus, bukan dibiarkan terisi penanda. Kolom itu tidak pernah
+ * dibaca, dan kolom yang terlihat seperti kredensial tapi tidak pernah dipakai
+ * hanya menimbulkan pertanyaan "ini kredensial atau bukan" bagi siapa pun yang
+ * nanti membaca basis data.
+ */
 export const users = pgTable(
   'users',
   {
@@ -121,9 +135,7 @@ export const users = pgTable(
         onDelete: 'restrict',
         onUpdate: 'cascade',
       }),
-    role: role().notNull().default('kader'),
     nama: varchar({ length: 255 }).notNull(),
-    pinHash: varchar({ length: 255 }).notNull(),
     phone: varchar({ length: 20 }),
     aktif: boolean().notNull().default(true),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),

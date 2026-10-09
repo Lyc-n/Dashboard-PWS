@@ -554,20 +554,30 @@ describe('masalah dan tindak lanjut', () => {
 })
 
 describe('APPLY_SASARAN', () => {
-  it('mengisi header yang masih kosong dan tidak menimpa yang sudah dikoreksi staf', () => {
+  it('menimpa nik dan namaKK dari baris terpilih, kolom lain tetap dijaga', () => {
+    // `nik` dan `namaKK` juga jadi kunci pencarian suggestion, jadi isian yang
+    // ada biasanya ketikan belum selesai ("3575", "syah"). Memilih baris berarti
+    // membetulkan ketikan itu, jadi harus menang atas isian lama.
+    const dasar = initialKunjunganRumahState()
     const state: KunjunganRumahState = {
-      ...initialKunjunganRumahState(),
-      info: { ...initialKunjunganRumahState().info, namaKK: 'Koreksi Staf' },
+      ...dasar,
+      info: {
+        ...dasar.info,
+        nik: '3575',
+        namaKK: 'Koreksi Staf',
+        alamat: 'Alamat dikoreksi staf',
+      },
     }
     const sesudah = dispatch(state, {
       type: 'APPLY_SASARAN',
       row: suggestion(),
     })
-    // Yang sudah terisi tidak ditimpa...
-    expect(sesudah.info.namaKK).toBe('Koreksi Staf')
-    // ...yang kosong diisi dari baris import.
+    expect(sesudah.info.nik).toBe(suggestion().nik)
+    expect(sesudah.info.namaKK).toBe(suggestion().namaKk)
+    // Kolom yang bukan kunci pencarian tetap dijaga supaya koreksi staf tidak
+    // hilang, dan yang kosong diisi dari baris import.
+    expect(sesudah.info.alamat).toBe('Alamat dikoreksi staf')
     expect(sesudah.info.kelurahan).toBe('Ngemplakrejo')
-    expect(sesudah.info.alamat).toBe('Jl. Ngemplakrejo gg. III no. 12')
   })
 
   it('rt dan rw selalu ditulis meski form sudah terisi', () => {
@@ -634,6 +644,66 @@ describe('APPLY_SASARAN', () => {
       row: suggestion(),
     })
     expect(sesudah.invalid).toEqual({})
+  })
+
+  it('ISI_ANGGOTA_KELUARGA mengganti anggota lama dengan seluruh household', () => {
+    const semua: SasaranSuggestion[] = [
+      suggestion({
+        nik: '3579011111111111',
+        namaArt: 'Siti Aminah',
+        rawId: 'a',
+      }),
+      suggestion({ nik: '3579012222222222', namaArt: 'Andi', rawId: 'b' }),
+      suggestion({ nik: '3579013333333333', namaArt: 'Budi', rawId: 'c' }),
+    ]
+    const sesudah = dispatch(stateDenganIsi(), {
+      type: 'ISI_ANGGOTA_KELUARGA',
+      rows: semua,
+    })
+    // Ganti, bukan tambah: sisa anggota dari KK sebelumnya harus hilang.
+    expect(sesudah.anggota.map((a) => a.nama)).toEqual([
+      'Siti Aminah',
+      'Andi',
+      'Budi',
+    ])
+  })
+
+  it('ISI_ANGGOTA_KELUARGA menggabungkan baris tanpa NIK yang sama', () => {
+    // NIK kosong ada pada ribuan baris import; dua baris dengan nama dan KK
+    // sama harus jadi satu anggota supaya kader tidak melihat duplikat.
+    const semua: SasaranSuggestion[] = [
+      suggestion({ nik: '', namaArt: 'Sari', rawId: 'a' }),
+      suggestion({ nik: '', namaArt: 'Sari', rawId: 'a2' }),
+      suggestion({ nik: '', namaArt: 'Rina', rawId: 'b' }),
+    ]
+    const sesudah = dispatch(stateDenganIsi(), {
+      type: 'ISI_ANGGOTA_KELUARGA',
+      rows: semua,
+    })
+    expect(sesudah.anggota.map((a) => a.nama)).toEqual(['Sari', 'Rina'])
+  })
+
+  it('ISI_ANGGOTA_KELUARGA membiarkan baris kosong utuh untuk diisi kader', () => {
+    // NIK dan tanggal lahir kosong tidak ditebak; komponen form yang menandai
+    // field kosong itu, dan server menolak menyimpan sampai dilengkapi.
+    const sesudah = dispatch(stateDenganIsi(), {
+      type: 'ISI_ANGGOTA_KELUARGA',
+      rows: [suggestion({ nik: '', rawId: 'a', tglLahir: null })],
+    })
+    const satu = must(sesudah.anggota[0], 'anggota')
+    expect(satu.nik).toBe('')
+    expect(satu.tglLahir).toBe('')
+  })
+
+  it('ISI_ANGGOTA_KELUARGA tidak mengubah apa pun saat tidak ada baris', () => {
+    // Fetch bisa gagal atau tidak menemukan apa pun. Kalau anggota lama dihapus
+    // dalam kasus itu, pilihan kader yang sudah diketik hilang tanpa sebab.
+    const state = stateDenganIsi()
+    const sesudah = dispatch(state, {
+      type: 'ISI_ANGGOTA_KELUARGA',
+      rows: [],
+    })
+    expect(sesudah.anggota).toBe(state.anggota)
   })
 
   it('memetakan nilai import ke label opsi form', () => {

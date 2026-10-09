@@ -14,7 +14,6 @@ import {
   JENIS_KELAMIN_VALUES,
   PEKERJAAN_VALUES,
   PENDIDIKAN_VALUES,
-  ROLE_VALUES,
   STATUS_KAWIN_VALUES,
 } from '../enum-values'
 
@@ -25,7 +24,6 @@ export {
   JENIS_KELAMIN_VALUES,
   PEKERJAAN_VALUES,
   PENDIDIKAN_VALUES,
-  ROLE_VALUES,
   STATUS_KAWIN_VALUES,
 }
 
@@ -49,12 +47,6 @@ export const pekerjaan = pgEnum('pekerjaan', PEKERJAAN_VALUES)
 // `create table fasilitas_kesehatan` akan gagal dengan "type already exists"
 // kalau enum-nya juga bernama `fasilitas_kesehatan`.
 export const fasKes = pgEnum('jenis_fas_kes', FAS_KES_VALUES)
-// `role` = jenis petugas di data, BUKAN hak akses. Hanya ada dua nilai: 'admin'
-// mengelola aplikasi, 'kader' mencatat kunjungan. Nilai ini tidak membatasi
-// akses apa pun — aplikasi memakai satu PIN global, bukan login per-akun
-// (lihat `src/lib/auth.ts`). Dipakai untuk memfilter siapa yang boleh jadi
-// petugas pencatat, bukan untuk mengunci route.
-export const role = pgEnum('role', ROLE_VALUES)
 export const formFieldType = pgEnum('form_field_type', [
   'text',
   'textarea',

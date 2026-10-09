@@ -256,7 +256,7 @@ export function SasaranForm({ p, state, templates, dispatch }: Props) {
   }, [imunBools])
 
   return (
-    <div className="rounded-[10px] border border-line bg-surface p-3">
+    <div className="rounded-[10px] border border-accent bg-surface p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <b className="text-[13px]">{label}</b>

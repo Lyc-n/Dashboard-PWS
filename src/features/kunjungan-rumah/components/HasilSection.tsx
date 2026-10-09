@@ -1,8 +1,11 @@
+import { useEffect, useState } from 'react'
 import type { KunjunganRumahTemplates } from '@/lib/kunjungan-rumah-templates'
 import { Input } from '@/components/atoms/Input'
+import { Select } from '@/components/atoms/Select'
 import { RadioCard } from '@/components/atoms/RadioCard'
 import { FormField } from '@/components/molecules/FormField'
 import { hasilKind, HASIL_KIND_LABEL } from '@/lib/hasil'
+import { listSurveyors } from '@/lib/utils.functions'
 import type {
   KunjunganRumahAction,
   KunjunganRumahState,
@@ -18,6 +21,28 @@ export function HasilSection({ state, templates, dispatch }: Props) {
   const hasilOpsi = templates.hasilOpsi
   const kind = hasilKind(state.hasil)
   const jadwalWajib = kind === 'jadwal'
+
+  // [perbaikan] kader yang menandatangani dipilih dari daftar akun petugas aktif,
+  //   bukan diketik manual — expect: nama cadres yang di histori sama persis dengan
+  //   nama di tabel surveyor, dan `ttd` terisi otomatis begitu petugas dipilih.
+  //   Petugas dipindah ke akhir form karena ini Newsigned penutup, bukan identitas household.
+  const [petugas, setPetugas] = useState<{ id: string; nama: string }[]>([])
+  useEffect(() => {
+    let hidup = true
+    void listSurveyors()
+      .then((rows) => {
+        if (hidup) setPetugas(rows)
+      })
+      .catch(() => {
+        if (hidup) setPetugas([])
+      })
+    return () => {
+      hidup = false
+    }
+  }, [])
+
+  const petugasInvalid = !!state.invalid.petugasId || !!state.invalid.ttd
+  const petugasErrorId = 'ttd-error'
 
   return (
     <>
@@ -53,22 +78,35 @@ export function HasilSection({ state, templates, dispatch }: Props) {
             aria-describedby={state.invalid.jadwal ? 'jadwal-error' : undefined}
           />
         </FormField>
+        {/* [perbaikan] select kader menggantikan ketikan TTD manual — expect: satu
+            pilihan mengisi `petugasId` (uuid untuk header DB) dan `ttd` (nama tersimpan
+            di histori) sekaligus, jadi konsisten dan tidak bisa beda dengan petugas. */}
         <FormField
           label="TTD / nama jelas kader"
           required
-          invalid={!!state.invalid.ttd}
-          error="Wajib diisi."
-          errorId="ttd-error"
+          invalid={petugasInvalid}
+          error="Wajib dipilih."
+          errorId={petugasErrorId}
         >
-          <Input
-            value={state.ttd}
-            onChange={(e) =>
-              dispatch({ type: 'SET_TTD', value: e.target.value })
-            }
-            placeholder="cth. Siti Aminah"
-            invalid={!!state.invalid.ttd}
-            aria-describedby={state.invalid.ttd ? 'ttd-error' : undefined}
-          />
+          <Select
+            value={state.info.petugasId}
+            onChange={(e) => {
+              const id = e.target.value
+              const nama = petugas.find((p) => p.id === id)?.nama ?? ''
+              dispatch({ type: 'SET_FIELD', key: 'petugasId', value: id })
+              dispatch({ type: 'SET_FIELD', key: 'petugasNama', value: nama })
+              dispatch({ type: 'SET_TTD', value: nama })
+            }}
+            invalid={petugasInvalid}
+            aria-describedby={petugasInvalid ? petugasErrorId : undefined}
+          >
+            <option value="">— Pilih Kader —</option>
+            {petugas.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nama}
+              </option>
+            ))}
+          </Select>
         </FormField>
       </div>
       {state.invalid.hasil ? (

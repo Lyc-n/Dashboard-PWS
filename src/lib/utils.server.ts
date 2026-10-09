@@ -661,6 +661,7 @@ function headerDariPayload(rec: JsonRecord): {
 /** Kolom yang dibaca dari `data_warga_import`, dengan nama kolom aslinya. */
 const SELECT_SASARAN = sql`
     raw_id                       AS "rawId",
+    jumlah_art                   AS "jumlahArt",
     nik                          AS "nik",
     nama_art                     AS "namaArt",
     nama_kk                      AS "namaKk",
@@ -707,6 +708,8 @@ const SELECT_SASARAN_WARGA = sql`
 
 type BarisImportSasaran = {
   rawId?: unknown
+  /** Hanya ada di `data_warga_import`; dipakai sebagai batas jumlah anggota. */
+  jumlahArt?: unknown
   nik?: unknown
   namaArt?: unknown
   namaKk?: unknown
@@ -730,8 +733,20 @@ type BarisImportSasaran = {
 function normalkanSasaran(row: BarisImportSasaran): SasaranSuggestion {
   const s = (v: unknown) =>
     typeof v === 'string' && v.trim() ? v.trim() : null
+  const jumlahArt =
+    typeof row.jumlahArt === 'number' && Number.isFinite(row.jumlahArt)
+      ? row.jumlahArt
+      : // Driver PostgreSQL kadang mengirim smallint sebagai teks, jadi dua bentuk
+        // ini harus diterima.
+        typeof row.jumlahArt === 'string' && row.jumlahArt.trim()
+        ? Number(row.jumlahArt)
+        : null
   return {
     rawId: s(row.rawId) ?? '',
+    jumlahArt:
+      jumlahArt !== null && Number.isFinite(jumlahArt) && jumlahArt > 0
+        ? jumlahArt
+        : null,
     nik: s(row.nik) ?? '',
     namaArt: s(row.namaArt) ?? '',
     namaKk: s(row.namaKk) ?? '',
@@ -802,6 +817,135 @@ export async function querySasaranWarga(
     const bTepat = b.nik === cari ? 0 : 1
     return aTepat - bTepat || a.rawId.localeCompare(b.rawId)
   })
+}
+
+/**
+ * Semua warga dalam satu keluarga, untuk mengisi tabel anggota otomatis.
+ *
+ * `nama_kk` sendirinya bukan kunci: satu nama dipakai banyak keluarga, sehingga
+ * pencarian_longgar sekali bisa menarik puluhan baris. Dua lapis penyempit, dari
+ * yang paling membedakan:
+ *
+ * 1. **Alamat.** `nama_kk` + `kelurahan` + `kecamatan` + `rt` + `rw`. Alamat
+ *    adalah satu-satunya pembeda yang tersedia di tabel; tidak ada `nomor_kk`.
+ *    `rt`/`rw` dibandingkan sebagai teks setelah `NULLIF` supaya baris dengan
+ *    satu-duanya `NULL` (yang akan jadi sama dengan baris lain yang juga NULL)
+ *    tidak otomatis dianggap satu keluarga. Kalau alamat tidak bisa dipakai —
+ *    semua NULL — pencarian turun ke `nama_kk` saja, dan hasilnya tetap
+ *    berlebihan.
+ * 2. **`jumlah_art`.** Jumlah anggota yang tercatat per kepala keluarga pada
+ *    baris warga yang dipilih. Ini pembatas alami: ambil hanya N baris teratas
+ *    sesuai urutan. Tidak ada di tabel `data_warga`, jadi batas itu hanya
+ *    berlaku kalau `data_warga_import` menyumbang baris ke keluarga itu.
+ *
+ * Urutan baris penting karena pemotongan `jumlah_art` mengambil N teratas:
+ * kepala keluarga dulu (nama warga sama dengan nama KK), lalu nama warga.
+ * Baris import dengan NIK yang sudah tersimpan di `data_warga` dibuang supaya
+ * tidak dobel, sama seperti di {@link querySasaranWarga}.
+ *
+ * `alamat` sengaja tidak dipakai sebagai kunci: kolom itu teks bebas dan pasti
+ * beda ejaan antar baris ("gg. III" vs "Gg III"), sehingga menyamakannya akan
+ * memotong anggota yang sebenarnya satu keluarga.
+ */
+export async function queryAnggotaKeluarga(kunci: {
+  namaKk: string
+  nik: string
+  /** Alamat baris yang dipilih; menyempitkan pencarian agar satu KK saja. */
+  kelurahan?: string | null
+  kecamatan?: string | null
+  rt?: string | null
+  rw?: string | null
+  /** `jumlah_art` baris yang dipilih; batas anggota yang boleh masuk. */
+  jumlahArt?: number | null
+}): Promise<SasaranSuggestion[]> {
+  const namaKk = kunci.namaKk.trim()
+  const nik = kunci.nik.trim()
+  if (!namaKk && !nik) return []
+
+  // Alamat hanya menyempitkan kalau ada isinya. Tanpa alamat, memakai
+  // `NULLIF`-nya justru membuat semua baris tanpa rt/rw tampak satu keluarga.
+  const alamatPakai =
+    !!(kunci.kelurahan?.trim() || kunci.kecamatan?.trim()) ||
+    !!kunci.rt?.trim() ||
+    !!kunci.rw?.trim()
+
+  const syaratNama = sql`btrim(nama_kk) ILIKE ${namaKk}`
+  // `IS NOT DISTINCT FROM` dipakai supaya NULL di sisi database dianggap sama
+  // dengan NULL di sisi parameter: baris yang rt/rw-nya kosong tidak boleh
+  // tercampur dengan baris yang rt/rw-nya terisi. `NULLIF` di sisi kolom
+  // menormalkan string kosong jadi NULL supaya keduanya tidak berbeda.
+  const syaratAlamat = sql`
+    NULLIF(btrim(kelurahan::text), '') IS NOT DISTINCT FROM NULLIF(${kunci.kelurahan ?? null}, '')
+    AND NULLIF(btrim(kecamatan::text), '') IS NOT DISTINCT FROM NULLIF(${kunci.kecamatan ?? null}, '')
+    AND NULLIF(btrim(rt::text), '') IS NOT DISTINCT FROM NULLIF(${kunci.rt ?? null}, '')
+    AND NULLIF(btrim(rw::text), '') IS NOT DISTINCT FROM NULLIF(${kunci.rw ?? null}, '')
+  `
+  const syaratKeluarga = namaKk
+    ? alamatPakai
+      ? sql`(${syaratNama} AND ${syaratAlamat})`
+      : syaratNama
+    : nik
+    ? sql`btrim(nik) = ${nik}`
+    : sql`false`
+  const syaratFinal = nik
+    ? sql`(${syaratKeluarga} OR btrim(nik) = ${nik})`
+    : syaratKeluarga
+
+  // `data_warga` tidak punya `jumlah_art`, dan rt/rw-nya NOT NULL varchar —
+  // bukan smallint nullable seperti di import. Kedua perbedaan itu ditangani
+  // lewat `::text` di `syaratAlamat` dan batas jumlah yang hanya berlaku kalau
+  // ada baris import.
+  const [barisWarga, barisImport] = await Promise.all([
+    db.execute(
+      sql`SELECT ${SELECT_SASARAN_WARGA} FROM data_warga WHERE ${syaratFinal} LIMIT 60`,
+    ),
+    db.execute(
+      sql`SELECT ${SELECT_SASARAN} FROM data_warga_import WHERE ${syaratFinal} LIMIT 60`,
+    ),
+  ])
+  const warga = (barisWarga as unknown as BarisImportSasaran[]).map(
+    normalkanSasaran,
+  )
+  const nikWarga = new Set(
+    warga.map((r) => r.nik).filter((n) => n.length === 16),
+  )
+  const importSisa = (barisImport as unknown as BarisImportSasaran[])
+    .map(normalkanSasaran)
+    .filter((r) => !r.nik || r.nik.length !== 16 || !nikWarga.has(r.nik))
+
+  const semua = [...warga, ...importSisa]
+  // Baris tanpa NIK masih bisa sama persis (nama dan KK sama), jadi dedupe
+  // memakai nama kalau NIK tidak bisa jadi kunci.
+  const terlihat = new Set<string>()
+  const unik = semua.filter((r) => {
+    const kunciBaris = r.nik || `${r.namaArt}|${r.namaKk}`
+    if (terlihat.has(kunciBaris)) return false
+    terlihat.add(kunciBaris)
+    return true
+  })
+
+  const terurut = unik.sort((a, b) => {
+    const aKepala = a.namaKk && a.namaArt === a.namaKk ? 0 : 1
+    const bKepala = b.namaKk && b.namaArt === b.namaKk ? 0 : 1
+    return aKepala - bKepala || a.namaArt.localeCompare(b.namaArt)
+  })
+
+  // `jumlah_art` hanya dipakai kalau minimal ada baris import di keluarga ini;
+  // kalau seluruh anggota berasal dari `data_warga`, tidak ada angka yang bisa
+  // dipercaya sebagai batas dan memotong anggota akan lebih harmful daripada
+  // kelebihan.
+  const jumlah = kunci.jumlahArt
+  const adaBarisImport = importSisa.length > 0
+  if (
+    typeof jumlah === 'number' &&
+    Number.isFinite(jumlah) &&
+    jumlah > 0 &&
+    adaBarisImport &&
+    terurut.length > jumlah
+  )
+    return terurut.slice(0, jumlah)
+
+  return terurut
 }
 
 /** Baris import untuk satu NIK; dipakai server saat menyimpan agar kolom yang
@@ -1325,6 +1469,45 @@ const SELECT_RIWAYAT_KS = sql`
  * tapi tidak punya baris riwayat, kolomnya `null` karena `LEFT JOIN`. Tidak
  * ditebak dari kolom lain.
  */
+/**
+ * Riwayat kesehatan keluarga untuk satu warga, dicari lewat `raw_id`.
+ *
+ * Berbeda dari {@link queryRiwayatKsUntukNik} yang memakai NIK, versi ini memakai
+ * kunci yang sebenarnya: `raw_id` di `riwayat_ks_import` adalah foreign key ke
+ * `data_warga_import.raw_id` (`src/lib/schema/data-import.ts:66-71`), relasinya
+ * 1:1. NIK hanya dipakai sebagai cadangan ketika warga tidak punya `raw_id`
+ * (warga hasil kunjungan sebelumnya tidak pernah menyimpan kunci itu).
+ *
+ * `ada` membedakan "tidak punya baris riwayat" dari "punya baris tapi semua
+ * kolomnya `null"`. Tanpa itu, pemanggil tidak bisa tahu apakah kosong berarti
+ * tidak ada data atau memang tidak diperiksa, dan dua kasus itu butuh perlakuan
+ * berbeda.
+ */
+export async function queryRiwayatKsUntukWarga(kunci: {
+  rawId: string
+  nik: string
+}): Promise<{ ada: boolean; nilai: RiwayatSasaran }> {
+  const rawId = kunci.rawId.trim()
+  const nik = kunci.nik.trim()
+  if (!rawId && !nik) return { ada: false, nilai: {} }
+
+  const syarat = rawId
+    ? sql`riwayat_ks_import.raw_id = ${rawId}`
+    : sql`data_warga_import.nik = ${nik} OR data_warga_import.raw_id = ${nik}`
+
+  const rows = await db.execute(sql`
+        SELECT true AS "ada", ${SELECT_RIWAYAT_KS}
+        FROM riwayat_ks_import
+        LEFT JOIN data_warga_import ON data_warga_import.raw_id = riwayat_ks_import.raw_id
+        WHERE ${syarat}
+        LIMIT 1
+    `)
+  const [row] = rows as unknown as Array<{ ada: boolean } & RiwayatSasaran>
+  if (!row) return { ada: false, nilai: {} }
+  const { ada, ...nilai } = row
+  return { ada: true, nilai }
+}
+
 export async function queryRiwayatKsUntukNik(
   nik: string,
 ): Promise<RiwayatSasaran> {

@@ -64,4 +64,3 @@ export const PEKERJAAN_VALUES = [
   'Lainnya',
 ] as const
 export const FAS_KES_VALUES = ['Posyandu', 'Pustu'] as const
-export const ROLE_VALUES = ['admin', 'kader'] as const

@@ -1,5 +1,5 @@
 /**
- * Registry pengguna.
+ * Registry kader.
  *
  * Sumber data tunggal untuk siapa saja yang boleh jadi petugas pencatat
  * (dropdown petugas di Form Kunjungan Rumah, dropdown petugas di Form Kegiatan
@@ -8,52 +8,39 @@
  *
  * CATATAN PENTING SOAL AUTENTIKASI
  * --------------------------------
- * Modul ini BUKAN sumber autentikasi. Login aplikasi memakai satu PIN global
- * dari environment (`isValidPin` membandingkan dengan `process.env.PIN`), dan
- * `SESSION_PROFILE` adalah konstanta hard-coded dengan role "Admin". Akibatnya:
+ * Modul ini BUKAN sumber autentikasi, dan tabel `users` BUKAN tabel akun. Login
+ * aplikasi memakai satu PIN global dari environment (`isValidPin` membandingkan
+ * dengan `process.env.PIN`). Akibatnya:
  *
- *   - `users.pinHash` tidak pernah dipakai untuk memverifikasi siapa pun.
+ *   - Tidak ada kredensial per-kader yang perlu disimpan. Kolom `pinHash` yang
+ *     dulu hanya berisi penanda sudah dihapus, karena tidak pernah dibaca.
  *   - Tidak ada penjaga akses berbasis peran. Semua route dilindungi
- *     `requireAuth` (punya sesi valid) dan itu saja; `users.role` hanya
- *     mengklasifikasi jenis petugas, tidak membatasi halaman mana yang boleh
- *     dibuka.
+ *     `requireAuth` (punya sesi valid) dan itu saja; kolom `role` yang dulu
+ *     hanya mengklasifikasi jenis petugas juga sudah dihapus dari skema, karena
+ *     tidak pernah membatasi halaman mana yang boleh dibuka.
  *   - Tidak ada pemetaan sesi -> `users.id`, jadi `surveys.petugasId` tidak
  *     bisa diisi "otomatis dari siapa yang login".
  *   - Tidak ada scoping data per wilayah. Kolom `kel`/`posy` yang muncul di
  *     tabel /kelola berasal dari join `wilayah_kerja` untuk tampilan saja, dan
  *     tidak pernah membatasi baris data yang bisa dilihat.
  *
- * Karena itu `pinHash` di sini diisi penanda yang tidak bisa dipakai login
- * (lihat `PENANDA_PIN_TIDAK_DIGUNAKAN`), dan petugas selalu dipilih manual di
- * form. Mengganti PIN global dengan login per-akun adalah pekerjaan tersendiri
- * yang belum dikerjakan; lihat catatan di `src/lib/auth.ts`.
+ * Petugas selalu dipilih manual di form. Mengganti PIN global dengan login
+ * per-akun adalah pekerjaan tersendiri yang belum dikerjakan; lihat catatan di
+ * `src/lib/auth.ts`.
  */
 import { eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db.server'
 import { fasilitasKesehatan, users, wilayahKerja } from '@/lib/schema/schema'
 import type { Staff } from '@/lib/staff'
-import { petakanPeran } from '@/lib/user-registry'
 import type {
   BarisPengguna,
   OpsiFasilitas,
   OpsiPetugas,
 } from '@/lib/user-registry'
 
-/**
- * Nilai yang disimpan di `users.pinHash` untuk akun yang dibuat lewat registry.
- *
- * Kolomnya NOT NULL, tapi tidak ada alur yang memverifikasi hash ini (login
- * memakai PIN global). Nilai berawalan "!" dipilih supaya jelas tidak pernah
- * menjadi hash PIN yang sah: kalau suatu saat login per-akun diimplementasikan,
- * akun dengan nilai ini harus dipaksa mengatur PIN baru, bukan diam-diam bisa
- * login.
- */
-export const PENANDA_PIN_TIDAK_DIGUNAKAN = '!belum-diatur'
-
 const SELECT_PENGGUNA = {
   id: users.id,
   nama: users.nama,
-  role: users.role,
   phone: users.phone,
   aktif: users.aktif,
   fasKesId: users.fasKesId,
@@ -63,9 +50,9 @@ const SELECT_PENGGUNA = {
 }
 
 /**
- * Semua akun, urut nama. Dipakai form Staff di /kelola.
+ * Semua kader, urut nama. Dipakai form Kader di /kelola.
  *
- * Akun nonaktif ikut dikembalikan supaya bisa diaktifkan lagi tanpa membuat
+ * Kader nonaktif ikut dikembalikan supaya bisa diaktifkan lagi tanpa membuat
  * baris baru; filter "aktif" dilakukan di sisi pemanggil.
  */
 export async function listPengguna(): Promise<BarisPengguna[]> {
@@ -83,8 +70,7 @@ export async function listPengguna(): Promise<BarisPengguna[]> {
 /**
  * Daftar kader aktif, diproyeksikan ke bentuk `Staff` supaya
  * `computeRekap()` dan `kaderNameOf()` di `src/lib/rekap-kunjungan-rumah.ts`
- * tidak perlu diubah. `peran` diisi dari `role`; hanya 'kader' yang muncul di
- * sini.
+ * tidak perlu diubah.
  *
  * @param fasKesId Batasi ke satu fasilitas. null = semua fasilitas.
  */
@@ -93,7 +79,7 @@ export async function listKaderAktif(
 ): Promise<Staff[]> {
   const baris = await listPengguna()
   return baris
-    .filter((u) => u.aktif && u.role === 'kader')
+    .filter((u) => u.aktif)
     .filter(
       (u) =>
         fasKesId === null || fasKesId === undefined || u.fasKesId === fasKesId,
@@ -111,7 +97,6 @@ export async function listKaderAktif(
 export function keStaff(u: BarisPengguna): Staff {
   return {
     nama: u.nama,
-    peran: u.role,
     kel: u.kel,
     posy: u.fasKes,
     hp: u.phone ?? '',
@@ -123,18 +108,16 @@ export function keStaff(u: BarisPengguna): Staff {
 }
 
 /**
- * Akun yang boleh jadi petugas pencatat: role `staff` dan `kader`, yang aktif.
+ * Kader yang boleh jadi petugas pencatat: yang aktif.
  *
- * `admin` sengaja tidak ikut. Akun admin dipakai untuk mengelola form, bukan
- * untuk mencatat kunjungan, dan memasukkan admin ke sini membuat rekap
- * nilainya tercampur dengan petugas lapangan.
+ * @param fasKesId Batasi ke satu fasilitas. null = semua fasilitas.
  */
 export async function listPetugasOpsi(
   fasKesId?: number | null,
 ): Promise<OpsiPetugas[]> {
   const baris = await listPengguna()
   return baris
-    .filter((u) => u.aktif && u.role === 'kader')
+    .filter((u) => u.aktif)
     .filter(
       (u) =>
         fasKesId === null || fasKesId === undefined || u.fasKesId === fasKesId,
@@ -143,13 +126,11 @@ export async function listPetugasOpsi(
 }
 
 /**
- * Pastikan id yang dikirim benar-benar akun petugas yang aktif.
+ * Pastikan id yang dikirim benar-benar baris kader yang aktif.
  *
  * Dipanggil sebelum menyimpan survey atau kegiatan. `surveys.petugasId` punya FK
  * ke `users`, jadi id ngawur akan ditolak database dengan pesan yang tidak
  * membantu petugas; lebih baik ditolak di sini dengan alasan yang jelas.
- * `role = 'admin'` juga ditolak karena alasan yang sama seperti di
- * `listPetugasOpsi()`.
  *
  * Mengembalikan `id` dan `nama` sekaligus. `id` dipakai untuk
  * `surveys.petugasId`; `nama` untuk ditampilkan. Keduanya dikembalikan karena
@@ -168,7 +149,6 @@ export async function pastikanPetugasValid(
     .select({
       id: users.id,
       nama: users.nama,
-      role: users.role,
       aktif: users.aktif,
     })
     .from(users)
@@ -177,9 +157,6 @@ export async function pastikanPetugasValid(
 
   if (!baris) throw new Error('Petugas yang dipilih tidak ditemukan.')
   if (!baris.aktif) throw new Error('Petugas yang dipilih sudah dinonaktifkan.')
-  if (baris.role === 'admin') {
-    throw new Error('Akun admin tidak bisa dipilih sebagai petugas pencatat.')
-  }
   return { id: baris.id, nama: baris.nama }
 }
 
@@ -194,7 +171,7 @@ function teks(v: unknown, fallback = ''): string {
   return typeof v === 'string' ? v.trim() : fallback
 }
 
-/** True bila nama sudah dipakai akun lain (bukan akun yang sedang diedit). */
+/** True bila nama sudah dipakai kader lain (bukan kader yang sedang diedit). */
 async function namaSudahDipakai(
   nama: string,
   kecualiId?: string,
@@ -208,16 +185,20 @@ async function namaSudahDipakai(
 }
 
 /**
- * Simpan akun baru atau ubah yang lama.
+ * Simpan kader baru atau ubah yang lama.
  *
  * `namaLama` = nama sebelum diubah; null berarti baris baru. Pencocokan pakai
- * nama karena form Staff tidak menyimpan id, sama seperti implementasi
+ * nama karena form Kader tidak menyimpan id, sama seperti implementasi
  * `admin_staff` sebelumnya.
  *
  * `users.nama` tidak punya constraint unique, jadi nama yang sama dicek manual di
  * sini. Alasannya nama jadi kunci praktis: `listKaderAktif()` memproyeksikan ke
- * `Staff` dan `kaderNameOf()` mencocokkan lewat `s.nama`, jadi dua akun dengan
+ * `Staff` dan `kaderNameOf()` mencocokkan lewat `s.nama`, jadi dua kader dengan
  * nama sama akan menggabungkan rekap dua kader berbeda.
+ *
+ * `rec.peran` sengaja diabaikan tanpa error. Kolom `role` sudah dihapus dari
+ * skema, jadi payload lama yang masih mengirim `peran` tidak boleh menggagalkan
+ * penyimpanan — pemanggil yang mengirimnya diperbaiki, bukan datanya.
  */
 export async function simpanPengguna(
   namaLama: string | null,
@@ -227,8 +208,6 @@ export async function simpanPengguna(
 
   const nama = teks(rec.nama)
   if (!nama) throw new Error('Field "nama" wajib diisi.')
-
-  const { role } = petakanPeran(teks(rec.peran, 'Kader'))
 
   const fasKesId = Number(rec.fasKesId)
   if (!Number.isInteger(fasKesId) || fasKesId <= 0) {
@@ -243,7 +222,6 @@ export async function simpanPengguna(
 
   const values = {
     nama,
-    role,
     phone: teks(rec.phone) || null,
     aktif: rec.on !== false,
     fasKesId,
@@ -259,38 +237,33 @@ export async function simpanPengguna(
 
     if (existing) {
       if (await namaSudahDipakai(nama, existing.id)) {
-        throw new Error(`Akun dengan nama "${nama}" sudah ada.`)
+        throw new Error(`Kader dengan nama "${nama}" sudah ada.`)
       }
       await db.update(users).set(values).where(eq(users.id, existing.id))
       const hasil = await ambilSatu(existing.id)
-      if (!hasil) throw new Error('Gagal menyimpan pengguna.')
+      if (!hasil) throw new Error('Gagal menyimpan kader.')
       return hasil
     }
   }
 
   if (await namaSudahDipakai(nama)) {
-    throw new Error(`Akun dengan nama "${nama}" sudah ada.`)
+    throw new Error(`Kader dengan nama "${nama}" sudah ada.`)
   }
 
-  const [inserted] = await db
-    .insert(users)
-    .values({
-      ...values,
-      // Tidak ada akun per-staf yang bisa login, jadi hash ini hanya penanda.
-      pinHash: PENANDA_PIN_TIDAK_DIGUNAKAN,
-    })
-    .returning({ id: users.id })
-  if (!inserted) throw new Error('Gagal menyimpan pengguna.')
+  const [inserted] = await db.insert(users).values(values).returning({
+    id: users.id,
+  })
+  if (!inserted) throw new Error('Gagal menyimpan kader.')
   const hasil = await ambilSatu(inserted.id)
-  if (!hasil) throw new Error('Gagal menyimpan pengguna.')
+  if (!hasil) throw new Error('Gagal menyimpan kader.')
   return hasil
 }
 
 /**
- * Nonaktifkan / aktifkan akun.
+ * Nonaktifkan / aktifkan kader.
  *
- *soft delete: barisnya tetap ada karena `audit_logs.userId` menunjuk ke sana.
- * Menghapus akun akan membuat jejak audit lama berantai jadi NULL.
+ * Soft delete: barisnya tetap ada karena `audit_logs.userId` menunjuk ke sana.
+ * Menghapus kader akan membuat jejak audit lama berantai jadi NULL.
  */
 export async function setPenggunaAktif(
   nama: string,
@@ -301,7 +274,7 @@ export async function setPenggunaAktif(
     .set({ aktif })
     .where(eq(users.nama, nama))
     .returning({ id: users.id })
-  if (ada.length === 0) throw new Error('Pengguna tidak ditemukan.')
+  if (ada.length === 0) throw new Error('Kader tidak ditemukan.')
 }
 
 async function ambilSatu(id: string): Promise<BarisPengguna | null> {

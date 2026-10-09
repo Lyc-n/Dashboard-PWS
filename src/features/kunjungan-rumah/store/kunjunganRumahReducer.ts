@@ -192,6 +192,12 @@ export type KunjunganRumahAction =
   | { type: 'REMOVE_FOTO'; index: number }
   | { type: 'RESET' }
   | { type: 'LOAD_RECORD'; record: KunjunganRumahRecord }
+  | {
+      type: 'ISI_ANGGOTA_KELUARGA'
+      rows: SasaranSuggestion[]
+      templates?: KunjunganRumahTemplates
+    }
+  | { type: 'ISI_SANITASI_DARI_RIWAYAT'; sanitasi: Sanitasi }
   | { type: 'FILL_DEMO' }
 
 export function kunjunganRumahReducer(
@@ -544,6 +550,31 @@ export function kunjunganRumahReducer(
         hasil: HASIL_KUNJUNGAN_RUMAH[0],
         fotos: [],
       }
+    }
+    case 'ISI_ANGGOTA_KELUARGA': {
+      const { rows } = action
+      if (rows.length === 0) return state
+      const mappedRows = rows.map(
+        (row) =>
+          ({
+            id: createRecordId(),
+            nama: row.namaArt,
+            nik: row.nik,
+            tglLahir: row.tglLahir ?? '',
+            jk: row.jenisKelamin ? opsiJk(row.jenisKelamin) : '',
+            hubKK: row.hubunganKeluarga
+              ? opsiHubKK(row.hubunganKeluarga)
+              : 'Kepala Keluarga',
+            statusKawin: row.statusKawin ? opsiKawin(row.statusKawin) : '',
+            pendidikan: row.pendidikan ? opsiPendidikan(row.pendidikan) : '',
+            pekerjaan: row.pekerjaan || '',
+            agama: row.agama || '',
+          }) as AnggotaKeluarga,
+      )
+      return { ...state, anggota: mappedRows }
+    }
+    case 'ISI_SANITASI_DARI_RIWAYAT': {
+      return { ...state, sanitasi: action.sanitasi }
     }
     default:
       return state

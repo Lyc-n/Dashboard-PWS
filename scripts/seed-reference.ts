@@ -46,7 +46,6 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db.server'
 import { fasilitasKesehatan, users, wilayahKerja } from '@/lib/schema/schema'
-import { PENANDA_PIN_TIDAK_DIGUNAKAN } from '@/lib/user-registry.server'
 
 /** `kecamatan` tunggal, dari `data_warga_import`. */
 const KECAMATAN = 'PANGGUNGREJO'
@@ -64,61 +63,50 @@ const FASILITAS_AWAL: ReadonlyArray<{ nama: string; kelurahan: string }> = [
 ]
 
 /**
- * Akun yang dibuat ulang dari 6 baris `admin_staff` pra-reset.
+ * Kader yang dibuat ulang dari baris `admin_staff` pra-reset.
  *
  * `username` lama DIBUANG: tidak ada kolomnya di `users`, dan login memakai PIN
- * global, jadi username tidak pernah dipakai untuk masuk. `peran` lama dipetakan
- * ke `role`: Bidan/Perawat yang dulu role-nya 'staff' sekarang jadi 'kader',
- * karena 'staff' tidak lagi jadi nilai enum yang sah.
+ * global, jadi username tidak pernah dipakai untuk masuk. `peran` lama juga
+ * dibuang: kolom `users.role` sudah dihapus dari skema karena tidak pernah
+ * membatasi apa pun, dan tabel `users` sekarang murni daftar kader. Baris yang
+ * dulu berperan admin (dr. Ayu Rahmawati) ikut dibuang — dia mengelola aplikasi,
+ * bukan mencatat kunjungan, jadi tidak punya tempat di registry kader.
  *
  * `aktif` mengikuti kolom "on" lama. Agus Wijaya sengaja `aktif: false` karena
  * sudah nonaktif sebelum reset, jadi rekap lama juga tidak menghitungnya.
  */
 const PENGGUNA_AWAL: ReadonlyArray<{
   nama: string
-  role: 'admin' | 'kader'
   phone: string | null
   aktif: boolean
   fasilitas: string
 }> = [
   {
-    nama: 'dr. Ayu Rahmawati',
-    role: 'admin',
-    phone: '0811-0000-01',
-    aktif: true,
-    fasilitas: 'Melati 1',
-  },
-  {
     nama: 'Siti Aminah',
-    role: 'kader',
     phone: '0812-0000-02',
     aktif: true,
     fasilitas: 'Melati 1',
   },
   {
     nama: 'Siti Nurhaliza',
-    role: 'kader',
     phone: '0812-0000-03',
     aktif: true,
     fasilitas: 'Kenanga',
   },
   {
     nama: 'Budi Santoso',
-    role: 'kader',
     phone: '0812-0000-04',
     aktif: true,
     fasilitas: 'Mawar 2',
   },
   {
     nama: 'Dewi Lestari',
-    role: 'kader',
     phone: '0812-0000-05',
     aktif: true,
     fasilitas: 'Flamboyan',
   },
   {
     nama: 'Agus Wijaya',
-    role: 'kader',
     phone: '0812-0000-06',
     aktif: false,
     fasilitas: 'Flamboyan',
@@ -236,11 +224,9 @@ async function seedPengguna(
     }
     await db.insert(users).values({
       nama: p.nama,
-      role: p.role,
       phone: p.phone,
       aktif: p.aktif,
       fasKesId,
-      pinHash: PENANDA_PIN_TIDAK_DIGUNAKAN,
     })
     dibuat.push(p.nama)
   }

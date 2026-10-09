@@ -63,7 +63,7 @@ export function AnggotaSection({ state, templates, dispatch }: Props) {
           return (
             <div
               key={m.id}
-              className="rounded-[10px] border border-line bg-surface p-3"
+              className="rounded-[10px] border border-accent bg-surface p-3"
             >
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-xs font-bold text-ink">

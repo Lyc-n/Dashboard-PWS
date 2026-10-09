@@ -1,10 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { RefObject } from 'react'
 import type { KunjunganRumahTemplates } from '@/lib/kunjungan-rumah-templates'
 import { Input } from '@/components/atoms/Input'
 import { Select } from '@/components/atoms/Select'
 import { FormField } from '@/components/molecules/FormField'
-import { listSurveyors, cariSasaranWarga } from '@/lib/utils.functions'
+import {
+  cariAnggotaKeluarga,
+  cariRiwayatKs,
+  cariSasaranWarga,
+} from '@/lib/utils.functions'
 import { SaranWargaDropdown } from '@/features/survey/components/SaranWargaDropdown'
+import { sanitasiDariRiwayat } from '@/features/kunjungan-rumah/lib/sanitasi-dari-riwayat'
 import type { SasaranSuggestion } from '@/features/kunjungan-rumah/lib/warga-row'
 import { cn, normalkanNik } from '@/lib/utils'
 import type {
@@ -39,26 +45,6 @@ export function KeluargaInfoSection({ state, templates, dispatch }: Props) {
     [templates.keluargaInfo],
   )
 
-  // [perbaikan] daftar petugas diambil dari DB saat mount — expect: opsi selalu sinkron tabel
-  //   surveyor, bukan nama yang diketik manual; gagal fetch → daftar kosong, pilihan tetap kosong.
-  const [petugas, setPetugas] = useState<{ id: string; nama: string }[]>([])
-  useEffect(() => {
-    let hidup = true
-    void listSurveyors()
-      .then((rows) => {
-        if (hidup) setPetugas(rows)
-      })
-      .catch(() => {
-        if (hidup) setPetugas([])
-      })
-    return () => {
-      hidup = false
-    }
-  }, [])
-
-  const petugasInvalid = !!state.invalid.petugasId
-  const petugasErrorId = 'petugasId-error'
-
   // Suggestion warga sasaran. Satu state dipakai bersama oleh input NIK dan
   // nama KK; `sumber` menentukan input mana yang sedang diketik supaya pilihan
   // tidak muncul di tempat yang tidak diklik.
@@ -67,6 +53,14 @@ export function KeluargaInfoSection({ state, templates, dispatch }: Props) {
     rows: SasaranSuggestion[]
   } | null>(null)
   const [saranBusy, setSaranBusy] = useState(false)
+
+  // `pilihSaran` async: Sanitasi dibaca setelah dua `await`, jadi `state` dari
+  // render itu sudah basi kalau ada dispatch di antaranya. Ref ini menyimpan
+  // snapshot terbaru supaya isian kader yang belum tersentuh tidak hilang.
+  const stateRef = useRef(state)
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
 
   useEffect(() => {
     const sumber = saran?.sumber
@@ -108,42 +102,135 @@ export function KeluargaInfoSection({ state, templates, dispatch }: Props) {
   const bukaSaran = (sumber: 'nik' | 'namaKK') =>
     setSaran((s) => (s?.sumber === sumber ? s : { sumber, rows: [] }))
   const tutupSaran = () => setSaran(null)
-  const pilihSaran = (row: SasaranSuggestion) => {
+
+  // [perbaikan] memilih warga mengisi tiga hal sekaligus: header, seluruh
+  //   anggota household-nya, dan isian awal Sanitasi dari riwayat kesehatan
+  //   keluarga — expect: A = kepala keluarga dan B, C, D anggotanya, maka pilih
+  //   A maupun B, C, D berakhir dengan anggota [A, B, C, D]. `APPLY_SASARAN`
+  //   dispatch lebih dulu supaya header terisi tanpa menunggu jaringan; dua
+  //   fetch lain jalan paralel karena keduanya cuma membaca dan tidak saling
+  //   bergantung. `requestId` mencegah jawaban basi menimpa pilihan baru.
+  const requestId = useRef(0)
+  // Loader penutup: isian dan anggota datang dari dua query setelah pilihan
+  // ditekan, jadi tanpa penanda ini kader bisa menyimpan record dalam keadaan
+  // setengah terisi dan mengira itu keadaan final.
+  const [mengisiOtomatis, setMengisiOtomatis] = useState(false)
+  const pilihSaran = async (row: SasaranSuggestion) => {
+    const iniRequest = ++requestId.current
     dispatch({ type: 'APPLY_SASARAN', row })
     setSaran(null)
+
+    // Dua fetch jalan bersamaan lalu dipasang bareng: keduanya baca data yang
+    // sama dan tidak saling bergantung, jadi tidak perlu di-await satu per satu.
+    // Alamat dan `jumlah_art` ikut dikirim — tanpa keduanya pencarian satu nama
+    // KK bisa menarik puluhan keluarga yang kebetulan sama namanya (sudah
+    // pernah terjadi: 53 baris untuk satu pilihan). `jumlah_art` hanya ada di
+    // baris import, jadi `null` untuk warga yang sudah tersimpan.
+    setMengisiOtomatis(true)
+    const kunci = {
+      namaKk: row.namaKk,
+      nik: row.nik,
+      kelurahan: row.kelurahan,
+      kecamatan: row.kecamatan,
+      rt: row.rt,
+      rw: row.rw,
+      jumlahArt: row.jumlahArt ?? null,
+    }
+    const bolehCari = !!kunci.namaKk.trim() || !!kunci.nik.trim()
+    const [hasilAnggota, hasilRiwayat] = await Promise.all([
+      bolehCari
+        ? cariAnggotaKeluarga({ data: kunci }).catch(() => null)
+        : Promise.resolve(null),
+      cariRiwayatKs({ data: { rawId: row.rawId, nik: row.nik } }).catch(
+        () => null,
+      ),
+    ])
+    // Syarat stale dicek SEBELUM `finally` yang membuka loader: kalau pilihan
+    // sudah diganti, loader milik permintaan yang lebih baru yang harus tetap
+    // terbuka.
+    const stale = requestId.current !== iniRequest
+    if (!stale) {
+      if (hasilAnggota && hasilAnggota.length > 0)
+        dispatch({
+          type: 'ISI_ANGGOTA_KELUARGA',
+          rows: hasilAnggota,
+          templates,
+        })
+
+      // Sanitasi dibaca dari snapshot state saat ini, bukan dari `state` render
+      // yang sudah ditutup `pilihSaran`: `ISI_ANGGOTA_KELUARGA` di atas bisa
+      // sudah mengubah state.
+      if (hasilRiwayat) {
+        const sanitasi = sanitasiDariRiwayat(
+          hasilRiwayat.ada,
+          hasilRiwayat.nilai,
+          stateRef.current.sanitasi,
+        )
+        if (sanitasi) dispatch({ type: 'ISI_SANITASI_DARI_RIWAYAT', sanitasi })
+      }
+    }
+    if (!stale) setMengisiOtomatis(false)
   }
   const saranUntuk = (sumber: 'nik' | 'namaKK') =>
     saran?.sumber === sumber ? saran.rows : null
 
+  // [perbaikan] ref input pemicu dropdown, diteruskan ke `SaranWargaDropdown`
+  //   sebagai `anchorRef` — expect: klik pada input yang sedang diketik tidak lagi
+  //   dibaca "klik luar" oleh penutup dropdown, jadi suggestion tidak hilang.
+  const anchorNik = useRef<HTMLInputElement>(null)
+  const anchorKK = useRef<HTMLInputElement>(null)
+  const anchorOf = (sumber: 'nik' | 'namaKK'): RefObject<HTMLElement | null> =>
+    sumber === 'nik' ? anchorNik : anchorKK
+
+  // [perbaikan] klik pada field = terima suggestion teratas, bukan
+  //   hanya membuka dropdown — expect: mengetik "3575" atau "syah" lalu klik
+  //   field langsung terisi penuh dari Data Sasaran, tanpa melengkapi ketikan
+  //   manual. Baris teratas dipakai apa adanya karena server sudah mengurutkan
+  //   hasil (cocok persis dulu); syarat "nilai sudah terisi" hanya menjaga agar
+  //   klik tidak menimpa ketikan dengan baris yang tidak punya nilai untuk field
+  //   ini.
+  const nilaiSaran = (row: SasaranSuggestion, sumber: 'nik' | 'namaKK') =>
+    (sumber === 'nik' ? normalkanNik(row.nik) : row.namaKk).trim()
+
+  const barisTerisiOtomatis = (
+    sumber: 'nik' | 'namaKK',
+    rows: SasaranSuggestion[] | null,
+  ): SasaranSuggestion | null => {
+    if (!rows || rows.length === 0) return null
+    return rows.find((r) => nilaiSaran(r, sumber) !== '') ?? null
+  }
+
+  const klikSaran = (
+    sumber: 'nik' | 'namaKK',
+    rows: SasaranSuggestion[] | null,
+  ) => {
+    const row = barisTerisiOtomatis(sumber, rows)
+    if (row) void pilihSaran(row)
+    else bukaSaran(sumber)
+  }
+
   return (
     <div className="grid grid-cols-3 gap-3 max-md:grid-cols-2 max-sm:grid-cols-1">
-      {/* [perbaikan] dropdown Petugas hardcoded di luar field template — expect: tak hilang
-          walau template Kelola diedit, dan nilainya menyimpan uuid surveyor (petugasId) + nama. */}
-      <FormField
-        label="Petugas"
-        required
-        invalid={petugasInvalid}
-        error="Wajib diisi."
-        errorId={petugasErrorId}
-      >
-        <Select
-          value={state.info.petugasId}
-          onChange={(e) => {
-            const id = e.target.value
-            const nama = petugas.find((p) => p.id === id)?.nama ?? ''
-            dispatch({ type: 'SET_FIELD', key: 'petugasId', value: id })
-            dispatch({ type: 'SET_FIELD', key: 'petugasNama', value: nama })
-          }}
-          aria-describedby={petugasInvalid ? petugasErrorId : undefined}
+      {mengisiOtomatis ? (
+        <div
+          className="col-span-full fixed inset-0 z-50 grid place-items-center bg-[var(--color-ink)]/45"
+          role="status"
+          aria-live="polite"
         >
-          <option value="">— Pilih Petugas —</option>
-          {petugas.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.nama}
-            </option>
-          ))}
-        </Select>
-      </FormField>
+          <div className="rounded-xl border border-line bg-surface px-5 py-4 shadow-lg">
+            <p className="flex items-center gap-2 text-[13px] font-semibold text-ink">
+              <span
+                aria-hidden
+                className="size-3.5 animate-spin rounded-full border-2 border-line border-t-accent"
+              />
+              Mengisi data keluarga…
+            </p>
+            <p className="mt-1 text-[11px] text-muted">
+              Mencari anggota keluarga dan riwayat kesehatan.
+            </p>
+          </div>
+        </div>
+      ) : null}
       {keluargaInfoFields.map((f) => {
         if (f.id === 'nik' || f.id === 'namaKK') {
           const sumber: 'nik' | 'namaKK' = f.id
@@ -161,17 +248,18 @@ export function KeluargaInfoSection({ state, templates, dispatch }: Props) {
                   ? 'Wajib 16 digit dan harus cocok dengan NIK salah satu anggota keluarga.'
                   : 'Wajib diisi.'
               }
-              hint={
-                sumber === 'nik'
-                  ? 'Satu kunjungan dihitung untuk NIK ini di dashboard dan laporan. Ketik untuk cari di Data Sasaran.'
-                  : 'Ketik minimal 3 huruf untuk cari di Data Sasaran, lalu pilih datanya.'
-              }
               errorId={errorId}
             >
               <div className="relative">
                 <Input
                   value={state.info[f.id]}
+                  ref={sumber === 'nik' ? anchorNik : anchorKK}
                   onFocus={() => bukaSaran(sumber)}
+                  // [perbaikan] klik juga membuka suggestion, bukan cuma fokus —
+                  //   expect: field yang sedang diketik langsung menampilkan pilihan
+                  //   walaupun inputnya sudah fokus dan dropdown sempat tertutup.
+                  //   Kalau ada baris yang melengkapi ketikan, klik langsung menerimanya.
+                  onClick={() => klikSaran(sumber, rows)}
                   onChange={(e) => {
                     bukaSaran(sumber)
                     dispatch({
@@ -198,8 +286,9 @@ export function KeluargaInfoSection({ state, templates, dispatch }: Props) {
                   <SaranWargaDropdown
                     rows={rows}
                     busy={saranBusy}
-                    onPilih={pilihSaran}
+                    onPilih={(r) => void pilihSaran(r)}
                     onTutup={tutupSaran}
+                    anchorRef={anchorOf(sumber)}
                     tampilkanAlamat
                   />
                 ) : null}

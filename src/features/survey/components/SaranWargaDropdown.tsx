@@ -17,6 +17,7 @@
  *     nilai: keputusan itu milik pemanggil.
  */
 import { useEffect, useRef } from 'react'
+import type { RefObject } from 'react'
 import type { SasaranSuggestion } from '@/features/kunjungan-rumah/lib/warga-row'
 
 export interface SaranWargaDropdownProps {
@@ -44,6 +45,15 @@ export interface SaranWargaDropdownProps {
   tampilkanKelurahan?: boolean
   /** Teks saat hasil kosong. Default "Isi manual." */
   pesanKosong?: string
+  /**
+   * Elemen yang jadi pemicu dropdown ini (input tempat pengguna mengetik).
+   *
+   * Wajar diteruskan kalau dropdown punya `onTutup`: tanpa ini, `mousedown` di
+   * input sendiri ikut dihitung "klik luar" dan menutup dropdown. Karena `focus`
+   * tidak memicu ulang pada input yang sudah fokus, cadre harus klik field lain
+   * dulu sebelum bisa buka lagi di field yang sama.
+   */
+  anchorRef?: RefObject<HTMLElement | null>
 }
 
 export function SaranWargaDropdown({
@@ -54,17 +64,21 @@ export function SaranWargaDropdown({
   tampilkanAlamat = false,
   tampilkanKelurahan = false,
   pesanKosong = 'Isi manual.',
+  anchorRef,
 }: SaranWargaDropdownProps) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!onTutup) return
     const klik = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onTutup()
+      const target = e.target as Node | null
+      if (ref.current?.contains(target)) return
+      if (target && anchorRef?.current?.contains(target)) return
+      onTutup()
     }
     document.addEventListener('mousedown', klik)
     return () => document.removeEventListener('mousedown', klik)
-  }, [onTutup])
+  }, [onTutup, anchorRef])
 
   return (
     <div

@@ -21,9 +21,12 @@ import { getSessionToken } from '@/lib/utils.functions'
  *
  * Kalau suatu saat butuh akun terpisah per petugas, titik mulainya
  * ada di sini: ganti `SESSION_PROFILE` dengan baris `users` yang di-resolve
- * dari `pinHash`, sambungkan `users.id` ke sesi, baru — dan hanya kalau itu
- * sudah ada — kembalikan pemisahan role/wilayah. Lihat catatan panjang di
- * `src/lib/user-registry.server.ts` yang menjelaskan konsekuensinya.
+ * dari sebuah PIN per-akun, sambungkan `users.id` ke sesi, baru — dan hanya
+ * kalau itu sudah ada — kembalikan pemisahan role/wilayah. Kolom `role` dan
+ * `pinHash` yang dulu ada di `users` sudah dihapus justru karena tidak pernah
+ * dipakai untuk hal itu; keduanya harus dibuat ulang, bukan dihidupkan lagi.
+ * Lihat catatan panjang di `src/lib/user-registry.server.ts` yang menjelaskan
+ * konsekuensinya.
  */
 export interface AuthUser {
   username: string

@@ -65,7 +65,9 @@ function mergeDynamicChildren(items: NavItem[]): NavItem[] {
  * `isAdminUser`. Karena profil sesi konstan dengan role "Admin", saringan itu
  * selalu lolos untuk setiap item — tidak pernah menyembunyikan apa pun. Para
  * pemanggilnya sudah kehilangan akses ke user: nav tidak lagi bergantung pada
- * siapa yang login.
+ * siapa yang login. Kolom `users.role` yang dulu dimaksudkan sebagai sumber
+ * saringan itu juga sudah dihapus dari skema, jadi tidak ada bahan lain untuk
+ * menyaring tanpa mengubah keputusan "semua sesi valid setara".
  */
 export function navItemsForUser(): NavItem[] {
   return mergeDynamicChildren(NAV_ITEMS)

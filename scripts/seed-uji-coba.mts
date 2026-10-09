@@ -26,30 +26,24 @@ import {
   surveys,
   users,
 } from '@/lib/schema/schema'
-import { PENANDA_PIN_TIDAK_DIGUNAKAN } from '@/lib/user-registry.server'
 import { pastikanDatabaseUji } from '@/lib/database-uji'
 
 const NIK_DUMMY = ['9000000000000001', '9000000000000002'] as const
 
+// Tidak ada akun 'Admin Uji' lagi. Tabel `users` sekarang murni daftar kader:
+// kolom `role` sudah dihapus dari skema, jadi tidak ada cara menandai seseorang
+// sebagai admin di sini — dan memang tidak perlu, karena semua sesi valid setara.
 const PENGGUNA_UJI = [
   {
-    nama: 'Admin Uji',
-    role: 'admin',
-    fasilitas: 'Melati 1',
-  },
-  {
     nama: 'Bidan Uji',
-    role: 'kader',
     fasilitas: 'Kenanga',
   },
   {
     nama: 'Kader Uji Melati',
-    role: 'kader',
     fasilitas: 'Melati 1',
   },
   {
     nama: 'Kader Uji Flamboyan',
-    role: 'kader',
     fasilitas: 'Flamboyan',
   },
 ] as const
@@ -88,11 +82,9 @@ async function utama(): Promise<void> {
     .values(
       PENGGUNA_UJI.map((p) => ({
         nama: p.nama,
-        role: p.role,
         phone: null,
         aktif: true,
         fasKesId: fasilitasId.get(p.fasilitas)!,
-        pinHash: PENANDA_PIN_TIDAK_DIGUNAKAN,
       })),
     )
     .returning({ id: users.id, nama: users.nama })

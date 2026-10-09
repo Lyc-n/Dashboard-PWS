@@ -9,14 +9,13 @@ import { Select } from '@/components/atoms/Select'
 import { Button } from '@/components/atoms/Button'
 import { StatusBadge } from '@/components/atoms/StatusBadge'
 import { AdminModal } from '@/features/kelola/components/AdminModal'
-import { OPSI_PERAN } from '@/lib/user-registry'
 import type { BarisPengguna, OpsiFasilitas } from '@/lib/user-registry'
 import type { DraftPengguna } from '@/hooks/use-user-registry'
 
 interface Props {
   pengguna: BarisPengguna[]
   fasilitas: OpsiFasilitas[]
-  /** `namaLama` = nama lama (null kalau akun baru). */
+  /** `namaLama` = nama lama (null kalau kader baru). */
   save: (namaLama: string | null, draft: DraftPengguna) => Promise<void>
   setAktif: (nama: string, aktif: boolean) => Promise<void>
 }
@@ -27,7 +26,6 @@ interface FormDlg {
   lama: string | null
   form: {
     nama: string
-    peran: string
     fasKesId: string
     phone: string
     on: boolean
@@ -36,15 +34,16 @@ interface FormDlg {
 }
 
 /**
- * Tab "Staff & kader" di /kelola.
+ * Tab "Kader" di /kelola.
  *
- * Menulis ke tabel `users`. `role` menentukan hak akses: `admin` mengelola
- * aplikasi, `kader` mencatat kunjungan. Kader dipakai sebagai petugas pencatat
- * di Form Kunjungan Rumah dan Form Kegiatan, dan sebagai daftar kader di Rekap.
+ * Menulis ke tabel `users`, yang isinya murni daftar kader: satu baris = satu
+ * orang yang boleh dipilih sebagai petugas pencatat di Form Kunjungan Rumah dan
+ * Form Kegiatan, dan sebagai daftar kader di Rekap.
  *
- * Field username tidak ada lagi. Login memakai satu PIN global dari environment,
- * jadi username per-akun tidak pernah dipakai untuk masuk; menambahkannya hanya
- * akan memberi ilusi keamanan yang tidak ada.
+ * Tidak ada kolom hak akses di sini. Kolom `users.role` sudah dihapus dari
+ * skema karena tidak pernah membatasi apa pun — semua sesi valid setara. Field
+ * username juga tidak pernah ada: login memakai satu PIN global dari
+ * environment, jadi username per-akun tidak pernah dipakai untuk masuk.
  */
 export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
   const toast = useToast()
@@ -78,11 +77,10 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
   const bukaDlg = (edit?: BarisPengguna) => {
     const defaultFas = fasilitas[0] ? String(fasilitas[0].id) : ''
     setDlg({
-      title: edit ? 'Ubah akun' : 'Tambah akun',
+      title: edit ? 'Ubah kader' : 'Tambah kader',
       lama: edit?.nama ?? null,
       form: {
         nama: edit?.nama ?? '',
-        peran: edit?.role === 'admin' ? 'Admin' : 'Kader',
         fasKesId: edit ? String(edit.fasKesId) : defaultFas,
         phone: edit?.phone ?? '',
         on: edit?.aktif ?? true,
@@ -116,33 +114,32 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
 
     void save(dlg.lama, {
       nama,
-      peran: dlg.form.peran,
       fasKesId,
       phone: dlg.form.phone.trim(),
       on: dlg.form.on,
     })
       .then(() => {
-        toast('Akun tersimpan.')
+        toast('Kader tersimpan.')
         setDlg(null)
       })
       .catch((e: unknown) =>
-        toast(e instanceof Error ? e.message : 'Gagal menyimpan akun.'),
+        toast(e instanceof Error ? e.message : 'Gagal menyimpan kader.'),
       )
   }
 
   const toggle = (p: BarisPengguna) => {
     const next = !p.aktif
     if (
-      next &&
+      !next &&
       !window.confirm(
-        `Nonaktifkan "${p.nama}"? Akun ini tidak akan muncul lagi sebagai pilihan petugas, tapi riwayat pencatatan tetap ada.`,
+        `Nonaktifkan "${p.nama}"? Kader ini tidak akan muncul lagi sebagai pilihan petugas, tapi riwayat pencatatan tetap ada.`,
       )
     )
       return
     void setAktif(p.nama, next)
       .then(() => toast(`${p.nama} ${next ? 'diaktifkan' : 'dinonaktifkan'}.`))
       .catch((e: unknown) =>
-        toast(e instanceof Error ? e.message : 'Gagal mengubah status akun.'),
+        toast(e instanceof Error ? e.message : 'Gagal mengubah status kader.'),
       )
   }
 
@@ -150,23 +147,23 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
     <>
       <SectionCard
         title="Kader"
-        sub="Akun di sini yang bisa dipilih sebagai petugas pencatat. Menonaktifkan tidak menghapus riwayat pencatatan."
+        sub="Kader di sini yang bisa dipilih sebagai petugas pencatat. Menonaktifkan tidak menghapus riwayat pencatatan."
       >
         <Toolbar>
           <Button size="sm" variant="primary" onClick={() => bukaDlg()}>
-            + Tambah akun
+            + Tambah kader
           </Button>
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Cari nama atau fasilitas…"
-            aria-label="Cari akun"
+            aria-label="Cari kader"
             className="max-w-55 max-md:max-w-none"
           />
           <Select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            aria-label="Filter status akun"
+            aria-label="Filter status kader"
             className="max-w-45 max-md:max-w-none"
           >
             <option value="all">Semua status</option>
@@ -174,21 +171,20 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
             <option value="off">Nonaktif</option>
           </Select>
           <span className="ml-auto text-xs text-muted">
-            {terfilter.length} dari {pengguna.length} akun
+            {terfilter.length} dari {pengguna.length} kader
           </span>
         </Toolbar>
 
         <DataTable
           columns={[
             { key: 'nama', label: 'Nama' },
-            { key: 'role', label: 'Hak akses' },
             { key: 'wilayah', label: 'Wilayah tugas' },
             { key: 'kontak', label: 'Kontak' },
             { key: 'status', label: 'Status' },
             { key: 'aksi', label: '' },
           ]}
           rows={terfilter}
-          emptyMessage="Tidak ada akun cocok."
+          emptyMessage="Tidak ada kader cocok."
           renderRow={(p) => (
             <tr
               key={p.id}
@@ -196,12 +192,6 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
             >
               <td className="px-3 py-2.5">
                 <div className="font-semibold text-ink">{p.nama}</div>
-              </td>
-              <td className="px-3 py-2.5">
-                <StatusBadge
-                  variant={p.role === 'admin' ? 'on' : 'off'}
-                  value={p.role}
-                />
               </td>
               <td className="px-3 py-2.5">
                 Kel. {p.kel} · {p.fasKes}
@@ -281,20 +271,6 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
               invalid={!!dlg.errs.nama}
               placeholder="cth. Ibu Warsini"
             />
-          </FormField>
-
-          <FormField
-            label="Peran"
-            hint="Admin mengelola aplikasi; kader mencatat kunjungan."
-          >
-            <Select
-              value={dlg.form.peran}
-              onChange={(e) => setForm('peran', e.target.value)}
-            >
-              {OPSI_PERAN.map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </Select>
           </FormField>
 
           <FormField

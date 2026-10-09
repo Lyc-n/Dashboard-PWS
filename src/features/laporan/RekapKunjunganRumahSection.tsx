@@ -60,8 +60,9 @@ export function RekapKunjunganRumahSection({
   defaultKader,
 }: Props) {
   const toast = useToast()
-  // Daftar kader dari tabel `users` (role='kader', aktif), sama dengan sumber yang
-  // dipakai /kelola. `listKaderAktif()` sudah menyaring, jadi tidak perlu filter peran lagi.
+  // Daftar kader dari tabel `users`, sama dengan sumber yang dipakai /kelola.
+  // `listKaderAktif()` sudah menyaring yang tidak aktif, jadi tidak perlu filter
+  // lagi di sini.
   const { staff } = useKaderAktif()
 
   const [period, setPeriod] = useState(defaultPeriod ?? DEFAULT_MONTH)

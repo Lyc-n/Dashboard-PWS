@@ -11,8 +11,6 @@ import type { BarisPengguna, OpsiFasilitas } from '@/lib/user-registry'
 /** Bentuk baris yang dikirim ke server saat menyimpan. */
 export interface DraftPengguna {
   nama: string
-  /** Peran: Admin / Kader. Dipetakan ke `users.role` di server. */
-  peran: string
   /** `fasilitas_kesehatan.id`; wajib karena `users.fasKesId` NOT NULL. */
   fasKesId: number | null
   phone: string
@@ -20,16 +18,19 @@ export interface DraftPengguna {
 }
 
 /**
- * Registry pengguna untuk /kelola.
+ * Registry kader untuk /kelola.
  *
- * Pengganti `useAdminMaster()`: data staff, kader, dan petugas pencatat semuanya
- * ada di satu tabel (`users`), bukan terpisah di `admin_staff`/`admin_staff_roles`.
+ * Pengganti `useAdminMaster()`: data petugas pencatat dan daftar kader ada di satu
+ * tabel (`users`), bukan terpisah di `admin_staff`/`admin_staff_roles`.
  *
  * Kolom `kel` dan `posy` yang dulu berdiri sendiri sudah tidak ada di UI. Kedua
  * informasinya sekarang ikut dari `users.fasKesId` -> `fasilitas_kesehatan` ->
  * `wilayah_kerja`, jadi form cuma perlu satu dropdown fasilitas. Ini bukan
  * penyederhanaan tampilan saja: `users` memang tidak punya kolom kel/posy, jadi
  * menyimpan keduanya berarti menulis ke tabel lain yang tidak ada.
+ *
+ * Tidak ada `peran` di draft: kolom `users.role` sudah dihapus dari skema dan
+ * peran tidak pernah membatasi apa pun (login memakai satu PIN global).
  */
 export function useUserRegistry() {
   const { data, loading, error, reload } = useAsyncData(

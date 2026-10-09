@@ -147,7 +147,6 @@ describe('kaderNameOf', () => {
   const staff = [
     {
       nama: 'Siti Aminah',
-      peran: 'Kader',
       kel: 'Trajeng',
       posy: 'Melati 1',
       hp: '',
@@ -377,7 +376,6 @@ describe('computeRekap', () => {
     const staff = [
       {
         nama: 'Siti Aminah',
-        peran: 'Kader',
         kel: 'Trajeng',
         posy: 'Melati 1',
         hp: '',
@@ -387,7 +385,6 @@ describe('computeRekap', () => {
       },
       {
         nama: 'Budi',
-        peran: 'Kader',
         kel: 'Tambaan',
         posy: 'Mawar 2',
         hp: '',
