@@ -1,13 +1,23 @@
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db.server'
 import {
   formFieldOptions,
   formFields,
   formSections,
   formVersions,
+  forms,
+  surveys,
 } from '@/lib/schema/schema'
-import { validasiEdisiVersi, validasiTerbitkanVersi } from './validasi'
-import type { HasilValidasi, KodeValidasi } from './validasi'
+import {
+  validasiEdisiVersi,
+  validasiHapusDraftVersi,
+  validasiTerbitkanVersi,
+} from './validasi'
+import type {
+  HasilValidasi,
+  KodeValidasi,
+  RingkasanHapusDraft,
+} from './validasi'
 import { catatAudit } from './audit.server'
 
 /**
@@ -389,4 +399,185 @@ export async function buatDraftBerikutnya(
   // Transaksi dibuka tepat satu kali: kalau pemanggil sudah memberi `tx`,
   // membuka `db.transaction` kedua akan memecah atomisitasnya.
   return opts.tx ? await buat(opts.tx) : await db.transaction(buat)
+}
+
+/** Hasil hapus draft, supaya UI bisa menyebut angka yang benar-benar hilang. */
+export interface HasilHapusDraftVersi {
+  jumlahSection: number
+  jumlahField: number
+  jumlahVersiSisa: number
+}
+
+/**
+ * Isi satu versi draft, dipakai dialog konfirmasi sebelum dihapus.
+ *
+ * Dipisah dari `hapusDraftVersiForm` supaya admin bisa melihat angka yang akan
+ * hilang tanpa harus menekan tombol dulu. Server tetap yang menghitungnya —
+ * angka dari klien bisa saja kedaluwarsa di antara dialog dibuka dan tombol
+ * ditekan, jadi `hapusDraftVersiForm` menghitung ulang sendiri.
+ */
+export async function ringkasanHapusDraftVersiForm(
+  formVersionId: string,
+): Promise<RingkasanHapusDraft> {
+  const [baris] = await db
+    .select({
+      jumlahSubmit: sql<number>`(
+        select count(*)::int from ${surveys}
+        where ${surveys.formVersionId} = ${formVersionId}
+      )`,
+      jumlahField: sql<number>`(
+        select count(*)::int from ${formFields}
+        where ${formFields.formVersionId} = ${formVersionId}
+      )`,
+      jumlahSection: sql<number>`(
+        select count(*)::int from ${formSections}
+        where ${formSections.formVersionId} = ${formVersionId}
+      )`,
+    })
+    .from(formVersions)
+    .where(eq(formVersions.id, formVersionId))
+    .limit(1)
+
+  if (!baris) {
+    throw new KesalahanValidasi({
+      ok: false,
+      kode: 'VERSI_TIDAK_ADA',
+      pesan: 'Form versi tidak ditemukan.',
+    })
+  }
+
+  return {
+    jumlahSubmit: baris.jumlahSubmit,
+    jumlahField: baris.jumlahField,
+    jumlahSection: baris.jumlahSection,
+  }
+}
+
+/**
+ * Hapus satu versi draft beserta seluruh isinya di database.
+ *
+ * Yang ikut terhapus: section, field, dan pilihan jawaban. Ketiganya cascade
+ * dari `form_versions`, jadi tidak perlu dihapus manual — cascade inilah yang
+ * membuat `form_field_options` ikut hilang lewat `form_fields`, bukan langsung
+ * dari versi.
+ *
+ * Dua lapis penjaga, keduanya ditegakkan ulang di sini walau `validasiHapusDraftVersi`
+ * sudah dipanggil sebelumnya. Pemeriksaan ganda itu murah dibanding satu draft
+ * bawaan yang terhapus: `buildFormVersion` hanya bisa memulihkan struktur dari
+ * template lokal, bukan dari draft yang sudah hilang, dan form bawaan yang
+ * gagal render membuat seluruh form kader tidak bisa dipakai.
+ *
+ * `surveys` dihapus eksplisit lebih dulu meski validasi sudah menolak draft
+ * berisian. FK `surveys.formVersionId` tidak meng-cascade, jadi kalau suatu saat
+ * ada jalur yang somehow menulis isian ke versi draft, penghapusan akan gagal
+ * dengan pelanggaran FK — dan itu memang hasil yang benar: isian tidak boleh
+ * hilang diam-diam bersama draft.
+ *
+ * Audit ditulis setelah transaksi selesai, mengikuti `terbitanVersiForm`: kalau
+ * insert audit gagal, draftnya sudah benar-benar terhapus, dan menolak penghapusan
+ * demi audit hanya akan membuat admin bingung.
+ */
+export async function hapusDraftVersiForm(
+  formVersionId: string,
+  opts: { actorId?: string | null } = {},
+): Promise<HasilHapusDraftVersi> {
+  const hasil = await db.transaction(async (tx) => {
+    // Kunci baris versi supaya dua hapus paralel tidak sama-sama lolos
+    // pemeriksaan "versi ini masih ada" lalu sama-sama DELETE.
+    await tx.execute(
+      sql`select 1 from form_versions where id = ${formVersionId} for update`,
+    )
+
+    const [versi] = await tx
+      .select({
+        formId: formVersions.formId,
+        version: formVersions.version,
+        status: formVersions.status,
+        kodeForm: forms.kode,
+      })
+      .from(formVersions)
+      .innerJoin(forms, eq(forms.id, formVersions.formId))
+      .where(eq(formVersions.id, formVersionId))
+      .limit(1)
+
+    if (!versi) {
+      throw new KesalahanValidasi({
+        ok: false,
+        kode: 'VERSI_TIDAK_ADA',
+        pesan: 'Form versi tidak ditemukan.',
+      })
+    }
+
+    const [hitungVersi] = await tx
+      .select({ total: count() })
+      .from(formVersions)
+      .where(eq(formVersions.formId, versi.formId))
+    const jumlahVersi = hitungVersi?.total ?? 0
+
+    // Hitung di dalam transaksi yang sama supaya angka `jumlahVersi` benar
+    // pada saat barisnya dikunci. Count di luar transaksi bisa melihat versi
+    // yang baru saja dihapus oleh sesi lain.
+    const [ringkasan] = await tx
+      .select({
+        jumlahSubmit: sql<number>`(
+          select count(*)::int from ${surveys}
+          where ${surveys.formVersionId} = ${formVersionId}
+        )`,
+        jumlahField: sql<number>`(
+          select count(*)::int from ${formFields}
+          where ${formFields.formVersionId} = ${formVersionId}
+        )`,
+        jumlahSection: sql<number>`(
+          select count(*)::int from ${formSections}
+          where ${formSections.formVersionId} = ${formVersionId}
+        )`,
+      })
+      .from(formVersions)
+      .where(eq(formVersions.id, formVersionId))
+      .limit(1)
+
+    // Baris versi sudah terkunci `for update` di atas, jadi select ini pasti
+    // menemukan tepat satu baris. Tidak ada fallback: kalau barisnya hilang,
+    // itu kondisi yang tidak mungkin dan menutupinya dengan angka nol membuat
+    // pesan penolakan salah menyalahkan isian yang sebenarnya nol.
+    if (!ringkasan) {
+      throw new KesalahanValidasi({
+        ok: false,
+        kode: 'VERSI_TIDAK_ADA',
+        pesan: 'Form versi tidak ditemukan.',
+      })
+    }
+    const angka = ringkasan
+
+    pastikan(
+      validasiHapusDraftVersi({
+        status: versi.status,
+        kodeForm: versi.kodeForm,
+        jumlahVersi,
+        ringkasan: angka,
+      }),
+    )
+
+    await tx.delete(surveys).where(eq(surveys.formVersionId, formVersionId))
+    await tx.delete(formVersions).where(eq(formVersions.id, formVersionId))
+
+    return {
+      jumlahSection: angka.jumlahSection,
+      jumlahField: angka.jumlahField,
+      jumlahVersiSisa: jumlahVersi - 1,
+    }
+  })
+
+  await catatAudit({
+    userId: opts.actorId ?? null,
+    aksi: 'delete',
+    entitas: 'form_versions',
+    entitasId: formVersionId,
+    sesudah: {
+      ...hasil,
+      formVersionId,
+    },
+  })
+
+  return hasil
 }

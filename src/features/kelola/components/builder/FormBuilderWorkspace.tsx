@@ -8,6 +8,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Eye,
+  FlaskConical,
 } from 'lucide-react'
 import { Button } from '@/components/atoms/Button'
 import { BlockPalette } from './BlockPalette'
@@ -16,6 +17,7 @@ import { SectionNode } from './SectionNode'
 import { SettingsPanel } from './SettingsPanel'
 import { BuildOverlay } from './BuildOverlay'
 import { PratinjauOverlay } from './preview/PratinjauOverlay'
+import { SimulasiPreview } from './preview/SimulasiPreview'
 import { getOrphanFieldIds } from './tree'
 import { aturanForm } from '@/features/form-builder/lib/kode-bawaan'
 import type { DraftFormDocument, DraftField } from './types'
@@ -75,6 +77,7 @@ export function FormBuilderWorkspace({
   const [paletteOpen, setPaletteOpen] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(true)
   const [previewMode, setPreviewMode] = useState(false)
+  const [simulasiMode, setSimulasiMode] = useState(false)
 
   // Bagian editor yang form bawaan tidak boleh ubah. Penegakan ada di server;
   // yang di sini hanya jangan menawarkan kontrol yang pasti ditolak.
@@ -151,16 +154,30 @@ export function FormBuilderWorkspace({
     setShowBuildOverlay(false)
     return result
   }, [buildForm, formVersionId, loadDocument])
-  const handlePreviewMode = useCallback(() => setPreviewMode((v) => !v), [])
+  const handlePreviewMode = useCallback(() => {
+    setPreviewMode((v) => {
+      if (!v) setSimulasiMode(false)
+      return !v
+    })
+  }, [])
+
+  // Simulasi dan pratinjau tidak boleh tampil bersamaan: keduanya overlay penuh
+  // yang menutupi editor, jadi menyalakan satu harus mematikan yang lain.
+  const handleSimulasiMode = useCallback(() => {
+    setSimulasiMode((v) => {
+      if (!v) setPreviewMode(false)
+      return !v
+    })
+  }, [])
 
   // Pratinjau membaca draft yang sedang diedit, jadi overlay-nya juga ikut
   // berubah setiap edit — tidak perlu Build lebih dulu.
   const handleDragEnd = useCallback(
     (event: Parameters<NonNullable<typeof dragEnd>>[0]) => {
-      if (previewMode) return
+      if (previewMode || simulasiMode) return
       dragEnd(event)
     },
-    [previewMode, dragEnd],
+    [previewMode, simulasiMode, dragEnd],
   )
 
   return (
@@ -204,6 +221,15 @@ export function FormBuilderWorkspace({
                   aria-pressed={previewMode}
                 >
                   <Eye className="w-4 h-4" /> Pratinjau
+                </Button>
+                <Button
+                  size="sm"
+                  variant={simulasiMode ? 'primary' : 'default'}
+                  onClick={handleSimulasiMode}
+                  aria-pressed={simulasiMode}
+                  title="Isi form seperti petugas untuk mencoba alurnya. Isian hanya lokal, tidak disimpan."
+                >
+                  <FlaskConical className="w-4 h-4" /> Simulasi
                 </Button>
                 <Button
                   size="sm"
@@ -383,6 +409,15 @@ export function FormBuilderWorkspace({
         isOpen={previewMode}
         document={document}
         onClose={() => setPreviewMode(false)}
+      />
+
+      {/* Simulasi tetap di dalam provider dengan alasan yang sama. Bedanya di
+          sini field-nya bisa diketik, tapi tetap bukan drop zone, jadi dnd-kit
+          tidak pernah melihatnya sebagai sumber drag. */}
+      <SimulasiPreview
+        isOpen={simulasiMode}
+        document={document}
+        onClose={() => setSimulasiMode(false)}
       />
     </DragDropProvider>
   )

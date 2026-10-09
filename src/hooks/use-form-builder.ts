@@ -5,8 +5,10 @@ import {
   buatDraftBuilder,
   buatFormBuilder,
   daftarVersiBuilder,
+  hapusDraftBuilder,
   hapusFormBuilder,
   listFormBuilder,
+  ringkasanHapusDraftBuilder,
   terbitkanVersiBuilder,
   ringkasanHapusFormBuilder,
 } from '@/lib/utils.functions'
@@ -17,7 +19,10 @@ import type {
   HasilHapusForm,
   listFormBaru,
 } from '@/features/form-builder/services/form.server'
-import type { RingkasanHapusForm } from '@/features/form-builder/services/validasi'
+import type {
+  RingkasanHapusDraft,
+  RingkasanHapusForm,
+} from '@/features/form-builder/services/validasi'
 
 export type DefinisiVersi = Awaited<ReturnType<typeof ambilDefinisiVersi>>
 export type BarisVersi = Awaited<ReturnType<typeof daftarVersiForm>>[number]
@@ -54,6 +59,8 @@ export function useFormBuilder() {
   const [definisiError, setDefinisiError] = useState<string | null>(null)
   const [ringkasanHapus, setRingkasanHapus] =
     useState<RingkasanHapusForm | null>(null)
+  const [ringkasanHapusDraft, setRingkasanHapusDraft] =
+    useState<RingkasanHapusDraft | null>(null)
   const [semuaTipe, setSemuaTipe] = useState<readonly string[]>([])
   const [butuhOpsi, setButuhOpsi] = useState<readonly string[]>([])
 
@@ -269,6 +276,82 @@ export function useFormBuilder() {
     }
   }, [jalankan, formId])
 
+  /**
+   * Buka dialog hapus draft: ambil isi draft dari server lebih dulu, supaya
+   * admin melihat jumlah section dan field yang akan hilang.
+   *
+   * Dialog tetap dibuka walau server menolak (mis. draft sudah berisian), karena
+   * pesannya justru yang perlu dibaca admin. Menutup dialog otomatis di sini
+   * membuat penolakan tidak terlihat sama sekali.
+   */
+  const bukaDialogHapusDraft = useCallback(async (versionId: string) => {
+    setSaving(true)
+    setError(null)
+    try {
+      setRingkasanHapusDraft(
+        await ringkasanHapusDraftBuilder({
+          data: { formVersionId: versionId },
+        }),
+      )
+    } catch (err) {
+      setError(pesanError(err, 'Isi draft tidak bisa dimuat. Coba lagi.'))
+      setRingkasanHapusDraft(null)
+    } finally {
+      setSaving(false)
+    }
+  }, [])
+
+  const tutupDialogHapusDraft = useCallback(
+    () => setRingkasanHapusDraft(null),
+    [],
+  )
+
+  /**
+   * Hapus versi draft yang sedang dibuka.
+   *
+   * Setelah draft hilang, editor harus tetap punya sesuatu untuk ditampilkan:
+   * pindah ke draft lain kalau masih ada, kalau tidak ke versi terbaru. Kalau
+   * form kehilangan seluruh versinya, kembalikan ke layar daftar form — tidak
+   * ada editor untuk form tanpa versi.
+   *
+   * Server yang menolak penghapusan yang tidak sah (versi bukan draft, draft
+   * bawaan, draft berisian, versi terakhir); di sini hasilnya hanya `null` dan
+   * pesan errornya sudah tersimpan di `error`.
+   */
+  const hapusDraft = useCallback(async (): Promise<boolean> => {
+    if (!formVersionId || !formId) return false
+    setSaving(true)
+    setError(null)
+    try {
+      await hapusDraftBuilder({ data: { formVersionId } })
+      setRingkasanHapusDraft(null)
+
+      const daftar = await daftarVersiBuilder({ data: { formId } })
+      setVersi(daftar)
+
+      // Versi terhapus tidak mungkin ada di daftar baru: server sudah menolak
+      // menghapus versi terakhir, jadi daftar kosong berarti ada kondisi lain
+      // (mis. form dihapus dari tab lain) dan yang aman adalah keluar dari editor.
+      const berikut = daftar.find((v) => v.status === 'draft') ?? daftar[0]
+      if (berikut) {
+        setFormVersionId(berikut.id)
+        setDefinisi(
+          await ambilEditorForm({ data: { formVersionId: berikut.id } }),
+        )
+      } else {
+        setFormVersionId(null)
+        setDefinisi(null)
+      }
+      return true
+    } catch (err) {
+      setError(pesanError(err, 'Draft tidak bisa dihapus. Coba lagi.'))
+      setRingkasanHapusDraft(null)
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }, [formVersionId, formId])
+
   return {
     forms,
     formId,
@@ -295,5 +378,9 @@ export function useFormBuilder() {
     tutupDialogHapus,
     terbitkan,
     buatDraft,
+    bukaDialogHapusDraft,
+    tutupDialogHapusDraft,
+    ringkasanHapusDraft,
+    hapusDraft,
   }
 }

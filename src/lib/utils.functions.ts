@@ -60,6 +60,8 @@ import type {
 } from '@/features/kelola/components/builder/types'
 import {
   buatDraftBerikutnya,
+  hapusDraftVersiForm,
+  ringkasanHapusDraftVersiForm,
   terbitkanVersiForm,
 } from '@/features/form-builder/services/form-version.server'
 import {
@@ -604,6 +606,34 @@ export const terbitkanVersiBuilder = createServerFn({ method: 'POST' })
   .handler(
     async ({ data }) =>
       await terbitkanVersiForm(data.formVersionId, { actorId: null }),
+  )
+
+/**
+ * Isi satu versi draft, supaya dialog konfirmasi bisa menyebut jumlah section dan
+ * field yang akan hilang. Server yang menghitungnya — angka dari klien bisa saja
+ * kedaluwarsa di antara dialog dibuka dan tombol ditekan.
+ */
+export const ringkasanHapusDraftBuilder = createServerFn({ method: 'GET' })
+  .middleware([authSessionToken])
+  .validator((data: { formVersionId: string }) => data)
+  .handler(
+    async ({ data }) => await ringkasanHapusDraftVersiForm(data.formVersionId),
+  )
+
+/**
+ * Hapus versi draft beserta struktur di dalamnya.
+ *
+ * Aturan main ada di `validasiHapusDraftVersi`: hanya versi `draft`, bukan draft
+ * form bawaan, bukan draft yang sudah berisian, dan bukan versi satu-satunya.
+ * Serverfn ini tidak menambahkan aturan sendiri — cukup meneruskan, supaya
+ * satu tempat yang menegakkan aturan.
+ */
+export const hapusDraftBuilder = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((data: { formVersionId: string }) => data)
+  .handler(
+    async ({ data }) =>
+      await hapusDraftVersiForm(data.formVersionId, { actorId: null }),
   )
 
 /**

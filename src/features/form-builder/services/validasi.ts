@@ -43,6 +43,8 @@ export type KodeValidasi =
   | 'STRUKTUR_BAWAAN_DIKUNCI'
   | 'FORM_PUNYA_ISIAN'
   | 'KONFIRMASI_NAMA_SALAH'
+  | 'DRAFT_BAWAAN_TERKUNCI'
+  | 'VERSI_HANYA_SATU'
 
 export type HasilValidasi =
   { ok: true } | { ok: false; kode: KodeValidasi; pesan: string }
@@ -695,6 +697,86 @@ export function validasiNik(nik: string): HasilValidasi {
   if (!isValidNik(nik)) {
     return gagal('NIK_TIDAK_VALID', 'NIK harus 16 digit angka.')
   }
+  return lolos
+}
+
+/**
+ * Ringkasan isi satu versi draft, dihitung sebelum dihapus.
+ *
+ * Dipakai dialog konfirmasi supaya admin melihat berapa banyak yang hilang,
+ * bukan sekadar menekan tombol dengan angka yang tidak jelas.
+ */
+export interface RingkasanHapusDraft {
+  /** Baris `surveys` yang menunjuk versi ini. */
+  jumlahSubmit: number
+  /** Baris `form_fields` milik versi ini. */
+  jumlahField: number
+  /** Baris `form_sections` milik versi ini. */
+  jumlahSection: number
+}
+
+/**
+ * Aturan menghapus satu versi draft.
+ *
+ * Empat lapis, dari yang paling halus:
+ *   1. Hanya versi `draft` yang boleh dihapus. Versi `published` adalah form
+ *      yang sedang dipakai petugas; `archived` adalah bukti form apa yang pernah
+ *      tayang. Keduanya tidak hilang karena satu klik di editor.
+ *   2. Draft form bawaan sistem (`forms.kode` terisi) tidak bisa dihapus.
+ *      Form kunjungan rumah punya struktur yang dipetakan balik ke UI kader
+ *      lewat nama section dan nama field (lihat `kode-bawaan.ts`), jadi draft
+ *      itu adalah satu-satunya tempat admin menulis perubahan
+ *      sekaligus satu-satunya salinan struktur itu. Menghapus draft terakhir
+ *      membuat form tidak bisa dibangun ulang dengan bentuk yang benar.
+ *   3. Draft yang sudah punya isian tidak boleh dihapus. `surveys.formVersionId`
+ *      tidak meng-cascade, jadi penghapusan akan ditolak Postgres dengan
+ *      pelanggaran FK yang tidak berguna untuk petugas.
+ *   4. Versi draft terakhir sebuah form tidak boleh dihapus, karena form tanpa
+ *      versi tidak punya editor sama sekali. Admin membuat draft baru dari
+ *      tombol "Draft Berikutnya" kalau memang ingin mulai dari nol.
+ */
+export function validasiHapusDraftVersi(params: {
+  status: string | null
+  /** `forms.kode` dari form pemilik versi ini. */
+  kodeForm: string | null
+  jumlahVersi: number
+  ringkasan: RingkasanHapusDraft
+}): HasilValidasi {
+  const { status, kodeForm, jumlahVersi, ringkasan } = params
+
+  if (status === null) {
+    return gagal('VERSI_TIDAK_ADA', 'Form versi tidak ditemukan.')
+  }
+  if (status !== 'draft') {
+    return gagal(
+      'VERSI_BUKAN_DRAFT',
+      status === 'published'
+        ? 'Versi ini sudah diterbitkan dan tidak bisa dihapus. Buat draft baru untuk mengubah form.'
+        : 'Versi ini sudah diarsipkan dan tidak bisa dihapus.',
+    )
+  }
+
+  if (kodeForm) {
+    return gagal(
+      'DRAFT_BAWAAN_TERKUNCI',
+      'Draft form bawaan sistem tidak bisa dihapus. Struktur form ini dipetakan ke form kader, jadi draftnya harus tetap ada untuk bisa dibangun ulang.',
+    )
+  }
+
+  if (ringkasan.jumlahSubmit > 0) {
+    return gagal(
+      'FORM_PUNYA_ISIAN',
+      `Draft ini sudah punya ${ringkasan.jumlahSubmit} isian. Hapus isiannya dulu lewat menu isian form, atau jangan hapus draft ini.`,
+    )
+  }
+
+  if (jumlahVersi <= 1) {
+    return gagal(
+      'VERSI_HANYA_SATU',
+      'Draft ini satu-satunya versi form ini. Menghapusnya membuat form tidak bisa disunting lagi — buat draft baru dari nol kalau memang ingin.',
+    )
+  }
+
   return lolos
 }
 

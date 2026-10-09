@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { AdminModal } from './AdminModal'
 import { HapusFormDialog } from './HapusFormDialog'
+import { HapusDraftDialog } from './HapusDraftDialog'
 import { FormBuilderWorkspace } from './builder/FormBuilderWorkspace'
 import {
   Button,
@@ -34,6 +35,7 @@ export function FormBuilderSection() {
     saving,
     error,
     bisaUbah,
+    bawaan,
     pilihForm,
     pilihVersi,
     buatForm,
@@ -43,6 +45,10 @@ export function FormBuilderSection() {
     tutupDialogHapus,
     terbitkan,
     buatDraft,
+    bukaDialogHapusDraft,
+    tutupDialogHapusDraft,
+    ringkasanHapusDraft,
+    hapusDraft,
   } = useFormBuilder()
 
   const toast = useToast()
@@ -93,6 +99,22 @@ export function FormBuilderSection() {
       clearDocument()
     }
   }, [definisi, loadDocument, clearDocument])
+
+  /**
+   * Hapus draft, lalu sebut angka yang hilang supaya admin tahu berapa banyak
+   * pertanyaan yang dibuang — "berhasil" tanpa angka tidak dipercaya untuk
+   * pekerjaan yang tidak bisa dipulihkan.
+   */
+  const konfirmasiHapusDraft = async () => {
+    const berhasil = await hapusDraft()
+    if (!berhasil) return
+    const r = ringkasanHapusDraft
+    toast(
+      r
+        ? `Draft dihapus: ${r.jumlahSection} section, ${r.jumlahField} pertanyaan.`
+        : 'Draft dihapus.',
+    )
+  }
 
   const handleBack = () => {
     pilihForm(formTerpilih?.id ?? forms[0]?.id ?? 0)
@@ -200,6 +222,26 @@ export function FormBuilderSection() {
                   >
                     Draft Berikutnya
                   </Button>
+                  {/* Tombol hapus draft hanya ditawarkan kalau versinya
+                      boleh dihapus: harus draft, form bukan bawaan, dan bukan
+                      satu-satunya versi. Tiga syarat yang sama dicek
+                      ulang oleh `validasiHapusDraftVersi` di server. */}
+                  {bisaUbah && !bawaan && versi.length > 1 ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:bg-destructive/10"
+                      disabled={saving}
+                      onClick={() =>
+                        formVersionId
+                          ? void bukaDialogHapusDraft(formVersionId)
+                          : null
+                      }
+                      title="Buang draft ini beserta section dan pertanyaannya"
+                    >
+                      Hapus Draft
+                    </Button>
+                  ) : null}
                 </>
               }
             />
@@ -286,6 +328,16 @@ export function FormBuilderSection() {
             tutupDialogHapus()
           }}
           onConfirm={(konfirmasiNama) => void konfirmasiHapus(konfirmasiNama)}
+        />
+      ) : null}
+
+      {ringkasanHapusDraft ? (
+        <HapusDraftDialog
+          version={versiTerpilih?.version ?? 0}
+          ringkasan={ringkasanHapusDraft}
+          busy={saving}
+          onClose={tutupDialogHapusDraft}
+          onConfirm={() => void konfirmasiHapusDraft()}
         />
       ) : null}
     </div>
