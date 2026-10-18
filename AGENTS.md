@@ -16,7 +16,7 @@ Before editing files for a substantial task:
 
 Dashboard PWS: pencatatan kunjungan rumah dan kegiatan Posyandu. TanStack Start (React 19 + Nitro + Vite) + TanStack Router file routes + Drizzle/Postgres + Tailwind v4 + Vitest.
 
-**Baca `CONTRIBUTING.md` sebelum edit besar.** Isinya peta codebase, aturan arsitektur, tabel "what to touch", dan daftar path yang sudah dihapus. `README.md` untuk setup dan overview route.
+**Baca `CONTRIBUTING.md` sebelum edit besar.** Isinya peta codebase, aturan arsitektur, tabel "Mau mengubah apa", dan daftar path yang sudah dihapus. `README.md` untuk setup dan overview route.
 
 ## Gate sebelum commit
 
@@ -26,22 +26,22 @@ pnpm test    # vitest run
 pnpm lint    # eslint
 ```
 
-Baseline saat ini: `tsc` exit 0, `eslint` 0 problems, 440 test lulus. Jangan turunkan gate ini tanpa alasan tertulis.
+Baseline saat ini: `tsc` exit 0, `eslint` 0 problem, dan 467 dari 470 test lulus. Tiga test di `lib/kunjungan-rumah/fotos.test.ts` dan `lib/kunjungan-rumah/store/kunjungan-rumah-reducer.test.ts` sudah gagal sebelum refactor struktur folder. Dua file test (`lib/uji/uji-db.test.ts`, `lib/service/form-builder/pesan-field-terpakai.test.ts`) gagal dimuat karena mengimpor modul database. Jangan turunkan gate ini tanpa alasan tertulis.
 
 ## Aturan yang paling sering dilanggar
 
-- **Route:** file di `src/routes/` = route. Guard tunggal `requireAuth` dari `src/lib/auth.ts`. **Tidak ada `requireAdmin`** — semua sesi valid setara. Setelah tambah/ubah route, jalankan `pnpm generate-routes`; `src/routeTree.gen.ts` tidak boleh diedit manual.
-- **Server:** tidak ada API route terpisah. Semua backend = `createServerFn` di `src/lib/utils.functions.ts` (GET baca / POST mutasi, + `.middleware([authSessionToken])`) yang mendelegasikan ke `*.server.ts`. Client tidak pernah mengimpor `db.server.ts` atau `*.server.ts` langsung.
-- **DB:** definisi tabel hanya di `src/lib/schema/` (tiga file: `schema.ts`, `data-import.ts`, `type-enum.ts`). Ganti skema di sana, lalu `pnpm db:sql`, lalu periksa `migration.sql` hasil generate.
-- **Form bawaan:** field form kunjungan rumah bukan label bebas. Nama section/field, tipe field, dan bucket layout dikunci di `src/features/form-builder/lib/kode-bawaan.ts`. Mengubahnya bisa membuat form kader gagal render. Jalankan `pnpm db:check-parity` kalau menyentuh penamaan field.
-- **Dua generasi domain berjalan berdampingan** (`features/kunjungan-rumah/` dan `features/survey/`). Baca bagian "Generasi domain" di `CONTRIBUTING.md` sebelum mengedit form kunjungan rumah. Jangan menganggap salah satunya kode mati.
-- **Test:** logika murni, `*.test.ts` colocated, tanpa DB/jaringan. `vitest.config.ts` hanya meng-include `*.test.ts` dengan `environment: node`, sehingga komponen `.tsx` dan hook React belum punya test — jangan tulis test yang butuh DOM tanpa mengubah config itu lebih dulu.
-- **Test yang butuh database:** jangan. `*.server.ts` mengimpor `db.server.ts` yang melempar saat modul dimuat tanpa `DATABASE_URL`, jadi mengimpornya di test sudah butuh environment database. Jalurnya smoke test (`pnpm db:smoke-*`) dan `pnpm db:check-parity`; peta cakupan ada di `CONTRIBUTING.md`.
-- **Penjaga database uji:** skrip yang menulis ke DB wajib memanggil `pastikanDatabaseUji()` dari `src/lib/database-uji.ts`. Jangan menyalin regex-nya sendiri.
+- **Route.** File di `src/routes/` adalah route. Guard tunggalnya `requireAuth` dari `src/lib/auth/auth.ts`. **Tidak ada `requireAdmin`.** Semua sesi valid setara. Setelah menambah atau mengubah route, jalankan `pnpm generate-routes`. Jangan edit `src/routeTree.gen.ts` secara manual.
+- **Server.** Tidak ada API route terpisah. Semua backend berupa `createServerFn` di `src/lib/api/server-fns.ts` (GET untuk baca, POST untuk mutasi, plus `.middleware([authSessionToken])`) yang mendelegasikan ke `*.server.ts`. Client tidak pernah mengimpor `db.server.ts` atau `*.server.ts` langsung.
+- **DB.** Definisi tabel hanya ada di `src/lib/schema/` (tiga file: `schema.ts`, `data-import.ts`, `type-enum.ts`). Ubah skema di sana, lalu jalankan `pnpm db:sql`, lalu periksa `migration.sql` hasil generate.
+- **Form bawaan.** Field form kunjungan rumah tidak bebas dinamai. Nama section, nama field, tipe field, dan bucket layout dikunci di `src/lib/form-builder/kode-bawaan.ts`. Mengubahnya bisa membuat form kader gagal render. Jalankan `pnpm db:check-parity` kalau menyentuh penamaan field.
+- **Dua generasi domain.** Fitur `kunjungan-rumah` dan `survey` berjalan berdampingan di tiap lapisan `src/`. Baca bagian "Generasi domain" di `CONTRIBUTING.md` sebelum mengedit form kunjungan rumah. Jangan anggap salah satunya kode mati.
+- **Test.** Logika murni, `*.test.ts` di folder yang sama dengan sumbernya, tanpa DB atau jaringan. `vitest.config.ts` hanya meng-include `*.test.ts` dengan `environment: node`. Komponen `.tsx` dan hook React belum punya test. Jangan tulis test yang butuh DOM sebelum config itu diubah.
+- **Test yang butuh database.** Jangan tulis test untuk kode ini. `*.server.ts` mengimpor `db.server.ts`, yang melempar error saat dimuat tanpa `DATABASE_URL`. Jalur ujinya smoke test (`pnpm db:smoke-*`) dan `pnpm db:check-parity`. Peta cakupannya ada di `CONTRIBUTING.md`.
+- **Penjaga database uji.** Skrip yang menulis ke DB wajib memanggil `pastikanDatabaseUji()` dari `src/lib/uji/database-uji.ts`. Jangan salin regex-nya sendiri.
 
 ## Gaya
 
-- Import `@/...`. Barrel untuk `components/atoms|molecules|organisms`.
+- Import `@/...`. Barrel untuk `components/ui`, `components/layout`, dan `components/shared`.
 - Prettier: tanpa semicolon, single quote.
-- Komentar bahasa Indonesia, menjelaskan **kenapa** bukan apa. Repo ini memakai komentar dokumentatif yang panjang dan itu disengaja — ikuti gaya itu.
-- Tailwind: pakai token dari `src/styles.css` dan `cn()` + variant di `src/lib/utils.ts`. Jangan hex literal ad-hoc.
+- Komentar bahasa Indonesia, menjelaskan kenapa, bukan apa. Repo ini sengaja memakai komentar dokumentatif yang panjang. Ikuti gaya itu.
+- Tailwind: pakai token dari `src/styles.css`, serta `cn()` dan variant di `src/lib/utils.ts`. Jangan tulis hex literal ad hoc.

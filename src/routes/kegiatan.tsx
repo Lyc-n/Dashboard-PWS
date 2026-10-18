@@ -1,19 +1,19 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useKegiatan } from '@/hooks/use-kegiatan'
-import { useKegiatanRecords } from '@/hooks/use-kegiatan-records'
-import { usePetugasOpsi } from '@/hooks/use-petugas-opsi'
-import type { KegiatanRow } from '@/hooks/use-kegiatan-records'
+import { useKegiatan } from '@/hooks/survey/use-kegiatan'
+import { useKegiatanRecords } from '@/hooks/survey/use-kegiatan-records'
+import { usePetugasOpsi } from '@/hooks/petugas/use-petugas-opsi'
+import type { KegiatanRow } from '@/hooks/survey/use-kegiatan-records'
 import { JENIS_KEGIATAN, KELS, POSY } from '@/lib/constants'
 import { fmtDate } from '@/lib/utils'
 import { useToast } from '@/providers/toast'
+import { AppShell } from '@/components/layout'
 import {
-  AppShell,
   DokumentasiPanel,
   HistoryPanel,
   PesertaPanel,
   SuccessPanel,
-} from '@/components/organisms'
+} from '@/components/shared'
 import {
   FillBar,
   FormField,
@@ -22,17 +22,15 @@ import {
   SaveBar,
   SectionCard,
   Stepper,
-} from '@/components/molecules'
-import type { Step } from '@/components/molecules'
-import {
   Badge,
   Button,
   ButtonLink,
   Input,
   Select,
   Textarea,
-} from '@/components/atoms'
-import { requireAuth } from '@/lib/auth'
+} from '@/components/ui'
+import type { Step } from '@/components/ui'
+import { requireAuth } from '@/lib/auth/auth'
 
 export const Route = createFileRoute('/kegiatan')({
   beforeLoad: requireAuth,

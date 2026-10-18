@@ -1,6 +1,6 @@
-# Contributing to Dashboard-PWS
+# Contributing ke Dashboard-PWS
 
-Stack: TanStack Start (React 19 + Nitro + Vite 8) + TanStack Router (file routes) + Drizzle ORM (Postgres) + Tailwind CSS v4 + Vitest.
+Stack: TanStack Start (React 19, Nitro, Vite 8), TanStack Router (file route), Drizzle ORM (Postgres), Tailwind CSS v4, dan Vitest.
 
 ## Quick start
 
@@ -10,239 +10,202 @@ pnpm dev               # vite dev --port 3000
 pnpm test              # vitest run
 pnpm lint              # eslint
 pnpm format            # prettier --write . && eslint --fix
-pnpm check             # tsc --noEmit && prettier --check .  -> jalankan sebelum commit
+pnpm check             # tsc --noEmit && prettier --check .  (jalankan sebelum commit)
 pnpm generate-routes   # tsr generate -> src/routeTree.gen.ts
 pnpm build
 ```
 
-Env: `DATABASE_URL` (server-only), `SECRET_KEY` (base64, JWT via `jose`), `PIN` (login PIN). `VITE_*` prefix = ikut ter-bundle ke browser, lihat `envPrefix` di `vite.config.ts`. Salin `.env.example` ke `.env` saat setup.
+Env yang dipakai: `DATABASE_URL` (hanya server), `SECRET_KEY` (base64, untuk JWT lewat `jose`), dan `PIN` (PIN login). Variabel berawalan `VITE_` ikut masuk bundle browser. Daftar prefix ada di `envPrefix` pada `vite.config.ts`. Saat setup, salin `.env.example` ke `.env`.
 
-Sebelum edit besar, ikuti blok di `AGENTS.md`: `npx @tanstack/intent@latest list`, lalu load skill yang cocok.
+Sebelum mengubah banyak file, ikuti blok di `AGENTS.md`: jalankan `npx @tanstack/intent@latest list`, lalu load skill yang cocok.
 
-## Codebase map
+## Cari file dari tugasnya
+
+Folder di `src/` dibagi per lapisan (komponen, hook, logika, server). Di dalam tiap lapisan, kode dikelompokkan per fitur. Jadi untuk mengubah fitur `survey`, cari `survey` di setiap lapisan yang relevan.
 
 ```
 src/
-  router.tsx                  # getRouter(): createTanStackRouter({ routeTree, scrollRestoration })
-  routeTree.gen.ts            # GENERATED - jangan diedit (regen: pnpm generate-routes)
-  styles.css                  # Tailwind v4 @theme tokens, fonts (Fraunces/Manrope)
-  routes/                     # File-based routes, semua dijaga requireAuth kecuali pin + __root
-    __root.tsx                # HTML shell, THEME_INIT_SCRIPT, AuthProvider + ToastProvider
-    pin.tsx                   # /pin login PIN (redirect ke / kalau sesi sudah ada)
-    index.tsx                 # / dashboard
-    sasaran.tsx               # /sasaran layout + AppShell + Outlet
-    sasaran.index.tsx         # /sasaran/ daftar warga (filter, pagination, ekspor CSV)
-    sasaran.$id.tsx           # /sasaran/$id detail per NIK
-    kunjungan-rumah.tsx       # /kunjungan-rumah form baru
-    kunjungan-rumah.$id.tsx   # /kunjungan-rumah/$id buka/ubah record tersimpan
-    kegiatan.tsx              # /kegiatan wizard kegiatan Posyandu
-    laporan.tsx               # /laporan tabs kunjungan / kegiatan / rekap / riwayat submit
-    kelola.tsx                # /kelola admin: Form Builder + daftar petugas
-    form.tsx                  # /form daftar form
-    isi.$formVersionId.tsx     # /isi/$formVersionId isi form dari Form Builder
+  routes/                    Halaman. Satu file = satu URL. Setiap route dijaga requireAuth.
+  components/
+    ui/                      Komponen UI generik (tombol, input, kartu, badge), lewat barrel index.ts.
+                             Overlay, toggle tema, dan loading route diimpor langsung dari filenya.
+    layout/                  Kerangka aplikasi: AppShell, Sidebar, Topbar, BottomNav.
+    shared/                  Komponen gabungan lintas fitur: DataTable, Timeline, panel, dan lainnya.
+    <fitur>/                 Komponen khusus satu fitur.
+  hooks/
+    *.ts                     Hook generik lintas fitur (async, local storage, media query, overlay).
+    <fitur>/                 Hook khusus satu fitur.
   lib/
-    schema/                   # Sumber kebenaran DB, TIGA file: schema.ts, data-import.ts, type-enum.ts
-    db.server.ts              # Klien Drizzle (postgres-js, prepare:false)
-    utils.functions.ts        # Batas createServerFn (42 fn) - client hanya boleh memanggil ini
-    utils.server.ts           # Implementasi server: session/JWT, query, simpan/list
-    user-registry.server.ts   # Daftar kader (tabel users, murni data referensi)
-    auth.ts                   # AuthUser, SESSION_PROFILE, requireAuth()  <- TIDAK ada requireAdmin
-    constants.ts              # KELS, PRIOS, POSY, JENIS_KEGIATAN, KODE_FORM_BAWAAN, TTL sesi, batas foto
-    nav.ts                    # NAV_ITEMS + navItemsForUser / bottomNavItemsForUser
-    utils.ts                  # cn(), PILL_STYLES, fmtDate, downloadCsv, normalkanNik, pesanError
-    theme.ts                  # readThemeMode/applyThemeMode/THEME_INIT_SCRIPT
-    hasil.ts                  # hasilKind() classifier
-    events.ts, enum-values.ts, nav-forms-cache.ts, staff.ts  # staff.ts = bentuk rekap, bukan akun
-    kunjungan-rumah-form.ts       # Definisi sasaran statis (SASARAN_KEYS)
-    kunjungan-rumah-templates.ts  # Template KR lokal + engine parsing baris DB
-    rekap-kunjungan-rumah.ts      # Engine rekap murni
-    pin-attempt.ts             # Rate limit percobaan PIN
-    uji-db.ts                 # Helper koneksi uji
-    supabase-storage.ts        # Unggah foto ke bucket; DB menyimpan URL, bukan base64
-  providers/
-    auth.tsx                  # AuthProvider/useAuth (profil dari router context)
-    toast.tsx                 # ToastProvider/useToast()
-  hooks/                      # 15 hook; pakai useAsyncData sebagai basis async state
-    use-async-data.ts             # Hook dasar: epoch-based cancellation + mapError
-    use-form-runtime.ts            # Runtime form generik (DynamicField)
-    use-form-builder.ts            # Aksi editor
-    use-form-builder-draft.ts      # State draft Form Builder
-    use-kunjungan-rumah-records.ts, use-kunjungan-rumah-template-db.ts,
-    use-kunjungan-rumah-templates.ts
-    use-kegiatan.ts, use-kegiatan-records.ts
-    use-kader-aktif.ts, use-petugas-opsi.ts, use-user-registry.ts
-    use-rekap-kunjungan-rumah.ts
-    use-local-storage.ts, use-media-query.ts
-  components/                 # Atomic design, import lewat barrel (index.ts)
-    atoms/                    # Avatar, Badge, Button, Checkbox, Chip, EmptyState, Input,
-                              # LogoEmblem, Pill, ProgressBar, RadioCard, Select, StatusBadge,
-                              # Tab, Tag, Textarea
-    molecules/                # Breadcrumb, Card, CardHeader, ChipGroup, DocCard, DropZone,
-                              # FillBar, FormField, HistoryRow, PageHeader, Pagination,
-                              # ProfileBox, SaveBar, SectionCard, StatCard, Stepper,
-                              # TimelineItem, Toolbar
-    organisms/                # AppShell, Sidebar, Topbar, BottomNav, DataTable, FilterCard,
-                              # KelurahanSection, DetailHeader, InfoPanel, HistoryPanel,
-                              # Timeline, PesertaPanel, DokumentasiPanel, SuccessPanel
-    ui/CollapsibleSection.tsx # Section yang bisa dilipat (tanpa barrel)
-    ThemeToggle.tsx
-  features/                   # Logika domain, menjaga routes tetap tipis
-    survey/
-      components/             # DynamicField, FormulirScene, FieldCariWarga, SaranWargaDropdown
-      services/               # form-runtime.server.ts (794 baris), kegiatan.server.ts
-      lib/format-jawaban.ts
-    kunjungan-rumah/         # Generasi-1, MASIH PRODUKSI - baca "Generasi domain" di bawah
-      components/             # KunjunganRumahFormScene, KeluargaInfoSection, AnggotaSection,
-                              # SanitasiSection, SasaranListSection, SasaranForm, MasalahSection,
-                              # HasilSection, HistorySection, FieldCell
-      store/                  # kunjunganRumahReducer.ts, kunjunganRumahSelectors.ts
-      services/               # validateKunjunganRumah.ts, progress.ts, conditional.ts
-      lib/                    # fotos.ts, template-from-rows.ts, warga-row.ts
-      hooks/useKunjunganRumahForm.ts
-      types.ts, models.ts
-    form-builder/
-      lib/kode-bawaan.ts      # Penjaga struktur form bawaan (kunci editor + tolak draft)
-      services/               # form, form-version, section, opsi, option-source, build, audit
-                              # + validasi.ts, sumber-opsi.ts, template-field.ts, masking.ts
-    kelola/
-      components/             # FormBuilderSection, UserSection, AdminModal, ConfirmModal,
-                              # HapusFormDialog
-      components/builder/     # FormBuilderWorkspace, BlockPalette, FieldNode, SectionNode,
-                              # KontenDrag, SettingsPanel, BuildOverlay, tree.ts, ikon-builder.ts
-      components/builder/preview/  # PratinjauOverlay, draft-ke-runtime.ts
-    laporan/
-      components/             # KopSurat, KopBrandRow, KopSection, KopTable, FilterToolbar,
-                              # KelStatsGrid, TandaTangan, report-shared.ts
-      RekapKunjunganRumahSection.tsx, RiwayatSubmitSection.tsx, report-filter.ts
-    dashboard/                # KegiatanTrendChart, KegiatanTrendTooltip, useKegiatanTrend
-  assets/                     # brand.png, brandIcon.png
-drizzle/                      # Lihat "Migrasi database" di bawah
-scripts/                      # Lihat tabel script
+    <fitur>/                 Logika murni khusus satu fitur: tipe, parser, helper, store/.
+    service/<fitur>/         Aturan domain murni yang dipakai validasi dan form.
+    server/                  Query DB lintas fitur (kunjungan, sasaran, submit) dan db.server.ts.
+    server/<fitur>/          Query dan mutasi DB khusus satu fitur (*.server.ts).
+    api/server-fns.ts        Satu-satunya jalur dari client ke server.
+    auth/                    Login PIN, sesi, rate limit, dan requireAuth.
+    schema/                  Skema Drizzle. Sumber kebenaran tabel.
+    nav/                     Menu sidebar dan cache daftar form.
+    uji/                     Pengaman dan helper skrip yang menulis ke database uji.
+    utils.ts, constants.ts, theme.ts, enum-values.ts, supabase-storage.ts
+  providers/                 AuthProvider dan ToastProvider.
+  assets/                    Gambar brand.
+  router.tsx, styles.css     Konfigurasi router dan token Tailwind.
+  routeTree.gen.ts           Dibuat otomatis. Jangan diedit.
+drizzle/                     Migrasi database. Lihat "Migrasi database".
+scripts/                     Seed, smoke test, dan cek paritas. Lihat "Scripts".
 ```
 
-Config: `vite.config.ts` (tanstackStart + nitro + tailwindcss), `drizzle.config.ts` (`schema ./src/lib/schema/*.ts`, `out ./drizzle`), `tsr.config.json`, `tsconfig.json` (`@/*` -> `src/*`, `strict` + `noUncheckedIndexedAccess` + `noUnusedLocals`), `vitest.config.ts` (`src/**/*.test.ts`, node env), `vercel.json`, `eslint.config.js`, `prettier.config.js`.
+Fitur yang ada: `survey`, `kunjungan-rumah`, `form-builder`, `kelola`, `petugas`, `laporan`, dan `dashboard`.
 
-## Architecture rules
+### Isi tiap lapisan
 
-- **Routing:** file di `src/routes/` = route. `src/routeTree.gen.ts` generated. Guard tunggal: `requireAuth()` dari `src/lib/auth.ts` yang mengembalikan `{ user }` untuk router context; sesi tidak valid -> redirect `/pin`. **Tidak ada `requireAdmin`.** Semua pengguna dengan sesi valid setara; tabel `users` adalah daftar kader/petugas pencatat, bukan tabel akun — kolom `role` dan `pinHash` sudah dihapus dari skema (`drizzle/manual/20261008_users-buang-role-dan-pinhash.sql`). Alasan lengkap ada di `src/lib/auth.ts` dan `src/lib/user-registry.server.ts`.
-- **Backend:** tidak ada `server.handlers` API route. Semua backend = `createServerFn({ method: 'GET' | 'POST' })` di `src/lib/utils.functions.ts` (42 fn) yang mendelegasikan ke file `*.server.ts`. GET = baca, POST = login/mutasi. Fn terproteksi pasang `.middleware([authSessionToken])`. Client tidak pernah mengimpor `db.server.ts` atau `*.server.ts` langsung.
-- **DB:** definisi tabel hanya di `src/lib/schema/` (3 file). Import `src/lib/db.server.ts` hanya dari `*.server.ts` dan `scripts/`.
-- **Auth:** satu PIN global. `routes/pin.tsx` -> `pinLogin()` -> `isValidPin()` (bandingkan `process.env.PIN`) -> cookie httpOnly (TTL 12 jam) + baris `valid_session` (hash SHA256, sliding idle 1 jam lewat `touchSession`). TTL di `src/lib/constants.ts`. Client baca sesi lewat `useAuth()`, tidak pernah localStorage.
-- **Error:** server melempar `Error` biasa dengan pesan string; belum ada error class terpusat. Server-only `console.error` dipakai untuk log, bukan `console.log`.
-- **Styling:** token Tailwind v4 di `src/styles.css`. Pakai `cn()` + variant di `src/lib/utils.ts`, jangan hex literal ad-hoc. Mode gelap/terang lewat `src/lib/theme.ts`.
-- **Tests:** logika murni, `*.test.ts` di sebelah sumber, 27 file / 440 test. Default `environment: node` dan `include: src/**/*.test.ts`, jadi komponen `.tsx` dan hook React **belum** tersentuh test. Yang butuh koneksi database diuji lewat smoke test terpisah — lihat bagian "Uji terhadap database".
+| Folder                 | Isi                                                     | Boleh mengimpor                                      |
+| ---------------------- | ------------------------------------------------------- | ---------------------------------------------------- |
+| `components/<fitur>/`  | Komponen React                                          | `lib/`, `hooks/`, barrel `ui/`, `layout/`, `shared/` |
+| `hooks/<fitur>/`       | Hook React                                              | `lib/`, `src/lib/api/server-fns.ts`                  |
+| `lib/<fitur>/`         | Logika murni: tipe, parser, helper, reducer di `store/` | Apa saja, kecuali database dan React                 |
+| `lib/service/<fitur>/` | Aturan domain murni: validasi, progres, kondisi tampil  | `lib/`                                               |
+| `lib/server/<fitur>/`  | `*.server.ts`: query dan mutasi database                | `lib/server/db.server.ts`, `lib/schema/`, `lib/`     |
+
+Dua aturan tambahan:
+
+- Folder `lib/server/` hanya berisi file `*.server.ts`. Client tidak mengimpor nilai dari sana. Impor `type` tetap boleh, karena tidak masuk bundle.
+- Kalau sebuah subfolder mulai penuh, buat subfolder per topik. Contohnya `lib/kunjungan-rumah/sasaran/`, `lib/kunjungan-rumah/template/`, dan `lib/service/kunjungan-rumah/`.
+
+### Menaruh kode baru
+
+1. Komponen yang khusus satu fitur masuk ke `src/components/<fitur>/`. Komponen generik masuk ke `ui/` (kecil, tanpa logika domain), `layout/` (kerangka halaman), atau `shared/` (gabungan yang dipakai beberapa fitur).
+2. Hook khusus satu fitur masuk ke `src/hooks/<fitur>/`. Hook generik masuk ke `src/hooks/`.
+3. Logika murni khusus satu fitur masuk ke `src/lib/<fitur>/`. Aturan validasi atau progres masuk ke `src/lib/service/<fitur>/`.
+4. Query DB khusus satu fitur masuk ke `src/lib/server/<fitur>/`. Query DB yang dipakai banyak fitur masuk ke `src/lib/server/`.
+5. Kode yang dipakai dua fitur atau lebih naik ke tingkat atas: `components/`, `hooks/`, `lib/`, atau `lib/server/`. Jangan taruh di salah satu fitur.
+
+## Aturan arsitektur
+
+- **Routing.** File di `src/routes/` adalah route. `src/routeTree.gen.ts` dibuat otomatis. Guard tunggalnya `requireAuth()` dari `src/lib/auth/auth.ts`, yang mengembalikan `{ user }` untuk router context. Sesi tidak valid berarti redirect ke `/pin`. **Tidak ada `requireAdmin`.** Semua pengguna dengan sesi valid setara. Tabel `users` berisi daftar kader atau petugas pencatat, bukan tabel akun. Kolom `role` dan `pinHash` sudah dihapus dari skema, dengan migrasi di `drizzle/manual/20261008_users-buang-role-dan-pinhash.sql`. Alasan lengkapnya ada di `src/lib/auth/auth.ts` dan `src/lib/server/petugas/user-registry.server.ts`.
+- **Backend.** Tidak ada `server.handlers` atau API route. Semua backend berupa `createServerFn({ method: 'GET' | 'POST' })` di `src/lib/api/server-fns.ts`, yang mendelegasikan ke file `*.server.ts`. GET dipakai untuk membaca, dan POST untuk login dan mutasi. Fn yang butuh sesi memasang `.middleware([authSessionToken])`. Client tidak mengimpor `db.server.ts` atau `*.server.ts` untuk nilai runtime.
+- **DB.** Definisi tabel hanya ada di `src/lib/schema/` (tiga file). Import `src/lib/server/db.server.ts` hanya dari file `*.server.ts` dan dari `scripts/`.
+- **Auth.** Satu PIN global. `routes/pin.tsx` memanggil `pinLogin()` di `server-fns.ts`, yang memanggil `isValidPin()` di `src/lib/auth/session.server.ts`. Isi PIN dibandingkan dengan `process.env.PIN`. Login berhasil menghasilkan cookie httpOnly dengan TTL 12 jam, dan satu baris `valid_session` berisi hash SHA256. Sesi idle 1 jam dan dikelola lewat `touchSession`. TTL ada di `src/lib/constants.ts`. Client membaca sesi lewat `useAuth()`. Client tidak pernah membaca dari localStorage.
+- **Error.** Server melempar `Error` biasa dengan pesan string. Belum ada kelas error terpusat. Untuk log di server, pakai `console.error`, bukan `console.log`.
+- **Styling.** Token Tailwind v4 ada di `src/styles.css`. Pakai `cn()` dan variant dari `src/lib/utils.ts`. Jangan tulis hex literal ad hoc. Mode gelap dan terang diatur lewat `src/lib/theme.ts`.
+- **Tes.** Logika murni, `*.test.ts` di folder yang sama dengan sumbernya. `vitest.config.ts` hanya memuat `src/**/*.test.ts` dengan environment `node`. Komponen `.tsx` dan hook React belum punya test. Domain yang butuh database diuji lewat smoke test terpisah (lihat "Uji terhadap database").
 
 ## Generasi domain
 
-Wajib dibaca sebelum mengedit form kunjungan rumah. Ada dua generasi yang berjalan berdampingan dan sengaja begitu.
+Baca bagian ini sebelum mengubah form kunjungan rumah. Dua generasi berjalan berdampingan, dan itu disengaja.
 
-**Generasi-1 — `src/features/kunjungan-rumah/`.** UI kader. Dipakai route `kunjungan-rumah.tsx` dan `kunjungan-rumah.$id.tsx`. Definisi field-nya dari baris DB lewat `lib/kunjungan-rumah-templates.ts` + `features/kunjungan-rumah/lib/template-from-rows.ts`, dengan bucket layout (`identitas`, `kolom`, `bools`, `baha`) yang disamarkan sebagai prefix `bucket=` pada `form_fields.optionSourceKey`. Parser bucket-nya di `parseBucket()` (`src/lib/utils.server.ts`).
+**Generasi-1: `kunjungan-rumah`.** Ini UI kader. Dipakai route `kunjungan-rumah.tsx` dan `kunjungan-rumah.$id.tsx`. Komponennya ada di `src/components/kunjungan-rumah/`. Definisi field dibaca dari baris DB lewat `src/lib/kunjungan-rumah/template/kunjungan-rumah-templates.ts` dan `template-from-rows.ts`. Bucket layout disimpan sebagai prefix `bucket=` pada `form_fields.optionSourceKey`. Empat bucket-nya adalah `identitas`, `kolom`, `bools`, dan `baha`. Parser bucket ada di `parseBucket()` di `src/lib/server/kunjungan-rumah.server.ts`.
 
-**Generasi-2 — `src/features/survey/`.** Form generik dari Form Builder, dipakai kegiatan Posyandu. `form-runtime.server.ts` menyusun definisi versi form, `DynamicField` merender lima tipe field yang memang bisa ditampilkan UI kader.
+**Generasi-2: `survey`.** Form generik dari Form Builder, dipakai kegiatan Posyandu. `src/lib/server/survey/form-runtime.server.ts` menyusun definisi versi form. `src/components/survey/DynamicField.tsx` merender lima tipe field yang bisa ditampilkan UI kader.
 
-**Jembatannya, dan ini yang mudah disalahpahami:** record generasi-1 bukan kode mati. Tabel `kunjungan_rumah_records` menyimpan payload `jsonb`, lalu isi itu dipetakan ke `surveys` (header) + `survey_entries` (satu baris jawaban) memakai field tunggal `record_legacy` pada section `penyimpanan`. Bentuk jsonb sengaja tidak diubah supaya UI yang sudah jalan tidak perlu disentuh. Kolom header yang terisi (`wargaNik`, `petugasId`, `tanggal`) tetap dibaca dari `info`, jadi filter dashboard, sasaran, dan laporan tetap bekerja.
+**Hubungan keduanya.** Record generasi-1 bukan kode mati. Tabel `kunjungan_rumah_records` menyimpan payload `jsonb`. Payload itu dipetakan ke `surveys` (header) dan `survey_entries` (satu baris per jawaban). Pemetaannya memakai field tunggal `record_legacy` di section `penyimpanan`. Bentuk jsonb sengaja tidak diubah, supaya UI yang sudah jalan tidak perlu disentuh. Kolom header (`wargaNik`, `petugasId`, `tanggal`) tetap dibaca dari `info`, sehingga filter dashboard, sasaran, dan laporan tetap bekerja.
 
-Konsekuensi yang sudah diketahui dan terdokumentasi di `src/lib/utils.server.ts`: rekap per-field ("berapa warga dengan TD tinggi?") belum bisa dijawab, karena butuh `survey_entries` satu baris per field, bukan satu baris berisi seluruh payload.
+Keterbatasan yang sudah diketahui dan didokumentasikan di `src/lib/server/kunjungan-rumah.server.ts`: rekap per field, misalnya berapa warga dengan TD tinggi, belum bisa dijawab. Rekap seperti itu butuh `survey_entries` dengan satu baris per field, bukan satu baris berisi seluruh payload.
 
-Kontrak yang mengikat form bawaan ke UI kader dikunci di `src/features/form-builder/lib/kode-bawaan.ts`:
+Aturan yang mengunci form bawaan ke UI kader ada di `src/lib/form-builder/kode-bawaan.ts`:
 
-- Nama section dan field **bukan** label bebas — keduanya dibaca form kader. Rename ditolak saat Build.
-- Tipe field dibatasi `TIPE_KADER` = `text`, `number`, `date`, `select`, `checkbox` (+ `group` khusus `record_legacy`).
-- Field di section sasaran wajib punya bucket layout; field section biasa justru tidak boleh punya `optionSourceKey`.
-- `record_legacy` tidak boleh dihapus - seluruh data kunjungan disimpan di sana.
-- `pnpm db:check-parity` menjaga agar seeder form default dan parser template lokal tidak berbeda paham soal penamaan field.
+- Nama section dan field tidak bebas. Form kader membacanya, dan rename ditolak saat Build.
+- Tipe field dibatasi `TIPE_KADER`: `text`, `number`, `date`, `select`, `checkbox`, plus `group` khusus `record_legacy`.
+- Field di section sasaran wajib punya bucket layout. Field di section biasa tidak boleh punya `optionSourceKey`.
+- `record_legacy` tidak boleh dihapus. Seluruh data kunjungan disimpan di sana.
+- `pnpm db:check-parity` menjaga seeder form bawaan dan parser template lokal tetap sepakat soal nama field.
 
-Kalau menambah form bawaan baru, tambahkan entri di `ATURAN_BAWAAN` (`kode-bawaan.ts`) alih-alih menambah cabang di dua fungsi terpisah.
+Untuk menambah form bawaan baru, tambahkan entri di `ATURAN_BAWAAN` (`kode-bawaan.ts`). Jangan menambah cabang di dua fungsi terpisah.
 
 ## Migrasi database
 
-Tiga kanal, jangan dicampur:
+Ada tiga kanal. Jangan dicampur.
 
-| Lokasi                        | Isi                                                                                                          | Kapan dipakai                                                                                                                                                                                             |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `drizzle/<timestamp>_<nama>/` | Hasil `pnpm db:sql` (`drizzle-kit generate`). 10 direktori, masing-masing `migration.sql` + `snapshot.json`. | Perubahan skema biasa. Edit `src/lib/schema/` dulu, lalu generate, lalu periksa `migration.sql` sebelum dipakai.                                                                                          |
-| `drizzle/manual/`             | File `.sql` tulis tangan, berawalan tanggal.                                                                 | Perubahan yang tidak bisa lewat `db:sql`: hapus kolom, ubah unique index, seed referensi, atau saat `drizzle-kit generate` terblokir konflik histori (lihat `20261008_users-buang-role-dan-pinhash.sql`). |
-| `drizzle/backup/`             | Dump `pg_dump` pra-perubahan. Tidak di-version-control.                                                      | Ambil sebelum migrasi destruktif. Jangan commit.                                                                                                                                                          |
+| Lokasi                        | Isi                                                                                                      | Kapan dipakai                                                                                                                                                                                                |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `drizzle/<timestamp>_<nama>/` | Hasil `pnpm db:sql` (`drizzle-kit generate`). Tiap direktori berisi `migration.sql` dan `snapshot.json`. | Perubahan skema biasa. Edit `src/lib/schema/` dulu, lalu generate, lalu periksa `migration.sql` sebelum dipakai.                                                                                             |
+| `drizzle/manual/`             | File `.sql` tulisan tangan, diawali tanggal.                                                             | Perubahan yang tidak bisa lewat `db:sql`: hapus kolom, ubah unique index, seed referensi, atau saat `drizzle-kit generate` terblokir konflik histori. Contohnya `20261008_users-buang-role-dan-pinhash.sql`. |
+| `drizzle/backup/`             | Dump `pg_dump` sebelum perubahan. Tidak di-version-control.                                              | Ambil sebelum migrasi destruktif. Jangan di-commit.                                                                                                                                                          |
 
-`drizzle.config.ts` memakai glob `./src/lib/schema/*.ts` karena definisi skemanya sudah terbagi tiga file; comentário di file itu menjelaskan alasannya.
+`drizzle.config.ts` memakai glob `./src/lib/schema/*.ts` karena definisi skema sudah terbagi tiga file. Komentar di file itu menjelaskan alasannya.
 
-Smoke test yang menyentuh query: `pnpm db:smoke-kunjungan-rumah` dan `pnpm db:smoke-kegiatan`. Jalankan kalau PR mengubah lapisan query.
+Jalankan `pnpm db:smoke-kunjungan-rumah` dan `pnpm db:smoke-kegiatan` kalau PR mengubah lapisan query.
 
 ## Scripts
 
-| Script                          | Isi                                                                                             |
-| ------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `pnpm db:seed`                  | `scripts/seed.ts` - petugas + data warga referensi                                              |
-| `pnpm db:seed-uji`              | `scripts/seed-uji-coba.mts` - data uji-coba untuk PLN                                           |
-| `pnpm db:check-parity`          | `scripts/check-template-parity.mts` - penjaga konsistensi penamaan field form default vs parser |
-| `pnpm db:smoke-kunjungan-rumah` | `scripts/smoke-kunjungan-rumah.mts`                                                             |
-| `pnpm db:smoke-kegiatan`        | `scripts/smoke-kegiatan.mts`                                                                    |
-| `pnpm db:set-non-warga`         | `scripts/set-warga-bentuk-non-warga.mts`                                                        |
-| `pnpm db:push`                  | `drizzle-kit push` - push schema langsung, untuk dev                                            |
-| `pnpm db:sql`                   | `drizzle-kit generate` - buat migration SQL                                                     |
+| Script                          | File                                                                                             |
+| ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `pnpm db:seed`                  | `scripts/seed.ts`: petugas dan data warga referensi                                              |
+| `pnpm db:seed-uji`              | `scripts/seed-uji-coba.mts`: data uji coba untuk PLN                                             |
+| `pnpm db:check-parity`          | `scripts/check-template-parity.mts`: menjaga penamaan field form bawaan tetap sama dengan parser |
+| `pnpm db:smoke-kunjungan-rumah` | `scripts/smoke-kunjungan-rumah.mts`                                                              |
+| `pnpm db:smoke-kegiatan`        | `scripts/smoke-kegiatan.mts`                                                                     |
+| `pnpm db:set-non-warga`         | `scripts/set-warga-bentuk-non-warga.mts`                                                         |
+| `pnpm db:push`                  | `drizzle-kit push`: dorong skema langsung, untuk dev                                             |
+| `pnpm db:sql`                   | `drizzle-kit generate`: buat migration SQL                                                       |
 
-Skrip lain di `scripts/`: `seed-form-defaults.ts`, `seed-reference.ts`, `verify-form-builder-constraints.sql`.
+Skrip lain di `scripts/`: `seed-form-defaults.ts`, `seed-reference.ts`, dan `verify-form-builder-constraints.sql`.
 
 ### Uji terhadap database
 
-Domain yang butuh koneksi database **tidak** diuji oleh `vitest`. Alasannya teknis: `*.server.ts` mengimpor `src/lib/db.server.ts` yang melempar error saat modul dimuat kalau `DATABASE_URL` kosong, jadi mengimpor file-file itu di test node sudah butuh environment database. Jalur ujinya terpisah:
+Domain yang butuh database tidak diuji oleh `vitest`, karena `*.server.ts` mengimpor `src/lib/server/db.server.ts`. Modul itu melempar error saat dimuat jika `DATABASE_URL` kosong. Akibatnya, test node yang mengimpor file-file itu sudah butuh environment database. Jalur uji untuk domain ini terpisah:
 
-| Jalan                           | Cakupan                                                                                                                                                                                                       | Kapan jalan                                     |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| `pnpm test` (vitest)            | Logika murni: validasi, reducer, selector, tree, katalog enum, pembantu laporan. Tidak ada SQL.                                                                                                               | Setiap commit.                                  |
-| `pnpm db:check-parity`          | Struktur form bawaan di database: section tetap ada, field penyimpan data ada, bucket sah, mapper bisa mengubah baris jadi form.                                                                              | Setelah mengubah definisi form.                 |
-| `pnpm db:smoke-kunjungan-rumah` | Alur kunjungan rumah ujung ke ujung: simpan record, NIK dan petugas terpetakan ke `surveys`, dibaca balik, dashboard/sasaran mengenali warga dummy, build dan terbitkan versi form, update record versi lama. | Setelah mengubah lapisan query kunjungan rumah. |
-| `pnpm db:smoke-kegiatan`        | Alur kegiatan: UUID petugas masuk ke `surveys.petugasId`, opsi petugas ter-resolve dari `users`, kegiatan tanpa warga tidak ikut hitung kunjungan, payload rusak ditolak.                                     | Setelah mengubah lapisan query kegiatan.        |
-| `pnpm db:seed-uji`              | Mengisi database uji dengan petugas dan warga contoh.                                                                                                                                                         | Menyiapkan database uji.                        |
+| Jalan                           | Cakupan                                                                                                                                                                                                                | Kapan jalan                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `pnpm test` (vitest)            | Logika pure: validasi, reducer, selector, tree, katalog enum, pembantu laporan. Tidak ada SQL.                                                                                                                         | Setiap commit.                                  |
+| `pnpm db:check-parity`          | Struktur form bawaan di database: section tetap ada, field penyimpan data ada, bucket sah, mapper bisa mengubah baris jadi form.                                                                                       | Setelah mengubah definisi form.                 |
+| `pnpm db:smoke-kunjungan-rumah` | Alur kunjungan rumah dari ujung ke ujung: simpan record, NIK dan petugas terpetakan ke `surveys`, dibaca balik, dashboard dan sasaran mengenali warga dummy, build dan terbitkan versi form, update record versi lama. | Setelah mengubah lapisan query kunjungan rumah. |
+| `pnpm db:smoke-kegiatan`        | Alur kegiatan: UUID petugas masuk ke `surveys.petugasId`, opsi petugas di-resolve dari `users`, kegiatan tanpa warga tidak ikut menghitung kunjungan, payload rusak ditolak.                                           | Setelah mengubah lapisan query kegiatan.        |
+| `pnpm db:seed-uji`              | Mengisi database uji dengan petugas dan warga contoh.                                                                                                                                                                  | Menyiapkan database uji.                        |
 
-Smoke test membuat baris lalu **menghapus sendiri** di akhir, memakai NIK sintetis `90000...`. Kalau ada langkah yang gagal sebelum pembersihan, cari submission sisa dan hapus manual.
+Smoke test membuat baris lalu menghapusnya sendiri di akhir. Mereka memakai NIK sintetis `90000...`. Kalau ada langkah yang gagal sebelum pembersihan, cari submission sisa dan hapus manual.
 
 ### Penjaga database uji
 
-Empat skrip yang menulis ke database memanggil `pastikanDatabaseUji()` dari `src/lib/database-uji.ts`. Fungsi itu menolak `DATABASE_URL` yang namanya tidak mengandung penanda `uji`, `trial`, `test`, `staging`, `dev`, `localhost`, atau `127.0.0.1`.
+Empat skrip yang menulis ke database memanggil `pastikanDatabaseUji()` dari `src/lib/uji/database-uji.ts`. Fungsi itu menolak `DATABASE_URL` yang namanya tidak mengandung penanda `uji`, `trial`, `test`, `staging`, `dev`, `localhost`, atau `127.0.0.1`.
 
-Dulu definisi itu ada tiga kali terpisah di `smoke-kunjungan-rumah.mts`, `smoke-kegiatan.mts`, dan `seed-uji-coba.mts`. Pengaman data yang butuh tiga salinan akan hilang begitu salah satu diedit dan lupa memperbarui yang lain. Sekarang satu definisi, dan perilakunya tidak berubah: pola pencocokannya masih persis sama.
+Dulu ada tiga salinan definisinya, di `smoke-kunjungan-rumah.mts`, `smoke-kegiatan.mts`, dan `seed-uji-coba.mts`. Tiga salinan mudah tidak sinkron: satu diubah, yang lain terlewat. Sekarang hanya ada satu definisi. Perilakunya sama, termasuk pola pencocokannya.
 
-Dua batas yang diketahui dan belum ditutup: pencocokan berupa substring pada seluruh URL, jadi database produksi bernama `pws_dev_backup` ikut lolos; dan database uji yang namanya tidak mengandung penanda akan ditolak. Keduanya tertulis di `src/lib/database-uji.ts`.
+Dua batas yang sudah diketahui dan belum ditutup:
 
-`pnpm db:set-non-warga` ikut memakai penjaga yang sama, sehingga hanya bisa jalan di database uji. Itu bukan keterbatasan yang tidak disengaja: jalur resmi untuk menerapkan perubahan itu ke produksi adalah `drizzle/manual/20261003_form-builder-tanpa-warga-wajib.sql`, yang isinya sama persis dan bisa ditinjau sebelum dieksekusi.
+- Pencocokan berupa substring pada seluruh URL. Karena itu database produksi `pws_dev_backup` lolos, sebab namanya mengandung `dev`.
+- Database uji yang namanya tidak memuat penanda akan ditolak.
 
-## What to touch for common changes
+Keduanya dicatat di `src/lib/uji/database-uji.ts`.
 
-| Change                                     | Files to touch                                                                                                                                                                                                                                                                                                                          |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tambah halaman                             | File baru `src/routes/<nama>.tsx` + entri `NAV_ITEMS` di `src/lib/nav.ts` + bungkus `AppShell` (atau sisipkan di bawah pola `sasaran.tsx`). Jalankan `pnpm generate-routes`. Guard: `beforeLoad: requireAuth`.                                                                                                                          |
-| Ubah sidebar / bottom nav                  | `src/lib/nav.ts` (label, `Icon`, `shortLabel`) + `components/organisms/Sidebar.tsx` / `BottomNav.tsx` untuk layout.                                                                                                                                                                                                                     |
-| Tambah server data fetch                   | 1. Implementasi di file `*.server.ts` yang sesuai, 2. expose lewat `createServerFn` di `src/lib/utils.functions.ts` dengan `method` benar + `.middleware([authSessionToken])`, 3. panggil dari `loader` route atau hook.                                                                                                                |
-| Ubah skema DB                              | `src/lib/schema/` (tentukan file mana) -> `pnpm db:sql` -> periksa `migration.sql` -> `pnpm db:push`/migrate. Update `scripts/seed*.ts` bila seed terpengaruh.                                                                                                                                                                          |
-| Ubah login / session                       | `src/routes/pin.tsx` (UI) + `isValidPin`/`touchSession` di `src/lib/utils.server.ts` + TTL di `src/lib/constants.ts`. Logika cookie/JWT tetap server-only. Rate limit: `src/lib/pin-attempt.ts`.                                                                                                                                        |
-| Field form kunjungan rumah                 | **Jangan hardcode.** Form ini disunting lewat Form Builder di `/kelola`. Bentuknya dipetakan balik ke UI lewat nama section dan prefix `<section>::` pada `form_fields.nama`, jadi kunci di `features/form-builder/lib/kode-bawaan.ts` yang akan menolak draft bermasalah. Render: `features/kunjungan-rumah/components/FieldCell.tsx`. |
-| Validasi / progres kunjungan               | `features/kunjungan-rumah/services/validateKunjunganRumah.ts`, `progress.ts`, `conditional.ts`, plus test di sebelahnya. State: `store/kunjunganRumahReducer.ts` + `types.ts`. Submit: `hooks/useKunjunganRumahForm.ts`.                                                                                                                |
-| Batas unggah foto                          | `constants.ts` (`MAX_FOTO`, `MAX_FILE_BYTES`) + `features/kunjungan-rumah/lib/fotos.ts` (termasuk `compressDataUrl`) + uploader `src/lib/supabase-storage.ts`.                                                                                                                                                                          |
-| Form generik / kegiatan                    | `features/survey/services/form-runtime.server.ts` ( definisi runtime) + `components/DynamicField.tsx` (render) + `routes/kegiatan.tsx` + `hooks/use-kegiatan.ts`.                                                                                                                                                                       |
-| Definisi form di Form Builder              | `features/form-builder/services/` - `validasi.ts` (aturan field), `build.server.ts` (tulis versi), `form-version.server.ts` (terbitkan/duplikasi versi), `option-source.server.ts` (opsi dinamis). Warna editor: `features/kelola/components/builder/`.                                                                                 |
-| Laporan / rekap                            | `src/routes/laporan.tsx` + `features/laporan/` (komponen cetak surat + `report-filter.ts`) + engine `src/lib/rekap-kunjungan-rumah.ts`. Ekspor CSV: `downloadCsv` di `src/lib/utils.ts`.                                                                                                                                                |
-| Dashboard                                  | `src/routes/index.tsx` + `features/dashboard/` (`useKegiatanTrend`, `KegiatanTrendChart`) + query di `utils.server.ts`.                                                                                                                                                                                                                 |
-| Daftar / detail sasaran                    | `src/routes/sasaran.index.tsx`, `sasaran.$id.tsx` + query di `utils.server.ts` (`querySasaranListPaged`, `querySasaranByNik`) + `DataTable` / `InfoPanel` / `Timeline`.                                                                                                                                                                 |
-| Konstanta (kelurahan, posyandu, prioritas) | `src/lib/constants.ts`.                                                                                                                                                                                                                                                                                                                 |
-| Komponen UI reusable                       | `atoms` -> `molecules` -> `organisms` di `src/components/` (satu file per komponen + barrel `index.ts`). Variant/bersama taruh di `src/lib/utils.ts`, bukan inline.                                                                                                                                                                     |
-| Tema / warna / font                        | `src/styles.css` (`@theme`) + `src/lib/theme.ts` + `components/ThemeToggle.tsx`.                                                                                                                                                                                                                                                        |
-| Test baru                                  | `<same-dir>/<nama>.test.ts`, jalankan `pnpm test`. Target logika murni: `validasi.ts`, `sumber-opsi.ts`, `template-field.ts`, `kode-bawaan.ts`, `kunjunganRumahReducer.ts`, `rekap-kunjungan-rumah.ts`, `progress.ts`, `conditional.ts`, `fotos.ts`. Jangan sentuh DB atau jaringan.                                                    |
+`pnpm db:set-non-warga` memakai penjaga yang sama, jadi hanya bisa jalan di database uji, dan itu disengaja. Jalur resmi untuk menerapkan perubahan itu ke produksi adalah `drizzle/manual/20261003_form-builder-tanpa-warga-wajib.sql`. File itu berisi perubahan yang sama dan bisa ditinjau sebelum dijalankan.
 
-## Conventions
+## Mau mengubah apa
 
-- Import: `@/...` untuk `src/`. Barrel untuk `components/atoms|molecules|organisms`.
-- Client tidak mengimpor `*.server.ts` atau `db.server.ts` langsung.
-- Satu komponen per file, test colocated, gaya Prettier (tanpa semicolon, single quote).
-- Nama file hook memakai kebab-case (`use-kader-aktif.ts`). Beberapa feature masih pakai camelCase (`useKunjunganRumahForm.ts`) - sedang dirapikan, ikuti pola yang berlaku di file yang kamu sentuh.
-- Komentar dalam bahasa Indonesia, dan menjelaskan **kenapa**, bukan apa.
-- Jangan diedit: `src/routeTree.gen.ts`, `drizzle/*/snapshot.json`, isi `.output/`.
+| Perubahan                                  | File yang disentuh                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tambah halaman                             | File baru `src/routes/<nama>.tsx`, entri di `NAV_ITEMS` (`src/lib/nav/nav.ts`), dan bungkus `AppShell` (atau ikuti pola `sasaran.tsx`). Jalankan `pnpm generate-routes`. Guard: `beforeLoad: requireAuth`.                                                                                                            |
+| Ubah sidebar atau bottom nav               | `src/lib/nav/nav.ts` (label, `Icon`, `shortLabel`) dan `src/components/layout/Sidebar.tsx` atau `BottomNav.tsx` untuk layout.                                                                                                                                                                                         |
+| Tambah pengambilan data dari server        | 1. Query di `src/lib/server/*.server.ts` (dipakai lintas fitur) atau `src/lib/server/<fitur>/*.server.ts` (satu fitur). 2. Expose lewat `createServerFn` di `src/lib/api/server-fns.ts` dengan `method` yang benar dan `.middleware([authSessionToken])`. 3. Panggil dari `loader` route atau hook.                   |
+| Ubah skema DB                              | `src/lib/schema/` (pilih file yang tepat), lalu `pnpm db:sql`, periksa `migration.sql`, lalu `pnpm db:push` atau migrate. Perbarui `scripts/seed*.ts` kalau seed terdampak.                                                                                                                                           |
+| Ubah login atau sesi                       | `src/routes/pin.tsx` (UI), `isValidPin` dan `touchSession` di `src/lib/auth/session.server.ts`, TTL di `src/lib/constants.ts`. Rate limit: `src/lib/auth/pin-attempt.ts`.                                                                                                                                             |
+| Field form kunjungan rumah                 | **Jangan hardcode.** Form ini disunting lewat Form Builder di `/kelola`. Kunci nama section dan field ada di `src/lib/form-builder/kode-bawaan.ts`, yang menolak draft bermasalah. Render: `src/components/kunjungan-rumah/FieldCell.tsx`.                                                                            |
+| Validasi dan progres kunjungan             | `src/lib/service/kunjungan-rumah/` (`validate-kunjungan-rumah.ts`, `progress.ts`, `conditional.ts`) beserta test di sebelahnya. State: `src/lib/kunjungan-rumah/store/kunjungan-rumah-reducer.ts` dan `src/lib/kunjungan-rumah/types.ts`. Submit: `src/hooks/kunjungan-rumah/use-kunjungan-rumah-form.ts`.            |
+| Batas unggah foto                          | `src/lib/constants.ts` (`MAX_FOTO`, `MAX_FILE_BYTES`), `src/lib/kunjungan-rumah/fotos.ts` (termasuk `compressDataUrl`), dan uploader `src/lib/supabase-storage.ts`.                                                                                                                                                   |
+| Form generik dan kegiatan                  | `src/lib/server/survey/form-runtime.server.ts` (definisi runtime), `src/components/survey/DynamicField.tsx` (render), `src/routes/kegiatan.tsx`, dan `src/hooks/survey/use-kegiatan.ts`.                                                                                                                              |
+| Definisi form di Form Builder              | Aturan murni di `src/lib/service/form-builder/` (`validasi.ts`, `sumber-opsi.ts`). Query dan mutasi di `src/lib/server/form-builder/`: `build.server.ts` (tulis versi), `form-version.server.ts` (terbitkan dan duplikasi versi), `option-source.server.ts` (opsi dinamis). Editor: `src/components/kelola/builder/`. |
+| Laporan dan rekap                          | `src/routes/laporan.tsx`, `src/components/laporan/` (cetak surat, riwayat), dan `src/lib/laporan/` (`report-filter.ts`, `rekap-kunjungan-rumah.ts`). Ekspor CSV: `downloadCsv` di `src/lib/utils.ts`.                                                                                                                 |
+| Dashboard                                  | `src/routes/index.tsx`, `src/components/dashboard/KegiatanTrendChart.tsx`, `src/hooks/dashboard/use-kegiatan-trend.ts`, dan query yang dipanggil hook lewat `src/lib/api/server-fns.ts`.                                                                                                                              |
+| Daftar dan detail sasaran                  | `src/routes/sasaran.index.tsx`, `sasaran.$id.tsx`, query di `src/lib/server/sasaran.server.ts` (`querySasaranListPaged`, `querySasaranByNik`), dan komponen `DataTable`, `InfoPanel`, `Timeline`.                                                                                                                     |
+| Data kader dan petugas                     | `src/lib/server/petugas/user-registry.server.ts` (query DB), `src/lib/petugas/user-registry.ts` (tipe yang aman dibaca client), `src/lib/petugas/staff.ts`, dan `src/hooks/petugas/`.                                                                                                                                 |
+| Konstanta (kelurahan, posyandu, prioritas) | `src/lib/constants.ts`.                                                                                                                                                                                                                                                                                               |
+| Komponen UI yang bisa dipakai ulang        | Di `src/components/ui/` (satu file per komponen, lewat barrel `index.ts`). Kerangka halaman di `layout/`, dan komponen gabungan di `shared/`. Variant dan helper bersama taruh di `src/lib/utils.ts`, bukan inline.                                                                                                   |
+| Tema, warna, font                          | `src/styles.css` (`@theme`), `src/lib/theme.ts`, dan `src/components/ui/ThemeToggle.tsx`.                                                                                                                                                                                                                             |
+| Test baru                                  | `<folder-yang-sama>/<nama>.test.ts`, lalu jalankan `pnpm test`. Target logika pure: `validasi.ts`, `sumber-opsi.ts`, `template-field.ts`, `kode-bawaan.ts`, `kunjungan-rumah-reducer.ts`, `rekap-kunjungan-rumah.ts`, `progress.ts`, `conditional.ts`, `fotos.ts`. Jangan sentuh DB atau jaringan.                    |
+
+## Konvensi
+
+- Import memakai `@/...` untuk `src/`. Barrel dipakai untuk `components/ui`, `components/layout`, dan `components/shared`.
+- Client tidak mengimpor nilai dari `*.server.ts` atau `db.server.ts`.
+- Satu komponen per file. Test ditaruh di folder yang sama. Format mengikuti Prettier (tanpa semicolon, single quote).
+- Komponen React memakai PascalCase, misalnya `KunjunganRumahFormScene.tsx`. Hook dan modul non-komponen memakai kebab-case, misalnya `use-kader-aktif.ts` dan `kunjungan-rumah-reducer.ts`.
+- Komentar ditulis dalam bahasa Indonesia dan menjelaskan kenapa, bukan apa.
+- Jangan diedit: `src/routeTree.gen.ts`, `drizzle/*/snapshot.json`, dan isi `.output/`.
 
 ## PR checklist
 
 1. `pnpm check` dan `pnpm test` lulus. `pnpm lint` bersih.
-2. Skema berubah: migration SQL disertakan, `pnpm db:seed` diverifikasi lokal.
-3. Route berubah: `pnpm generate-routes` dijalankan, guard `requireAuth` terpasang.
-4. Server fn baru: `method` benar (GET baca / POST mutasi), `.middleware([authSessionToken])` terpasang.
-5. Query berubah: smoke test domain terkait dijalankan.
+2. Skema berubah: migration SQL ikut di PR, dan `pnpm db:seed` sudah diuji lokal.
+3. Route berubah: `pnpm generate-routes` sudah dijalankan dan guard `requireAuth` terpasang.
+4. Server fn baru: `method` benar (GET untuk baca, POST untuk mutasi) dan `.middleware([authSessionToken])` terpasang.
+5. Query berubah: smoke test domain terkait sudah dijalankan.
 6. Field form bawaan berubah: `pnpm db:check-parity` lulus.

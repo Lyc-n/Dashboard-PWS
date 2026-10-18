@@ -112,9 +112,9 @@ export const fasilitasKesehatan = pgTable(
  *
  * Dulunya tabel ini punya kolom `role` (enum 'admin'/'kader') dan `pinHash`.
  * Keduanya dihapus: login memakai satu PIN global dari environment
- * (`isValidPin` di `src/lib/utils.server.ts`), jadi tidak ada hash per-akun yang
+ * (`isValidPin` di `src/lib/auth/session.server.ts`), jadi tidak ada hash per-akun yang
  * perlu diverifikasi, dan `role` tidak pernah membatasi apa pun — semua sesi
- * valid setara (lihat `src/lib/auth.ts`). Yang tersisa adalah data referensi:
+ * valid setara (lihat `src/lib/auth/auth.ts`). Yang tersisa adalah data referensi:
  * siapa saja yang boleh dipilih sebagai petugas pencatat.
  *
  * `pinHash` dihapus, bukan dibiarkan terisi penanda. Kolom itu tidak pernah

@@ -1,36 +1,39 @@
 import { useMemo, useState, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { RoutePending } from '@/components/RoutePending'
+import { RoutePending } from '@/components/ui/RoutePending'
 import {
   getFormAdaSubmit,
   getLaporanKunjunganRumah,
   getRiwayatSubmit,
   listKegiatan,
-} from '@/lib/utils.functions'
-import type { KegiatanRecord } from '@/hooks/use-kegiatan'
-import { formIdOf } from '@/features/laporan/report-filter'
+} from '@/lib/api/server-fns'
+import type { KegiatanRecord } from '@/hooks/survey/use-kegiatan'
+import { formIdOf } from '@/lib/laporan/report-filter'
 import { JENIS_KEGIATAN, KELS, PAGE_SIZE, POSY } from '@/lib/constants'
 import { downloadCsv, fmtDate, pctOf } from '@/lib/utils'
 import { useToast } from '@/providers/toast'
-import { AppShell, DataTable } from '@/components/organisms'
-import { MobileRow, Td, Tr } from '@/components/organisms/DataTable'
+import { AppShell } from '@/components/layout'
+import { DataTable } from '@/components/shared'
+import { MobileRow, Td, Tr } from '@/components/shared/DataTable'
 import {
   DateRange,
   KelurahanSelect,
   PageHeader,
   SectionCard,
   StatCard,
-} from '@/components/molecules'
-import { Input, Select, StatusBadge } from '@/components/atoms'
-import { requireAuth } from '@/lib/auth'
-import { RekapKunjunganRumahSection } from '@/features/laporan/RekapKunjunganRumahSection'
-import { RiwayatSubmitSection } from '@/features/laporan/RiwayatSubmitSection'
-import { FilterToolbar } from '@/features/laporan/components/FilterToolbar'
-import { KelStatsGrid } from '@/features/laporan/components/KelStatsGrid'
-import { KopSection } from '@/features/laporan/components/KopSection'
-import { KopSurat } from '@/features/laporan/components/KopSurat'
-import { KopTable } from '@/features/laporan/components/KopTable'
-import { paginate } from '@/features/laporan/components/report-shared'
+  Input,
+  Select,
+  StatusBadge,
+} from '@/components/ui'
+import { requireAuth } from '@/lib/auth/auth'
+import { RekapKunjunganRumahSection } from '@/components/laporan/RekapKunjunganRumahSection'
+import { RiwayatSubmitSection } from '@/components/laporan/RiwayatSubmitSection'
+import { FilterToolbar } from '@/components/laporan/FilterToolbar'
+import { KelStatsGrid } from '@/components/laporan/KelStatsGrid'
+import { KopSection } from '@/components/laporan/KopSection'
+import { KopSurat } from '@/components/laporan/KopSurat'
+import { KopTable } from '@/components/laporan/KopTable'
+import { paginate } from '@/lib/laporan/report-shared'
 import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
 
 // Search param di-narrow dari `unknown` ke `string`. Tanpa return type eksplisit,

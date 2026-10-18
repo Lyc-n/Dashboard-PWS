@@ -15,7 +15,7 @@ import {
   PEKERJAAN_VALUES,
   PENDIDIKAN_VALUES,
   STATUS_KAWIN_VALUES,
-} from '../enum-values'
+} from '@/lib/enum-values'
 
 export {
   AGAMA_VALUES,

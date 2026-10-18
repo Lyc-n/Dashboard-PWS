@@ -1,11 +1,10 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { RoutePending } from '@/components/RoutePending'
-import { getSasaranDetail } from '@/lib/utils.functions'
-import { requireAuth } from '@/lib/auth'
+import { RoutePending } from '@/components/ui/RoutePending'
+import { getSasaranDetail } from '@/lib/api/server-fns'
+import { requireAuth } from '@/lib/auth/auth'
 import { fmtDate } from '@/lib/utils'
-import { DetailHeader, InfoPanel, Timeline } from '@/components/organisms'
-import { PageHeader, SectionCard } from '@/components/molecules'
-import { Button, StatusBadge } from '@/components/atoms'
+import { DetailHeader, InfoPanel, Timeline } from '@/components/shared'
+import { PageHeader, SectionCard, Button, StatusBadge } from '@/components/ui'
 
 export const Route = createFileRoute('/sasaran/$id')({
   beforeLoad: requireAuth,

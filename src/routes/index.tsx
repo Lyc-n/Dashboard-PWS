@@ -1,23 +1,25 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { RoutePending } from '@/components/RoutePending'
-import { getDashboardData } from '@/lib/utils.functions'
+import { RoutePending } from '@/components/ui/RoutePending'
+import { getDashboardData } from '@/lib/api/server-fns'
 import { fmtDate } from '@/lib/utils'
 import { PAGE_SIZE } from '@/lib/constants'
-import { requireAuth } from '@/lib/auth'
-import { AppShell, DataTable, KelurahanSection } from '@/components/organisms'
-import { MobileRow, Td, Tr } from '@/components/organisms/DataTable'
-import type { SummaryCardData } from '@/components/organisms'
+import { requireAuth } from '@/lib/auth/auth'
+import { AppShell } from '@/components/layout'
+import { DataTable, KelurahanSection } from '@/components/shared'
+import { MobileRow, Td, Tr } from '@/components/shared/DataTable'
+import type { SummaryCardData } from '@/components/shared'
 import {
   PageHeader,
   SectionCard,
   StatCard,
   Toolbar,
-} from '@/components/molecules'
-import { Select, StatusBadge } from '@/components/atoms'
-import { paginate } from '@/features/laporan/components/report-shared'
-import { useKegiatanTrend } from '@/features/dashboard/useKegiatanTrend'
-import { KegiatanTrendChart } from '@/features/dashboard/KegiatanTrendChart'
+  Select,
+  StatusBadge,
+} from '@/components/ui'
+import { paginate } from '@/lib/laporan/report-shared'
+import { useKegiatanTrend } from '@/hooks/dashboard/use-kegiatan-trend'
+import { KegiatanTrendChart } from '@/components/dashboard/KegiatanTrendChart'
 
 export const Route = createFileRoute('/')({
   beforeLoad: requireAuth,

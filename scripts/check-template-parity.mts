@@ -30,13 +30,13 @@
  */
 import 'dotenv/config'
 import { sql } from 'drizzle-orm'
-import { db } from '../src/lib/db.server.ts'
-import { getKunjunganRumahTemplateRows } from '../src/lib/utils.server.ts'
-import { templateFromRows } from '../src/features/kunjungan-rumah/lib/template-from-rows.ts'
-import { createDefaultKunjunganRumahTemplates } from '../src/lib/kunjungan-rumah-templates.ts'
-import type { KunjunganRumahTemplateField } from '../src/lib/kunjungan-rumah-templates.ts'
-import { SASARAN_KEYS } from '../src/lib/kunjungan-rumah-form.ts'
-import { KODE_FORM_BAWAAN } from '../src/lib/constants.ts'
+import { db } from '@/lib/server/db.server'
+import { getKunjunganRumahTemplateRows } from '@/lib/server/kunjungan-rumah.server'
+import { templateFromRows } from '../src/lib/kunjungan-rumah/template/template-from-rows.ts'
+import { createDefaultKunjunganRumahTemplates } from '../src/lib/kunjungan-rumah/template/kunjungan-rumah-templates.ts'
+import type { KunjunganRumahTemplateField } from '../src/lib/kunjungan-rumah/template/kunjungan-rumah-templates.ts'
+import { SASARAN_KEYS } from '../src/lib/kunjungan-rumah/template/kunjungan-rumah-form.ts'
+import { KODE_FORM_BAWAAN } from '@/lib/constants'
 import {
   BUCKET_SASARAN,
   FIELD_RECORD_LEGACY,
@@ -45,7 +45,7 @@ import {
   SECTION_TERLINDUNGI,
   TIPE_KADER,
   namaDenganPrefix,
-} from '../src/features/form-builder/lib/kode-bawaan.ts'
+} from '../src/lib/form-builder/kode-bawaan.ts'
 
 const modeBaseline = process.argv.includes('--baseline')
 

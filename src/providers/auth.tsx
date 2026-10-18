@@ -8,8 +8,8 @@ import {
 } from 'react'
 import type { ReactNode } from 'react'
 import { useMatches } from '@tanstack/react-router'
-import { logoutSession } from '@/lib/utils.functions'
-import type { AuthUser } from '@/lib/auth'
+import { logoutSession } from '@/lib/api/server-fns'
+import type { AuthUser } from '@/lib/auth/auth'
 
 interface AuthContextValue {
   user: AuthUser | null
