@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { AppShell } from '@/components/organisms/AppShell'
 import { DetailHeader } from '@/components/organisms/DetailHeader'
 import { DokumentasiPanel } from '@/components/organisms/DokumentasiPanel'
@@ -10,6 +10,7 @@ import type { Step } from '@/components/molecules/Stepper'
 import { FillBar } from '@/components/molecules/FillBar'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { Button } from '@/components/atoms/Button'
+import { ButtonLink } from '@/components/atoms'
 import { useToast } from '@/providers/toast'
 import { useKunjunganRumahForm } from '@/features/kunjungan-rumah/hooks/useKunjunganRumahForm'
 import type { KunjunganRumahRecord } from '@/features/kunjungan-rumah/types'
@@ -225,12 +226,9 @@ export function KunjunganRumahFormScene({ record }: Props) {
             <Button variant="primary" onClick={goCreate}>
               Kembali & isi kunjungan baru
             </Button>
-            <Link
-              to="/kunjungan-rumah"
-              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-4.5 py-2.75 text-[13px] font-bold text-on-accent hover:bg-accent-hover"
-            >
+            <ButtonLink to="/kunjungan-rumah" variant="primary">
               Lihat Riwayat
-            </Link>
+            </ButtonLink>
           </SuccessPanel>
         ) : (
           <SuccessPanel
@@ -240,12 +238,9 @@ export function KunjunganRumahFormScene({ record }: Props) {
             <Button variant="primary" onClick={handleNext}>
               Isi keluarga berikutnya
             </Button>
-            <Link
-              to="/sasaran"
-              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-4.5 py-2.75 text-[13px] font-bold text-on-accent hover:bg-accent-hover"
-            >
+            <ButtonLink to="/sasaran" variant="primary">
               Lihat Data Sasaran
-            </Link>
+            </ButtonLink>
           </SuccessPanel>
         )
       ) : null}

@@ -31,6 +31,8 @@ import {
   statusVariantFrom,
   todayISO,
   pesanError,
+  buttonClass,
+  pctOf,
 } from '@/lib/utils'
 
 describe('cn', () => {
@@ -38,6 +40,35 @@ describe('cn', () => {
     expect(cn('a', 'b')).toBe('a b')
     expect(cn('a', false, null, undefined, '', 'b')).toBe('a b')
     expect(cn()).toBe('')
+  })
+})
+
+describe('buttonClass', () => {
+  it('menggabung varian dan ukuran untuk semua kombinasi Button', () => {
+    // ButtonLink merakit kelas yang sama tanpa lewat komponen `Button`, jadi
+    // penguncian di sini menjaga keduanya tetap identik.
+    expect(buttonClass('primary', 'md')).toBe(
+      'border-accent bg-accent text-on-accent hover:bg-accent-hover min-h-10 px-5 py-2.5 text-[13px]',
+    )
+    expect(buttonClass('danger', 'sm')).toBe(
+      'border-[var(--color-danger-border)] bg-surface text-danger hover:bg-[var(--color-danger-soft)] min-h-8 px-3 py-1 text-xs',
+    )
+    expect(buttonClass()).toBe(buttonClass('default', 'md'))
+  })
+})
+
+describe('pctOf', () => {
+  it('membulatkan ke persen terdekat', () => {
+    expect(pctOf(1, 3)).toBe(33)
+    expect(pctOf(2, 3)).toBe(67)
+    expect(pctOf(50, 100)).toBe(50)
+  })
+
+  it('total 0 atau negatif menghasilkan 0, bukan NaN atau Infinity', () => {
+    // Kartu statistik menampilkan `pct(bagian, total)` langsung; NaN akan
+    // tampil mentah di layar sebelum di sanitasi.
+    expect(pctOf(5, 0)).toBe(0)
+    expect(pctOf(5, -10)).toBe(0)
   })
 })
 

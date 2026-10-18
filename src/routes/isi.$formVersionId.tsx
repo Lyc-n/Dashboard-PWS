@@ -1,5 +1,6 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { AppShell } from '@/components/organisms'
+import { ButtonLink } from '@/components/atoms'
 import { PageHeader, SectionCard } from '@/components/molecules'
 import { FormulirScene } from '@/features/survey/components/FormulirScene'
 import { useAsyncData } from '@/hooks/use-async-data'
@@ -69,13 +70,14 @@ function IsiFormulir() {
               tayang bisa diganti atau formnya dinonaktifkan. Buka lagi dari
               daftar form yang tersedia.
             </p>
-            <Link
+            <ButtonLink
               to="/form"
               search={{ jenis: '' }}
-              className="inline-flex w-fit cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-[18px] py-[11px] text-[13px] font-bold text-on-accent hover:bg-accent-hover"
+              variant="primary"
+              className="w-fit"
             >
               Kembali ke daftar formulir
-            </Link>
+            </ButtonLink>
           </div>
         </SectionCard>
       </AppShell>

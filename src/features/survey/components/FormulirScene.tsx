@@ -22,7 +22,6 @@
  * (lihat `SESSION_PROFILE` di src/lib/constants.ts).
  */
 import { useCallback } from 'react'
-import { Link } from '@tanstack/react-router'
 import { AppShell, SuccessPanel } from '@/components/organisms'
 import {
   FillBar,
@@ -33,7 +32,7 @@ import {
   Toolbar,
 } from '@/components/molecules'
 import type { Step } from '@/components/molecules'
-import { Button, Input, Select } from '@/components/atoms'
+import { Button, ButtonLink, Input, Select } from '@/components/atoms'
 import { useToast } from '@/providers/toast'
 import { nilaiKosong, useFormRuntime } from '@/hooks/use-form-runtime'
 import {
@@ -387,13 +386,9 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
           >
             Isi formulir ini lagi
           </Button>
-          <Link
-            to="/form"
-            search={{ jenis: '' }}
-            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-[18px] py-[11px] text-[13px] font-bold text-on-accent hover:bg-accent-hover"
-          >
+          <ButtonLink to="/form" search={{ jenis: '' }} variant="primary">
             Isi formulir lain
-          </Link>
+          </ButtonLink>
         </SuccessPanel>
       ) : null}
     </AppShell>

@@ -15,9 +15,10 @@
  * dan pratinjau tidak boleh menyembunyikan fakta itu.
  */
 import { useEffect, useMemo } from 'react'
-import { AlertTriangle, Eye, X } from 'lucide-react'
+import { Eye, X } from 'lucide-react'
 import { Button } from '@/components/atoms/Button'
 import { PageHeader, SectionCard } from '@/components/molecules'
+import { PeringatanBox } from '@/components/organisms'
 import { DynamicField } from '@/features/survey/components/DynamicField'
 import type { FieldRuntime } from '@/features/survey/services/form-runtime.server'
 import type { DraftFormDocument } from '../types'
@@ -107,13 +108,10 @@ export function PratinjauOverlay({
         />
 
         {fieldYatim.length > 0 ? (
-          <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>
-              {fieldYatim.length} pertanyaan tidak punya section, jadi tidak
-              punya tempat di form yang akan tayang. Pindahkan ke section dulu.
-            </span>
-          </div>
+          <PeringatanBox className="mt-3">
+            {fieldYatim.length} pertanyaan tidak punya section, jadi tidak punya
+            tempat di form yang akan tayang. Pindahkan ke section dulu.
+          </PeringatanBox>
         ) : null}
 
         {sections.length === 0 ? (

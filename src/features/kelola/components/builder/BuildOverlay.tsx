@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/atoms/Button'
+import { PeringatanBox } from '@/components/organisms'
 
 const STAGES = [
   { key: 'validate', label: 'Memvalidasi struktur form...' },
@@ -93,10 +94,13 @@ export function BuildOverlay({ isOpen, onClose, onBuild, saving }: Props) {
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-lg border border-destructive bg-destructive/10 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-            <span className="text-sm text-destructive">{error}</span>
-          </div>
+          <PeringatanBox
+            className="mb-4"
+            align="center"
+            icon={<AlertCircle className="w-5 h-5 text-destructive shrink-0" />}
+          >
+            {error}
+          </PeringatanBox>
         )}
 
         <div className="grid gap-2 mb-4">

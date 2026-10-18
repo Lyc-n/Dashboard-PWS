@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useKegiatan } from '@/hooks/use-kegiatan'
 import { useKegiatanRecords } from '@/hooks/use-kegiatan-records'
 import { usePetugasOpsi } from '@/hooks/use-petugas-opsi'
@@ -24,7 +24,14 @@ import {
   Toolbar,
 } from '@/components/molecules'
 import type { Step } from '@/components/molecules'
-import { Badge, Button, Input, Select, Textarea } from '@/components/atoms'
+import {
+  Badge,
+  Button,
+  ButtonLink,
+  Input,
+  Select,
+  Textarea,
+} from '@/components/atoms'
 import { requireAuth } from '@/lib/auth'
 
 export const Route = createFileRoute('/kegiatan')({
@@ -304,12 +311,9 @@ function Kegiatan() {
           <Button variant="primary" onClick={handleNext}>
             Catat kegiatan berikutnya
           </Button>
-          <Link
-            to="/sasaran"
-            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-[18px] py-[11px] text-[13px] font-bold text-on-accent hover:bg-accent-hover"
-          >
+          <ButtonLink to="/sasaran" variant="primary">
             Lihat Data Sasaran
-          </Link>
+          </ButtonLink>
         </SuccessPanel>
       ) : null}
 

@@ -13,9 +13,10 @@
  * diketik, tidak menentukan sendiri boleh atau tidaknya dihapus.
  */
 import { useState } from 'react'
-import { AlertTriangle, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/atoms/Button'
 import { Input } from '@/components/atoms'
+import { PeringatanBox } from '@/components/organisms'
 import type { RingkasanHapusForm } from '@/features/form-builder/services/validasi'
 
 interface Props {
@@ -85,16 +86,13 @@ export function HapusFormDialog({
 
         {adaIsian ? (
           <>
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive bg-destructive/10 p-3 text-[12.5px] text-destructive">
-              <AlertTriangle className="mt-0.5 w-4 h-4 shrink-0" />
-              <span>
-                {ringkasan.jumlahSubmit} isian dari{' '}
-                {ringkasan.jumlahWarga || 'beberapa'} warga akan hilang permanen
-                dari dashboard, laporan, tab Riwayat Submit Form, dan detail
-                sasaran. Versi, section, dan pertanyaan ikut terhapus. Tindakan
-                ini tidak bisa dibatalkan.
-              </span>
-            </div>
+            <PeringatanBox className="mt-3">
+              {ringkasan.jumlahSubmit} isian dari{' '}
+              {ringkasan.jumlahWarga || 'beberapa'} warga akan hilang permanen
+              dari dashboard, laporan, tab Riwayat Submit Form, dan detail
+              sasaran. Versi, section, dan pertanyaan ikut terhapus. Tindakan
+              ini tidak bisa dibatalkan.
+            </PeringatanBox>
             <label className="mt-3 grid gap-1.5 text-[12.5px] font-semibold text-ink-2">
               Ketik nama form untuk melanjutkan
               <Input

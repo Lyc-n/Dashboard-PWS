@@ -14,8 +14,9 @@
  * ditegakkan ulang di `validasiHapusDraftVersi` saat penghapusan benar-benar
  * dijalankan. Dialog tidak menentukan sendiri apa yang boleh dihapus.
  */
-import { AlertTriangle, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/atoms/Button'
+import { PeringatanBox } from '@/components/organisms'
 import type { RingkasanHapusDraft } from '@/features/form-builder/services/validasi'
 
 interface Props {
@@ -64,13 +65,10 @@ export function HapusDraftDialog({
         </div>
 
         {ringkasan.jumlahSubmit > 0 ? (
-          <div className="mt-3 flex items-start gap-2 rounded-lg border border-destructive bg-destructive/10 p-3 text-[12.5px] text-destructive">
-            <AlertTriangle className="mt-0.5 w-4 h-4 shrink-0" />
-            <span>
-              Draft ini sudah punya {ringkasan.jumlahSubmit} isian, jadi tidak
-              bisa dihapus. Isian form tidak bisa ikut hilang bersama drafnya.
-            </span>
-          </div>
+          <PeringatanBox className="mt-3">
+            Draft ini sudah punya {ringkasan.jumlahSubmit} isian, jadi tidak
+            bisa dihapus. Isian form tidak bisa ikut hilang bersama drafnya.
+          </PeringatanBox>
         ) : (
           <p className="mt-3 text-[12.5px] text-muted">
             Draft ini belum pernah dipakai petugas, jadi isian yang sudah ada

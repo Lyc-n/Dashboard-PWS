@@ -4,13 +4,13 @@ import {
   FolderPlus,
   RotateCcw,
   Save,
-  AlertTriangle,
   ChevronsLeft,
   ChevronsRight,
   Eye,
   FlaskConical,
 } from 'lucide-react'
 import { Button } from '@/components/atoms/Button'
+import { PeringatanBox } from '@/components/organisms'
 import { BlockPalette } from './BlockPalette'
 import { KontenDrag } from './KontenDrag'
 import { SectionNode } from './SectionNode'
@@ -250,17 +250,15 @@ export function FormBuilderWorkspace({
         </div>
 
         {buildError && (
-          <div className="mb-3 p-3 rounded-lg border border-destructive bg-destructive/10 text-sm text-destructive flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
+          <PeringatanBox className="mb-3" align="center">
             {buildError}
-          </div>
+          </PeringatanBox>
         )}
 
         {orphanFieldCount > 0 && (
-          <div className="mb-3 p-3 rounded-lg border border-destructive bg-destructive/10 text-sm text-destructive flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
+          <PeringatanBox className="mb-3" align="center">
             {`${orphanFieldCount} field yatim (section hilang) ditemukan. Pindahkan sebelum Build.`}
-          </div>
+          </PeringatanBox>
         )}
 
         <div className="flex-1 flex min-h-0 overflow-hidden">
