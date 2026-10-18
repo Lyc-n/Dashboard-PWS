@@ -27,9 +27,9 @@ import {
   FillBar,
   FormField,
   PageHeader,
+  SaveBar,
   SectionCard,
   Stepper,
-  Toolbar,
 } from '@/components/molecules'
 import type { Step } from '@/components/molecules'
 import { Button, ButtonLink, Input, Select } from '@/components/atoms'
@@ -346,17 +346,12 @@ export function FormulirScene({ formVersionId, definisi }: FormulirSceneProps) {
       <SectionCard
         title={`${visibleSections.length + 1}. Simpan`}
         actions={
-          <Toolbar className="w-full">
-            <span className="ml-auto text-xs text-muted">
-              Simpan ke database.
-            </span>
-            <Button variant="default" onClick={reset} disabled={saving}>
-              Reset
-            </Button>
-            <Button variant="primary" onClick={onSimpan} disabled={saving}>
-              {saving ? 'Menyimpan…' : 'Simpan isian'}
-            </Button>
-          </Toolbar>
+          <SaveBar
+            onReset={reset}
+            onSubmit={onSimpan}
+            disabled={saving}
+            submitLabel={saving ? 'Menyimpan…' : 'Simpan isian'}
+          />
         }
       >
         <div className="grid gap-1.5">

@@ -4,14 +4,26 @@ import { Input } from '@/components/atoms/Input'
 import { Select } from '@/components/atoms/Select'
 import { FormField } from '@/components/molecules/FormField'
 
-interface Props {
+/**
+ * Satu cell field template kunjungan rumah.
+ *
+ * text, number, dan date sengaja lewat satu jalur FormField yang sama —
+ * dulu ketiganya ditulis manual dengan label 11px muted, sementara select
+ * di grid yang sama sudah FormField (12px semibold ink). Dua bahasa label di
+ * satu form sunting itu hasil sisa pendahuluan, bukan desain; FormField juga
+ * yang memegang perilaku invalid/hint/error yang sudah teruji.
+ */
+export function FieldCell({
+  field,
+  value,
+  invalid,
+  onChange,
+}: {
   field: KunjunganRumahTemplateField
   value: string
   invalid?: boolean
   onChange: (v: string) => void
-}
-
-export function FieldCell({ field, value, invalid, onChange }: Props) {
+}) {
   const errorId = `${field.id}-error`
   const getPlaceholder = (f: KunjunganRumahTemplateField): string => {
     if (f.id.includes('Tempat')) return 'contoh: Puskesmas Trajeng'
@@ -31,69 +43,7 @@ export function FieldCell({ field, value, invalid, onChange }: Props) {
     if (f.hint) return f.hint
     return `Masukkan ${f.label.toLowerCase()}`
   }
-  if (field.kind === 'text' || field.kind === 'number') {
-    return (
-      <div className="grid gap-1.5">
-        <span className="text-[11px] font-normal text-muted">
-          {field.label}
-          {field.required ? <span className="text-danger"> *</span> : null}
-        </span>
-        <Input
-          placeholder={getPlaceholder(field)}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          inputMode={field.kind === 'number' ? 'decimal' : undefined}
-          invalid={invalid}
-          aria-describedby={invalid ? errorId : undefined}
-        />
-        {field.hint ? (
-          <span className="text-[11px] font-normal text-muted">
-            {field.hint}
-          </span>
-        ) : null}
-        {invalid ? (
-          <span
-            id={errorId}
-            role="alert"
-            className="text-[11px] font-semibold text-danger"
-          >
-            Wajib diisi.
-          </span>
-        ) : null}
-      </div>
-    )
-  }
-  if (field.kind === 'date') {
-    return (
-      <div className="grid gap-1.5">
-        <span className="text-[11px] font-normal text-muted">
-          {field.label}
-          {field.required ? <span className="text-danger"> *</span> : null}
-        </span>
-        <Input
-          type="date"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          invalid={invalid}
-          aria-describedby={invalid ? errorId : undefined}
-        />
-        {field.hint ? (
-          <span className="text-[11px] font-normal text-muted">
-            {field.hint}
-          </span>
-        ) : null}
-        {invalid ? (
-          <span
-            id={errorId}
-            role="alert"
-            className="text-[11px] font-semibold text-danger"
-          >
-            Wajib diisi.
-          </span>
-        ) : null}
-      </div>
-    )
-  }
+
   if (field.kind === 'select') {
     return (
       <FormField
@@ -118,19 +68,41 @@ export function FieldCell({ field, value, invalid, onChange }: Props) {
       </FormField>
     )
   }
-  // Sisa satu-satunya kind yang belum return di atas adalah "checkbox".
+  if (field.kind === 'checkbox') {
+    return (
+      <FormField
+        label={field.label}
+        required={field.required}
+        invalid={invalid}
+        error="Wajib centang."
+        hint={field.hint}
+        errorId={errorId}
+      >
+        <Checkbox
+          checked={value === 'true'}
+          onChange={(e) => onChange(String(e.target.checked))}
+          aria-describedby={invalid ? errorId : undefined}
+        />
+      </FormField>
+    )
+  }
+  // Sisa text / number / date: bedanya cuma atribut input-nya.
   return (
     <FormField
       label={field.label}
       required={field.required}
       invalid={invalid}
-      error="Wajib centang."
+      error="Wajib diisi."
       hint={field.hint}
       errorId={errorId}
     >
-      <Checkbox
-        checked={value === 'true'}
-        onChange={(e) => onChange(String(e.target.checked))}
+      <Input
+        type={field.kind === 'date' ? 'date' : undefined}
+        inputMode={field.kind === 'number' ? 'decimal' : undefined}
+        placeholder={field.kind === 'date' ? undefined : getPlaceholder(field)}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        invalid={invalid}
         aria-describedby={invalid ? errorId : undefined}
       />
     </FormField>

@@ -79,7 +79,8 @@ src/
                               # Tab, Tag, Textarea
     molecules/                # Breadcrumb, Card, CardHeader, ChipGroup, DocCard, DropZone,
                               # FillBar, FormField, HistoryRow, PageHeader, Pagination,
-                              # ProfileBox, SectionCard, StatCard, Stepper, TimelineItem, Toolbar
+                              # ProfileBox, SaveBar, SectionCard, StatCard, Stepper,
+                              # TimelineItem, Toolbar
     organisms/                # AppShell, Sidebar, Topbar, BottomNav, DataTable, FilterCard,
                               # KelurahanSection, DetailHeader, InfoPanel, HistoryPanel,
                               # Timeline, PesertaPanel, DokumentasiPanel, SuccessPanel
@@ -93,7 +94,7 @@ src/
     kunjungan-rumah/         # Generasi-1, MASIH PRODUKSI - baca "Generasi domain" di bawah
       components/             # KunjunganRumahFormScene, KeluargaInfoSection, AnggotaSection,
                               # SanitasiSection, SasaranListSection, SasaranForm, MasalahSection,
-                              # HasilSection, SaveBar, HistorySection, FieldCell
+                              # HasilSection, HistorySection, FieldCell
       store/                  # kunjunganRumahReducer.ts, kunjunganRumahSelectors.ts
       services/               # validateKunjunganRumah.ts, progress.ts, conditional.ts
       lib/                    # fotos.ts, template-from-rows.ts, warga-row.ts

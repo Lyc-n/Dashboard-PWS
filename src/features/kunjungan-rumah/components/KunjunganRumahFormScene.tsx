@@ -20,7 +20,7 @@ import { SanitasiSection } from '@/features/kunjungan-rumah/components/SanitasiS
 import { SasaranListSection } from '@/features/kunjungan-rumah/components/SasaranListSection'
 import { MasalahSection } from '@/features/kunjungan-rumah/components/MasalahSection'
 import { HasilSection } from '@/features/kunjungan-rumah/components/HasilSection'
-import { SaveBar } from '@/features/kunjungan-rumah/components/SaveBar'
+import { SaveBar } from '@/components/molecules'
 import { HistorySection } from '@/features/kunjungan-rumah/components/HistorySection'
 
 interface Props {
@@ -209,6 +209,7 @@ export function KunjunganRumahFormScene({ record }: Props) {
             onReset={reset}
             onSubmit={onSubmit}
             disabled={fotoUploading || saving}
+            submitLabel="Simpan kunjungan rumah"
           />
         }
       >

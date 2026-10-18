@@ -19,9 +19,9 @@ import {
   FormField,
   HistoryRow,
   PageHeader,
+  SaveBar,
   SectionCard,
   Stepper,
-  Toolbar,
 } from '@/components/molecules'
 import type { Step } from '@/components/molecules'
 import {
@@ -282,20 +282,16 @@ function Kegiatan() {
       <SectionCard
         title="5. Simpan"
         actions={
-          <Toolbar className="w-full">
-            <span className="ml-auto text-xs text-muted">
-              Simpan ke database.
-            </span>
-            <Button variant="default" onClick={k.clearAll}>
-              Reset
-            </Button>
+          <SaveBar
+            onReset={k.clearAll}
+            onSubmit={handleSubmit}
+            disabled={saving}
+            submitLabel={saving ? 'Menyimpan…' : 'Simpan kegiatan'}
+          >
             <Button variant="ghost" onClick={k.loadDemo}>
               Isi contoh
             </Button>
-            <Button variant="primary" onClick={handleSubmit} disabled={saving}>
-              {saving ? 'Menyimpan…' : 'Simpan kegiatan'}
-            </Button>
-          </Toolbar>
+          </SaveBar>
         }
       >
         <span className="text-xs text-muted">
