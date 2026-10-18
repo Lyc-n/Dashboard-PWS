@@ -16,6 +16,7 @@
  */
 import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/atoms/Button'
+import { Angka, ModalOverlay } from '@/components/ui/ModalOverlay'
 import { PeringatanBox } from '@/components/organisms'
 import type { RingkasanHapusDraft } from '@/features/form-builder/services/validasi'
 
@@ -28,17 +29,6 @@ interface Props {
   onConfirm: () => void
 }
 
-function Angka({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border border-line bg-surface-2 px-2.5 py-2">
-      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted">
-        {label}
-      </div>
-      <div className="text-[15px] font-bold text-ink">{value}</div>
-    </div>
-  )
-}
-
 export function HapusDraftDialog({
   version,
   ringkasan,
@@ -49,35 +39,13 @@ export function HapusDraftDialog({
   if (!ringkasan) return null
 
   return (
-    <div
-      className="fixed inset-0 z-40 grid place-items-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Hapus draft form"
-    >
-      <div className="absolute inset-0 bg-black/45" onClick={onClose} />
-      <div className="relative max-h-[85vh] w-full max-w-[480px] overflow-auto rounded-xl border border-line bg-surface p-4 shadow-elev">
-        <div className="text-sm font-bold text-ink">Hapus draft v{version}</div>
-
-        <div className="mt-3.5 grid grid-cols-2 gap-2">
-          <Angka label="Section" value={ringkasan.jumlahSection} />
-          <Angka label="Pertanyaan" value={ringkasan.jumlahField} />
-        </div>
-
-        {ringkasan.jumlahSubmit > 0 ? (
-          <PeringatanBox className="mt-3">
-            Draft ini sudah punya {ringkasan.jumlahSubmit} isian, jadi tidak
-            bisa dihapus. Isian form tidak bisa ikut hilang bersama drafnya.
-          </PeringatanBox>
-        ) : (
-          <p className="mt-3 text-[12.5px] text-muted">
-            Draft ini belum pernah dipakai petugas, jadi isian yang sudah ada
-            tidak tersentuh. Yang hilang cuma section, pertanyaan, dan opsinya —
-            pekerjaan yang belum pernah terbit tidak bisa dipulihkan.
-          </p>
-        )}
-
-        <div className="mt-4 flex flex-wrap justify-end gap-2">
+    <ModalOverlay
+      title={`Hapus draft v${version}`}
+      ariaLabel="Hapus draft form"
+      onClose={onClose}
+      width="max-w-[480px]"
+      footer={
+        <>
           <Button onClick={onClose} disabled={busy}>
             Batal
           </Button>
@@ -88,8 +56,26 @@ export function HapusDraftDialog({
           >
             <Trash2 className="w-4 h-4" /> Hapus Draft
           </Button>
-        </div>
+        </>
+      }
+    >
+      <div className="mt-3.5 grid grid-cols-2 gap-2">
+        <Angka label="Section" value={ringkasan.jumlahSection} />
+        <Angka label="Pertanyaan" value={ringkasan.jumlahField} />
       </div>
-    </div>
+
+      {ringkasan.jumlahSubmit > 0 ? (
+        <PeringatanBox className="mt-3">
+          Draft ini sudah punya {ringkasan.jumlahSubmit} isian, jadi tidak bisa
+          dihapus. Isian form tidak bisa ikut hilang bersama drafnya.
+        </PeringatanBox>
+      ) : (
+        <p className="mt-3 text-[12.5px] text-muted">
+          Draft ini belum pernah dipakai petugas, jadi isian yang sudah ada
+          tidak tersentuh. Yang hilang cuma section, pertanyaan, dan opsinya —
+          pekerjaan yang belum pernah terbit tidak bisa dipulihkan.
+        </p>
+      )}
+    </ModalOverlay>
   )
 }
