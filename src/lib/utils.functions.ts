@@ -10,13 +10,13 @@ import {
     querySasaranByNik,
     querySasaranListPaged,
     querySasaranWarga,
+    queryKelurahanStats,
     queryFormAdaSubmit,
     queryJawabanSubmit,
     queryRiwayatSubmit,
     queryRingkasanSubmit,
     querySurveysWithWarga,
     querySurveyStatsByNik,
-    queryWargaList,
     queryRiwayatKsUntukNik,
     removeKunjunganRumahRecord,
     saveKunjunganRumahRecord,
@@ -28,8 +28,11 @@ import type {
     BarisJawabanSubmit,
     BarisRiwayatSubmit,
     BarisWargaGabungan,
+    KelurahanStat,
     RiwayatSasaran,
 } from "./utils.server";
+import { keVisitRecord, deriveJadwal, deriveTindakLanjutDari } from "@/features/notifikasi/lib/sumber-warning";
+import type { NotifikasiData } from "@/features/notifikasi/types";
 import {
     listKegiatan as listKegiatanV2,
     simpanKegiatan,
@@ -71,8 +74,10 @@ import { SEMUA_TIPE_FIELD, TIPE_BUTUH_OPSI } from "@/features/form-builder/servi
 */
 
 // ganti method GET → POST — expect: login tak bisa dipicu lewat link/GET
+// PIN dikirim sebagai string, bukan number: `Number("012345")` jadi `12345` dan
+// tidak akan pernah cocok dengan `PIN=012345` di .env.
 export const pinLogin = createServerFn({ method: "POST" })
-    .validator((data: { pin: number }) => data)
+    .validator((data: { pin: string }) => data)
     .handler(
         async ({ data }) => {
             return await isValidPin(data.pin) // selalu return boolean
@@ -153,13 +158,7 @@ export interface SurveyRow {
     formVersion: number;
 }
 
-export interface KelurahanStat {
-    name: string;
-    total: number;
-    dikunjungi: number;
-    pct: number;
-    sub: string;
-}
+export type { KelurahanStat } from "./utils.server";
 
 export interface DashboardData {
     totals: { warga: number; dikunjungi: number; kunjunganRumah: number };
@@ -236,30 +235,15 @@ export const getDashboardData = createServerFn({ method: "GET" })
     .middleware([authSessionToken])
     .handler(
         async (): Promise<DashboardData> => {
-            const [warga, stats, recent] = await Promise.all([
-                queryWargaList(),
+            const [stats, kelurahan, recent] = await Promise.all([
                 querySurveyStatsByNik(),
+                queryKelurahanStats(),
                 querySurveysWithWarga(50),
             ])
-            const visited = new Set(stats.map((s) => s.nik))
-            const byKel = new Map<string, { total: number; dikunjungi: number }>()
-            for (const w of warga) {
-                const cur = byKel.get(w.kelurahan) ?? { total: 0, dikunjungi: 0 }
-                cur.total += 1
-                if (visited.has(w.nik)) cur.dikunjungi += 1
-                byKel.set(w.kelurahan, cur)
-            }
-            const kelurahan: KelurahanStat[] = [...byKel.entries()].map(([name, v]) => ({
-                name,
-                total: v.total,
-                dikunjungi: v.dikunjungi,
-                pct: v.total ? Math.round((v.dikunjungi / v.total) * 100) : 0,
-                sub: `${v.dikunjungi} / ${v.total} jiwa dikunjungi`,
-            }))
             return {
                 totals: {
-                    warga: warga.length,
-                    dikunjungi: visited.size,
+                    warga: kelurahan.reduce((a, k) => a + k.total, 0),
+                    dikunjungi: new Set(stats.map((s) => s.nik)).size,
                     kunjunganRumah: stats.reduce((a, s) => a + s.total, 0),
                 },
                 kelurahan,
@@ -275,6 +259,46 @@ export const getLaporanKunjunganRumah = createServerFn({ method: "GET" })
             return await querySurveysWithWarga(500)
         }
     )
+
+/**
+ * Notifikasi di dalam website (pengganti pesan WhatsApp).
+ *
+ * Yang dikirim hanya SUMBER data, bukan `Warning` yang sudah jadi. `buildWarnings`
+ * adalah fungsi murni dan jalan di browser juga, jadi filter wilayah di dropdown
+ * lonceng dan di halaman /notifikasi cukup memanggilnya ulang — tidak ada query
+ * kedua, dan angka yang tampil di lonceng dijamin sama dengan yang tampil di
+ * dashboard karena keduanya memanggil builder yang sama.
+ *
+ * Sumber jadwal & tindak lanjut diambil dari payload `record_legacy` (lihat
+ * `features/notifikasi/lib/sumber-warning.ts`). Builder di `features/dashboard/
+ * warning.ts` sudah punya dua slot itu sejak awal tapi tidak pernah diisi —
+ * mengisinya di sini membuat `jadwal_terlambat` dan `tindak_lanjut_belum_selesai`
+ * benar-benar bisa muncul, bukan kode mati.
+ *
+ * Record kunjungan sengaja dipisah dari cakupan: `listKunjunganRumahRecords()`
+ * menyentuh `survey_entries`, sedangkan cakupan hanya butuh `data_warga` +
+ * `surveys`. Kalau satu gagal, warning cakupan tetap tampil dan hanya jadwal serta
+ * tindak lanjut yang kosong — lonceng tidak boleh membuat seluruh halaman error.
+ */
+export const getNotifikasiData = createServerFn({ method: "GET" })
+    .middleware([authSessionToken])
+    .handler(async (): Promise<NotifikasiData> => {
+        const [kelurahan, records] = await Promise.all([
+            queryKelurahanStats(),
+            // Diabaikan saat migrasi belum lengkap; lihat catatan di atas.
+            listKunjunganRumahRecords().catch(() => [] as Record<string, unknown>[]),
+        ])
+        const visits = keVisitRecord(records)
+        return {
+            regions: kelurahan.map((k) => ({ name: k.name, total: k.total, dikunjungi: k.dikunjungi })),
+            jadwal: deriveJadwal(visits),
+            tindakLanjut: deriveTindakLanjutDari(visits),
+            ringkasan: {
+                warga: kelurahan.reduce((a, k) => a + k.total, 0),
+                kunjungan: records.length,
+            },
+        }
+    })
 
 // ---- riwayat submit semua form ----
 // Dipisah dari laporan kunjungan: di sini yang penting form mana, bukan cakupan

@@ -2,6 +2,8 @@ import { Menu } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/atoms/Button";
 import { ProfileBox } from "@/components/molecules/ProfileBox";
+import { NotifikasiBell } from "@/features/notifikasi/components/NotifikasiBell";
+import { NotifikasiToast } from "@/features/notifikasi/components/NotifikasiToast";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useAuth } from "@/providers/auth";
 
@@ -32,6 +34,8 @@ export function Topbar({ onToggleCollapse }: TopbarProps) {
         <Menu size={18} strokeWidth={1.8} />
       </Button>
       <div className="ml-auto flex items-center gap-2">
+        <NotifikasiBell />
+        <NotifikasiToast />
         <ProfileBox name={user?.name} onLogout={handleLogout} />
         <span className="max-md:hidden"><ThemeToggle /></span>
       </div>

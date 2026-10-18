@@ -15,6 +15,7 @@ import { Route as KegiatanRouteImport } from './routes/kegiatan'
 import { Route as KelolaRouteImport } from './routes/kelola'
 import { Route as KunjunganRumahRouteImport } from './routes/kunjungan-rumah'
 import { Route as LaporanRouteImport } from './routes/laporan'
+import { Route as NotifikasiRouteImport } from './routes/notifikasi'
 import { Route as PinRouteImport } from './routes/pin'
 import { Route as SasaranRouteImport } from './routes/sasaran'
 import { Route as IsiFormVersionIdRouteImport } from './routes/isi.$formVersionId'
@@ -50,6 +51,11 @@ const KunjunganRumahRoute = KunjunganRumahRouteImport.update({
 const LaporanRoute = LaporanRouteImport.update({
   id: '/laporan',
   path: '/laporan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotifikasiRoute = NotifikasiRouteImport.update({
+  id: '/notifikasi',
+  path: '/notifikasi',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PinRoute = PinRouteImport.update({
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/kelola': typeof KelolaRoute
   '/kunjungan-rumah': typeof KunjunganRumahRouteWithChildren
   '/laporan': typeof LaporanRoute
+  '/notifikasi': typeof NotifikasiRoute
   '/pin': typeof PinRoute
   '/sasaran': typeof SasaranRouteWithChildren
   '/isi/$formVersionId': typeof IsiFormVersionIdRoute
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/kelola': typeof KelolaRoute
   '/kunjungan-rumah': typeof KunjunganRumahRouteWithChildren
   '/laporan': typeof LaporanRoute
+  '/notifikasi': typeof NotifikasiRoute
   '/pin': typeof PinRoute
   '/isi/$formVersionId': typeof IsiFormVersionIdRoute
   '/kunjungan-rumah/$id': typeof KunjunganRumahIdRoute
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/kelola': typeof KelolaRoute
   '/kunjungan-rumah': typeof KunjunganRumahRouteWithChildren
   '/laporan': typeof LaporanRoute
+  '/notifikasi': typeof NotifikasiRoute
   '/pin': typeof PinRoute
   '/sasaran': typeof SasaranRouteWithChildren
   '/isi/$formVersionId': typeof IsiFormVersionIdRoute
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/kelola'
     | '/kunjungan-rumah'
     | '/laporan'
+    | '/notifikasi'
     | '/pin'
     | '/sasaran'
     | '/isi/$formVersionId'
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/kelola'
     | '/kunjungan-rumah'
     | '/laporan'
+    | '/notifikasi'
     | '/pin'
     | '/isi/$formVersionId'
     | '/kunjungan-rumah/$id'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/kelola'
     | '/kunjungan-rumah'
     | '/laporan'
+    | '/notifikasi'
     | '/pin'
     | '/sasaran'
     | '/isi/$formVersionId'
@@ -176,6 +188,7 @@ export interface RootRouteChildren {
   KelolaRoute: typeof KelolaRoute
   KunjunganRumahRoute: typeof KunjunganRumahRouteWithChildren
   LaporanRoute: typeof LaporanRoute
+  NotifikasiRoute: typeof NotifikasiRoute
   PinRoute: typeof PinRoute
   SasaranRoute: typeof SasaranRouteWithChildren
   IsiFormVersionIdRoute: typeof IsiFormVersionIdRoute
@@ -223,6 +236,13 @@ declare module '@tanstack/react-router' {
       path: '/laporan'
       fullPath: '/laporan'
       preLoaderRoute: typeof LaporanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifikasi': {
+      id: '/notifikasi'
+      path: '/notifikasi'
+      fullPath: '/notifikasi'
+      preLoaderRoute: typeof NotifikasiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pin': {
@@ -302,6 +322,7 @@ const rootRouteChildren: RootRouteChildren = {
   KelolaRoute: KelolaRoute,
   KunjunganRumahRoute: KunjunganRumahRouteWithChildren,
   LaporanRoute: LaporanRoute,
+  NotifikasiRoute: NotifikasiRoute,
   PinRoute: PinRoute,
   SasaranRoute: SasaranRouteWithChildren,
   IsiFormVersionIdRoute: IsiFormVersionIdRoute,

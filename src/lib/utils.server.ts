@@ -51,9 +51,13 @@ function isSecureCookie(): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
-export async function isValidPin(pin: number) {
+export async function isValidPin(pin: string) {
   await sleep(1000)
-  if (String(pin) !== process.env.PIN) return false
+  const expected = process.env.PIN
+  // Tanpa PIN di .env semua percobaan akan gagal diam-diam jadi "PIN salah."
+  // Error eksplisit lebih berguna: ini masalah konfigurasi, bukan input pengguna.
+  if (!expected) throw new Error('PIN belum diisi di .env')
+  if (pin.trim() !== expected) return false
   await db.delete(validSession)
   cacheSesi.clear()
   setCookie('session', await createSessionHelper(), {
@@ -768,6 +772,41 @@ export async function queryWargaList() {
         },
         orderBy: (t, { asc }) => [asc(t.nama_art)],
     })
+}
+
+/**
+ * Cakupan kunjungan per kelurahan: berapa warga tercatat dan berapa yang sudah
+ * punya ≥1 submission.
+ *
+ * Dipakai dashboard DAN halaman notifikasi, jadi perhitungannya hanya ada di
+ * sini — keduanya harus menghitung "sasaran belum dikunjungi" dengan angka yang
+ * sama, kalau tidak notifikasi dan dashboard bisa melaporkan jumlah berbeda.
+ */
+export interface KelurahanStat {
+    name: string
+    total: number
+    dikunjungi: number
+    pct: number
+    sub: string
+}
+
+export async function queryKelurahanStats(): Promise<KelurahanStat[]> {
+    const [warga, stats] = await Promise.all([queryWargaList(), querySurveyStatsByNik()])
+    const visited = new Set(stats.map((s) => s.nik))
+    const byKel = new Map<string, { total: number; dikunjungi: number }>()
+    for (const w of warga) {
+        const cur = byKel.get(w.kelurahan) ?? { total: 0, dikunjungi: 0 }
+        cur.total += 1
+        if (visited.has(w.nik)) cur.dikunjungi += 1
+        byKel.set(w.kelurahan, cur)
+    }
+    return [...byKel.entries()].map(([name, v]) => ({
+        name,
+        total: v.total,
+        dikunjungi: v.dikunjungi,
+        pct: v.total ? Math.round((v.dikunjungi / v.total) * 100) : 0,
+        sub: `${v.dikunjungi} / ${v.total} jiwa dikunjungi`,
+    }))
 }
 
 // ---- sumber data awal UI sasaran (gabungan import) ----

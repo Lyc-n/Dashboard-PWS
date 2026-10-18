@@ -35,6 +35,15 @@ export const Route = createRootRoute({
     ],
   }),
   shellComponent: RootDocument,
+  // Tanpa ini, route yang tidak cocok jatuh ke fallback "Not Found" bawaan router.
+  notFoundComponent: () => (
+    <div className="grid min-h-screen place-items-center px-4 text-center">
+      <div>
+        <p className="text-base font-bold text-ink">Halaman tidak ditemukan.</p>
+        <p className="mt-1 text-xs text-muted">Periksa kembali tautan yang kamu buka.</p>
+      </div>
+    </div>
+  ),
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {

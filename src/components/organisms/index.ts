@@ -7,6 +7,7 @@ export * from "./FilterCard";
 export * from "./HistoryPanel";
 export * from "./InfoPanel";
 export * from "./KelurahanSection";
+export * from "./PerluPerhatian";
 export * from "./PesertaPanel";
 export * from "./Sidebar";
 export * from "./SuccessPanel";

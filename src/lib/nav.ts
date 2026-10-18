@@ -1,4 +1,4 @@
-import { ClipboardCheck, ClipboardList, FileText, LayoutDashboard, ScrollText, Settings } from "lucide-react";
+import { Bell, ClipboardCheck, ClipboardList, FileText, LayoutDashboard, ScrollText, Settings } from "lucide-react";
 import { isAdminUser } from "@/lib/auth";
 import type { AuthUser } from "@/lib/auth";
 
@@ -17,6 +17,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Kunjungan Rumah", to: "/kunjungan-rumah", Icon: ClipboardCheck },
   { label: "Formulir", Icon: ClipboardList, isDropdownTrigger: true, children: [] },
   { label: "Laporan", to: "/laporan", Icon: ScrollText },
+  { label: "Notifikasi", to: "/notifikasi", Icon: Bell },
   { label: "Kelola", to: "/kelola", Icon: Settings, adminOnly: true },
 ] as const;
 

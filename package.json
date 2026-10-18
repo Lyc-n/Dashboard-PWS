@@ -16,6 +16,7 @@
     "db:check-parity": "tsx scripts/check-template-parity.mts",
     "db:smoke-kegiatan": "tsx scripts/smoke-kegiatan.mts",
     "db:smoke-kunjungan-rumah": "tsx scripts/smoke-kunjungan-rumah.mts",
+    "db:smoke-notifikasi": "tsx scripts/smoke-notifikasi.mts",
     "db:seed-uji": "tsx scripts/seed-uji-coba.mts",
     "db:set-non-warga": "tsx scripts/set-warga-bentuk-non-warga.mts",
     "db:push": "drizzle-kit push",

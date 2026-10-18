@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, isNotFound, redirect, useNavigate } from "@tanstack/react-router";
 import { pinLogin, getSessionToken } from "@/lib/utils.functions";
 import { APP_BRAND } from "@/lib/constants";
 import { useToast } from "@/providers/toast";
@@ -8,7 +8,7 @@ import brandIcon from "@/assets/brandIcon.png";
 import { Button, Input } from "@/components/atoms";
 import { FormField } from "@/components/molecules";
 import ThemeToggle from "@/components/ThemeToggle";
-import { normalkanNik } from "@/lib/utils";
+import { normalkanNik, pesanError } from "@/lib/utils";
 
 /* ALUR LOGIN
 1. cek sessionToken pake beforeLoad di /laporan (form)
@@ -46,15 +46,29 @@ function RouteComponent() {
     setBusy(true);
     try {
       // expect: PIN benar → cookie sesi terpasang → pindah ke dashboard "/".
-      const ok = await pinLogin({ data: { pin: Number(pin) } });
+      // PIN dikirim apa adanya (string) supaya leading zero tidak hilang.
+      const ok = await pinLogin({ data: { pin: pin.trim() } });
       if (!ok) {
         setError("PIN salah.");
         return;
       }
       toast("Berhasil masuk. Selamat bekerja!");
       void navigate({ to: "/" });
-    } catch {
-      setError("Gagal masuk. Coba lagi.");
+    } catch (err) {
+      // Jangan telan error: penyebab sebenarnya (mis. DB tidak terjangkau dari
+      // .env) kalau tidak dicatat di sini selalu terlihat sebagai "Gagal masuk".
+      console.error("[pinLogin] gagal:", err);
+      // Pesan ke pengguna tetap generik: error server (rincian DB, stack) tidak
+      // boleh bocor ke layar. Yang bocor cuma kalau penyebabnya konfigurasi,
+      // karena itu masalah deployment, bukan salah pengguna.
+      const pesan = pesanError(err, "");
+      setError(
+        isNotFound(err)
+          ? "Server tidak merespons. Coba lagi."
+          : /belum diisi di \.env/i.test(pesan)
+            ? "Konfigurasi server belum lengkap (cek .env)."
+            : "Gagal masuk. Coba lagi.",
+      );
     } finally {
       setBusy(false);
     }
