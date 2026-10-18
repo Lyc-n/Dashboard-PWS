@@ -12,6 +12,7 @@ import { JENIS_KEGIATAN, KELS, PAGE_SIZE, POSY } from '@/lib/constants'
 import { downloadCsv, fmtDate } from '@/lib/utils'
 import { useToast } from '@/providers/toast'
 import { AppShell, DataTable } from '@/components/organisms'
+import { MobileRow, Td, Tr } from '@/components/organisms/DataTable'
 import { PageHeader, SectionCard, StatCard } from '@/components/molecules'
 import { Input, Select, StatusBadge } from '@/components/atoms'
 import { requireAuth } from '@/lib/auth'
@@ -504,42 +505,30 @@ function Laporan() {
               ]}
               rows={pageRows}
               renderRow={(r, i) => (
-                <tr
-                  key={r.id}
-                  className="border-b border-[var(--color-surface-2)] last:border-none hover:bg-surface-2"
-                >
-                  <td className="px-3 py-2.5">
-                    {(pageClamped - 1) * PAGE_SIZE + i + 1}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2.5">
-                    {fmtDate(r.tanggal)}
-                  </td>
-                  <td className="px-3 py-2.5">
+                <Tr key={r.id}>
+                  <Td>{(pageClamped - 1) * PAGE_SIZE + i + 1}</Td>
+                  <Td className="whitespace-nowrap">{fmtDate(r.tanggal)}</Td>
+                  <Td>
                     <div className="font-semibold text-ink">{r.formNama}</div>
                     <div className="text-[11px] text-muted">
                       Versi {r.formVersion}
                     </div>
-                  </td>
-                  <td className="px-3 py-2.5">
+                  </Td>
+                  <Td>
                     <div className="font-semibold text-ink">{r.nama}</div>
                     <div className="text-[11px] text-muted">
                       {r.nik ? `NIK ${r.nik}` : 'Tanpa warga'}
                     </div>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2.5">
-                    Kel. {r.kelurahan}
-                  </td>
-                  <td className="px-3 py-2.5 text-muted">{r.petugas}</td>
-                  <td className="px-3 py-2.5">
+                  </Td>
+                  <Td className="whitespace-nowrap">Kel. {r.kelurahan}</Td>
+                  <Td className="text-muted">{r.petugas}</Td>
+                  <Td>
                     <StatusBadge value="Selesai" />
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               )}
               renderMobileRow={(r) => (
-                <div
-                  key={r.id}
-                  className="border-b border-[var(--color-surface-2)] last:border-none px-3.5 py-3"
-                >
+                <MobileRow key={r.id}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="font-semibold text-ink">{r.formNama}</div>
@@ -560,7 +549,7 @@ function Laporan() {
                       </span>
                     ) : null}
                   </div>
-                </div>
+                </MobileRow>
               )}
               toolbar={
                 <span className="text-xs font-semibold text-muted">
@@ -746,41 +735,33 @@ function Laporan() {
             rows={gPageRows}
             emptyMessage="Belum ada kegiatan untuk filter ini. Isi di halaman Kegiatan."
             renderRow={(r, i) => (
-              <tr
-                key={i}
-                className="border-b border-[var(--color-surface-2)] last:border-none hover:bg-surface-2"
-              >
-                <td className="px-3 py-2.5">
-                  {(gPageClamped - 1) * PAGE_SIZE + i + 1}
-                </td>
-                <td className="whitespace-nowrap px-3 py-2.5">
+              <Tr key={i}>
+                <Td>{(gPageClamped - 1) * PAGE_SIZE + i + 1}</Td>
+                <Td className="whitespace-nowrap">
                   {fmtDate(r.tgl)} <span className="text-muted">{r.jam}</span>
-                </td>
-                <td className="px-3 py-2.5">
+                </Td>
+                <Td>
                   <div className="font-semibold text-ink">{r.nama}</div>
                   <div className="text-[11px] text-muted">{r.jenis}</div>
-                </td>
-                <td className="px-3 py-2.5">
+                </Td>
+                <Td>
                   <div>
                     Kel. {r.kel} {r.posy ? `· ${r.posy}` : ''}
                   </div>
                   <div className="text-[11px] text-muted">{r.lokasi}</div>
-                </td>
-                <td className="px-3 py-2.5">{r.petugas}</td>
-                <td className="whitespace-nowrap px-3 py-2.5">
+                </Td>
+                <Td>{r.petugas}</Td>
+                <Td className="whitespace-nowrap">
                   {r.hadir}/{r.total}
                   <div className="text-[11px] text-muted">{r.foto} foto</div>
-                </td>
-                <td className="max-w-50 truncate px-3 py-2.5 text-muted">
+                </Td>
+                <Td className="max-w-50 truncate text-muted">
                   {r.deskripsi || '—'}
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             )}
             renderMobileRow={(r, i) => (
-              <div
-                key={i}
-                className="border-b border-[var(--color-surface-2)] last:border-none px-3.5 py-3"
-              >
+              <MobileRow key={i}>
                 <div className="font-semibold text-ink">{r.nama}</div>
                 <div className="text-[11px] text-muted">
                   {r.jenis} · {fmtDate(r.tgl)} {r.jam}
@@ -801,7 +782,7 @@ function Laporan() {
                     {r.deskripsi}
                   </div>
                 ) : null}
-              </div>
+              </MobileRow>
             )}
             toolbar={
               <span className="text-xs font-semibold text-muted">

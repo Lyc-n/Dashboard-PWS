@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useToast } from '@/providers/toast'
-import { DataTable } from '@/components/organisms/DataTable'
+import { DataTable, MobileRow, Td, Tr } from '@/components/organisms/DataTable'
 import { SectionCard } from '@/components/molecules/SectionCard'
 import { FormField } from '@/components/molecules/FormField'
 import { Toolbar } from '@/components/molecules/Toolbar'
@@ -186,40 +186,32 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
           rows={terfilter}
           emptyMessage="Tidak ada kader cocok."
           renderRow={(p) => (
-            <tr
-              key={p.id}
-              className="border-b border-surface-2 last:border-none hover:bg-surface-2"
-            >
-              <td className="px-3 py-2.5">
+            <Tr key={p.id}>
+              <Td>
                 <div className="font-semibold text-ink">{p.nama}</div>
-              </td>
-              <td className="px-3 py-2.5">
+              </Td>
+              <Td>
                 Kel. {p.kel} · {p.fasKes}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2.5">
-                {p.phone ?? '—'}
-              </td>
-              <td className="px-3 py-2.5">
+              </Td>
+              <Td className="whitespace-nowrap">{p.phone ?? '—'}</Td>
+              <Td>
                 <StatusBadge
                   variant={p.aktif ? 'on' : 'off'}
                   value={p.aktif ? 'Aktif' : 'Nonaktif'}
                 />
-              </td>
-              <td className="whitespace-nowrap px-3 py-2.5">
+              </Td>
+              <Td className="whitespace-nowrap">
                 <Button size="sm" onClick={() => bukaDlg(p)}>
                   Ubah
                 </Button>{' '}
                 <Button size="sm" onClick={() => toggle(p)}>
                   {p.aktif ? 'Nonaktifkan' : 'Aktifkan'}
                 </Button>
-              </td>
-            </tr>
+              </Td>
+            </Tr>
           )}
           renderMobileRow={(p) => (
-            <div
-              key={p.id}
-              className="border-b border-surface-2 last:border-none px-3.5 py-3"
-            >
+            <MobileRow key={p.id}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="font-semibold text-ink">{p.nama}</div>
@@ -243,7 +235,7 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
                   {p.aktif ? 'Nonaktifkan' : 'Aktifkan'}
                 </Button>
               </div>
-            </div>
+            </MobileRow>
           )}
         />
       </SectionCard>

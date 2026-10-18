@@ -5,6 +5,7 @@ import { fmtDate } from '@/lib/utils'
 import { PAGE_SIZE } from '@/lib/constants'
 import { requireAuth } from '@/lib/auth'
 import { AppShell, DataTable, KelurahanSection } from '@/components/organisms'
+import { MobileRow, Td, Tr } from '@/components/organisms/DataTable'
 import type { SummaryCardData } from '@/components/organisms'
 import {
   PageHeader,
@@ -130,28 +131,23 @@ function Dashboard() {
             ]}
             rows={pageRows}
             renderRow={(row) => (
-              <tr
-                key={row.id}
-                className="border-b border-surface-2 last:border-none hover:bg-surface-2"
-              >
-                <td className="whitespace-nowrap px-3 py-2.5">
-                  {fmtDate(row.tanggal)}
-                </td>
-                <td className="px-3 py-2.5">
+              <Tr key={row.id}>
+                <Td className="whitespace-nowrap">{fmtDate(row.tanggal)}</Td>
+                <Td>
                   <div className="font-semibold text-ink">{row.formNama}</div>
                   <div className="text-muted">Kel. {row.kelurahan}</div>
-                </td>
-                <td className="px-3 py-2.5">
+                </Td>
+                <Td>
                   <div className="font-semibold text-ink">{row.nama}</div>
                   <div className="text-[11px] text-muted">
                     {row.nik ? `NIK ${row.nik}` : 'Tanpa warga'}
                   </div>
-                </td>
-                <td className="px-3 py-2.5 text-muted">{row.petugas}</td>
-                <td className="px-3 py-2.5">
+                </Td>
+                <Td className="text-muted">{row.petugas}</Td>
+                <Td>
                   <StatusBadge value="Selesai" />
-                </td>
-                <td className="px-3 py-2.5">
+                </Td>
+                <Td>
                   {row.nik ? (
                     <Link
                       to="/sasaran/$id"
@@ -163,14 +159,11 @@ function Dashboard() {
                   ) : (
                     <span className="text-[11px] text-muted">—</span>
                   )}
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             )}
             renderMobileRow={(row) => (
-              <div
-                key={row.id}
-                className="border-b border-surface-2 last:border-none px-3.5 py-3"
-              >
+              <MobileRow key={row.id}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="font-semibold text-ink">{row.nama}</div>
@@ -197,7 +190,7 @@ function Dashboard() {
                     Lihat Detail
                   </Link>
                 ) : null}
-              </div>
+              </MobileRow>
             )}
             sortKey={sortKey}
             sortDir={sortDir}

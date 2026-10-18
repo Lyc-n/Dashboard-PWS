@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight, Eye, Loader2 } from 'lucide-react'
 import { DataTable } from '@/components/organisms'
+import { Td, Tr } from '@/components/organisms/DataTable'
 import { SectionCard, Toolbar } from '@/components/molecules'
 import { Button, Input, Select } from '@/components/atoms'
 import { FilterToolbar } from './components/FilterToolbar'
@@ -331,23 +332,18 @@ export function RiwayatSubmitSection({
             ]}
             rows={pageRows}
             renderRow={(r) => (
-              <tr
-                key={r.id}
-                className="border-b border-surface-2 last:border-none hover:bg-surface-2"
-              >
-                <td className="whitespace-nowrap px-3 py-2.5">
-                  {fmtDate(r.tanggal)}
-                </td>
-                <td className="px-3 py-2.5">
+              <Tr key={r.id}>
+                <Td className="whitespace-nowrap">{fmtDate(r.tanggal)}</Td>
+                <Td>
                   <div className="font-semibold text-ink">{r.formNama}</div>
                   <div className="text-muted">Versi {r.formVersion}</div>
-                </td>
-                <td className="px-3 py-2.5">
+                </Td>
+                <Td>
                   <Nik nik={r.nik} nama={r.nama} />
-                </td>
-                <td className="px-3 py-2.5 text-muted">{r.petugas}</td>
-                <td className="px-3 py-2.5 text-muted">{r.jumlahJawaban}</td>
-                <td className="px-3 py-2.5">
+                </Td>
+                <Td className="text-muted">{r.petugas}</Td>
+                <Td className="text-muted">{r.jumlahJawaban}</Td>
+                <Td>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -357,8 +353,8 @@ export function RiwayatSubmitSection({
                     <Eye className="w-3.5 h-3.5" />
                     <ChevronRight className="w-3.5 h-3.5" />
                   </Button>
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             )}
             toolbar={
               <Toolbar>

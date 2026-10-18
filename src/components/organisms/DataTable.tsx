@@ -1,7 +1,58 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
-import type { ReactNode } from 'react'
+import type { HTMLAttributes, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { Pagination } from '@/components/molecules/Pagination'
+
+/**
+ * Sel `<td>` setelah normalisasi. Tujuh tabel menulis `px-3 py-2.5` tangan
+ * di tiap sel (37 seluruhnya) dengan padding yang mulai mengembar; Td menjaga
+ * satu nilai bawaan dan pemanggil hanya menambah selisihnya
+ * (`whitespace-nowrap`, `text-muted`, dsb).
+ */
+export function Td({
+  className,
+  ...props
+}: HTMLAttributes<HTMLTableCellElement>) {
+  return <td className={cn('px-3 py-2.5', className)} {...props} />
+}
+
+/**
+ * Baris `<tr>` tabel desktop DataTable: garis antar baris + highlight hover.
+ * Highlight bisa dimatikan (`hover={false}`) untuk tabel "read-only" yang
+ * barisnya bukan tombol.
+ */
+export function Tr({
+  hover = true,
+  className,
+  ...props
+}: HTMLAttributes<HTMLTableRowElement> & { hover?: boolean }) {
+  return (
+    <tr
+      className={cn(
+        'border-b border-surface-2 last:border-none',
+        hover && 'hover:bg-surface-2',
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+/** Baris kartu mobile yang menyalin garis antar-baris tabel desktopnya. */
+export function MobileRow({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn(
+        'border-b border-surface-2 last:border-none px-3.5 py-3',
+        className,
+      )}
+      {...props}
+    />
+  )
+}
 
 export interface DataTableColumn {
   key: string
@@ -94,6 +145,21 @@ function SortTh({ col, active, sortDir, onSort }: SortThProps) {
   )
 }
 
+/** Sel sungguhan kosong yang umum untuk kedua tabel internal DataTable. */
+function TempatKosong({
+  columns,
+  children,
+}: {
+  columns: number
+  children: ReactNode
+}) {
+  return (
+    <td colSpan={columns} className="px-3 py-5 text-center text-muted">
+      {children}
+    </td>
+  )
+}
+
 export function DataTable<T>({
   columns,
   rows,
@@ -147,12 +213,9 @@ export function DataTable<T>({
                   rows.map((row, i) => renderRow(row, i))
                 ) : (
                   <tr>
-                    <td
-                      colSpan={columns.length}
-                      className="px-3 py-5 text-center text-muted"
-                    >
+                    <TempatKosong columns={columns.length}>
                       {emptyMessage ?? 'Tidak ada data'}
-                    </td>
+                    </TempatKosong>
                   </tr>
                 )}
               </tbody>
@@ -189,12 +252,9 @@ export function DataTable<T>({
                 rows.map((row, i) => renderRow(row, i))
               ) : (
                 <tr>
-                  <td
-                    colSpan={columns.length}
-                    className="px-3 py-5 text-center text-muted"
-                  >
+                  <TempatKosong columns={columns.length}>
                     {emptyMessage ?? 'Tidak ada data'}
-                  </td>
+                  </TempatKosong>
                 </tr>
               )}
             </tbody>
