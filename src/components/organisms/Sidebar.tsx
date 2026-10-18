@@ -14,6 +14,71 @@ export interface SidebarProps {
   collapsed?: boolean
 }
 
+/*
+ * Kelas berulang navigasi. Ditarik ke konstanta karena empat bentuk item
+ * (link daun, dropdown induk, dropdown Formulir, dan anak-anaknya) menulis
+ * string yang sama dengan selisih kecil — dan bug bisu pertamanya sudah
+ * terjadi: rgba() acak di activeProps induk.
+ */
+const LINK_KELAS =
+  'flex items-center rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-400 ease-in-out hover:bg-surface-2'
+const LINK_KELAS_TERLIPAT = 'justify-center gap-0 px-0'
+// Token `accent-border` menggantikan rgba(79,214,205,0.45); nilai yang
+// dekatnya tetap, tapi warna kini ikut tema gelap seperti elemen lain.
+const AKTIF_INDUK = 'border border-accent-border bg-accent-light font-semibold'
+const LINK_ANAK =
+  'flex items-center rounded-lg px-3 py-2 text-[12px] font-medium transition-colors hover:bg-surface-2 gap-2.5'
+const AKTIF_ANAK = 'bg-accent-light text-accent font-semibold'
+
+/**
+ * Kepala dropdown: tombol lebar penuh + chevron (item statis) atau tanpa
+ * chevron (Formulir, yang anak-anaknya dinamis dan tetap bisa dibuka-tutup
+ * tombol itu sendiri).
+ */
+function DropdownTrigger({
+  label,
+  isOpen,
+  onToggle,
+  icon,
+  showChevron,
+}: {
+  label: string
+  isOpen: boolean
+  onToggle: () => void
+  icon: React.ReactNode
+  showChevron?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={cn(LINK_KELAS, 'w-full gap-2.5')}
+    >
+      {icon}
+      <span className={cn('truncate text-ink-2', showChevron && 'flex-1')}>
+        {label}
+      </span>
+      {showChevron ? (
+        <ChevronDown
+          size={14}
+          className={cn(
+            'shrink-0 text-muted transition-transform duration-200',
+            isOpen && 'rotate-180',
+          )}
+        />
+      ) : null}
+    </button>
+  )
+}
+
+function DropdownDaftar({ children }: { children: React.ReactNode }) {
+  return (
+    <ul className="mt-1 ml-6 space-y-1 animate-slide-down" role="menu">
+      {children}
+    </ul>
+  )
+}
+
 function NavItemLink({
   item,
   collapsed,
@@ -28,14 +93,8 @@ function NavItemLink({
       key={item.to}
       to={item.to}
       activeOptions={{ exact: item.to === '/' }}
-      className={cn(
-        'flex items-center rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-400 ease-in-out hover:bg-surface-2',
-        collapsed ? 'justify-center gap-0 px-0' : 'gap-2.5',
-      )}
-      activeProps={{
-        className:
-          'border border-[rgba(79,214,205,0.45)] bg-accent-light font-semibold',
-      }}
+      className={cn(LINK_KELAS, collapsed ? LINK_KELAS_TERLIPAT : 'gap-2.5')}
+      activeProps={{ className: AKTIF_INDUK }}
     >
       <Icon size={16} className="shrink-0" />
       <span
@@ -71,14 +130,8 @@ function NavItemDropdown({
         key={item.to}
         to={item.to}
         activeOptions={{ exact: item.to === '/' }}
-        className={cn(
-          'flex items-center rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-400 ease-in-out hover:bg-surface-2',
-          'justify-center gap-0 px-0',
-        )}
-        activeProps={{
-          className:
-            'border border-[rgba(79,214,205,0.45)] bg-accent-light font-semibold',
-        }}
+        className={cn(LINK_KELAS, LINK_KELAS_TERLIPAT)}
+        activeProps={{ className: AKTIF_INDUK }}
       >
         <Icon size={16} className="shrink-0" />
       </Link>
@@ -87,45 +140,29 @@ function NavItemDropdown({
 
   return (
     <div key={item.to}>
-      <button
-        type="button"
-        onClick={() => setOpenDropdown(isOpen ? null : dropdownKey)}
-        className={cn(
-          'flex items-center w-full rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-400 ease-in-out hover:bg-surface-2',
-          'gap-2.5',
-        )}
-      >
-        <Icon size={16} className="shrink-0" />
-        <span className="truncate text-ink-2 flex-1">{item.label}</span>
-        <ChevronDown
-          size={14}
-          className={cn(
-            'shrink-0 text-muted transition-transform duration-200',
-            isOpen && 'rotate-180',
-          )}
-        />
-      </button>
+      <DropdownTrigger
+        label={item.label}
+        isOpen={isOpen}
+        onToggle={() => setOpenDropdown(isOpen ? null : dropdownKey)}
+        showChevron
+        icon={<Icon size={16} className="shrink-0" />}
+      />
       {isOpen && (
-        <ul className="mt-1 ml-6 space-y-1 animate-slide-down" role="menu">
+        <DropdownDaftar>
           {(item.children ?? []).map((child) => (
             <li key={child.to} role="none">
               <Link
                 to={child.to}
                 activeOptions={{ exact: child.to === '/' }}
-                className={cn(
-                  'flex items-center rounded-lg px-3 py-2 text-[12px] font-medium transition-colors hover:bg-surface-2',
-                  'gap-2.5',
-                )}
-                activeProps={{
-                  className: 'bg-accent-light text-accent font-semibold',
-                }}
+                className={LINK_ANAK}
+                activeProps={{ className: AKTIF_ANAK }}
               >
                 <child.Icon size={14} className="shrink-0 text-muted" />
                 <span className="text-ink-2">{child.label}</span>
               </Link>
             </li>
           ))}
-        </ul>
+        </DropdownDaftar>
       )}
     </div>
   )
@@ -150,10 +187,7 @@ function FormulirDropdownTrigger({
       <Link
         to="/form"
         search={{ jenis: '' }}
-        className={cn(
-          'flex items-center rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-400 ease-in-out hover:bg-surface-2',
-          'justify-center gap-0 px-0',
-        )}
+        className={cn(LINK_KELAS, LINK_KELAS_TERLIPAT)}
       >
         <ClipboardList size={16} className="shrink-0" />
       </Link>
@@ -162,19 +196,14 @@ function FormulirDropdownTrigger({
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={() => setOpenDropdown(isOpen ? null : dropdownKey)}
-        className={cn(
-          'flex items-center w-full rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-400 ease-in-out hover:bg-surface-2',
-          'gap-2.5',
-        )}
-      >
-        <ClipboardList size={16} className="shrink-0 text-accent" />
-        <span className="truncate text-ink-2">Formulir</span>
-      </button>
+      <DropdownTrigger
+        label="Formulir"
+        isOpen={isOpen}
+        onToggle={() => setOpenDropdown(isOpen ? null : dropdownKey)}
+        icon={<ClipboardList size={16} className="shrink-0 text-accent" />}
+      />
       {isOpen && (
-        <ul className="mt-1 ml-6 space-y-1 animate-slide-down" role="menu">
+        <DropdownDaftar>
           {forms.length === 0 ? (
             <li role="none">
               <span className="flex items-center px-3 py-2 text-[12px] font-medium text-muted">
@@ -187,20 +216,15 @@ function FormulirDropdownTrigger({
                 <Link
                   to="/isi/$formVersionId"
                   params={{ formVersionId: form.formVersionId }}
-                  className={cn(
-                    'flex items-center rounded-lg px-3 py-2 text-[12px] font-medium transition-colors hover:bg-surface-2',
-                    'gap-2.5',
-                  )}
-                  activeProps={{
-                    className: 'bg-accent-light text-accent font-semibold',
-                  }}
+                  className={LINK_ANAK}
+                  activeProps={{ className: AKTIF_ANAK }}
                 >
                   <span className="text-ink-2 truncate">{form.nama}</span>
                 </Link>
               </li>
             ))
           )}
-        </ul>
+        </DropdownDaftar>
       )}
     </div>
   )
