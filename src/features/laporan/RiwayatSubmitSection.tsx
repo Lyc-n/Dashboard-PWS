@@ -15,7 +15,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight, Eye, Loader2 } from 'lucide-react'
 import { DataTable } from '@/components/organisms'
 import { Td, Tr } from '@/components/organisms/DataTable'
-import { SectionCard, Toolbar } from '@/components/molecules'
+import {
+  DateRange,
+  KelurahanSelect,
+  SectionCard,
+  Toolbar,
+} from '@/components/molecules'
 import { Button, Input, Select } from '@/components/atoms'
 import { FilterToolbar } from './components/FilterToolbar'
 import { paginate } from './components/report-shared'
@@ -23,7 +28,7 @@ import { getDetailSubmit, getRiwayatSubmit } from '@/lib/utils.functions'
 import type { BarisRiwayatSubmit, JsonNilai } from '@/lib/utils.server'
 import { formatNilaiJawaban } from '@/features/survey/lib/format-jawaban'
 import { fmtDate } from '@/lib/utils'
-import { PAGE_SIZE, KELS } from '@/lib/constants'
+import { PAGE_SIZE } from '@/lib/constants'
 
 type BarisRiwayat = BarisRiwayatSubmit
 
@@ -245,31 +250,13 @@ export function RiwayatSubmitSection({
         title="Saring Riwayat Submit"
         sub="Semua form yang sudah diisi petugas, termasuk form buatan Form Builder."
       >
-        <Input
-          type="date"
-          value={dari}
-          onChange={(e) => setDari(e.target.value)}
-          aria-label="Tanggal awal"
-          className="max-w-42.5 max-md:max-w-none"
+        <DateRange
+          dari={dari}
+          sampai={sampai}
+          onDari={setDari}
+          onSampai={setSampai}
         />
-        <Input
-          type="date"
-          value={sampai}
-          onChange={(e) => setSampai(e.target.value)}
-          aria-label="Tanggal akhir"
-          className="max-w-42.5 max-md:max-w-none"
-        />
-        <Select
-          value={kel}
-          onChange={(e) => setKel(e.target.value)}
-          aria-label="Filter kelurahan"
-          className="max-w-42.5 max-md:max-w-none"
-        >
-          <option value="all">Semua kelurahan</option>
-          {KELS.map((k) => (
-            <option key={k}>{k}</option>
-          ))}
-        </Select>
+        <KelurahanSelect value={kel} onChange={setKel} />
         <Select
           value={String(formId)}
           onChange={(e) => {

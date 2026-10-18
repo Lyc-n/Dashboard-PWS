@@ -1,4 +1,5 @@
 import { ProgressBar } from '@/components/atoms/ProgressBar'
+import { cn, CARD_SHELL } from '@/lib/utils'
 
 export interface FillBarProps {
   label?: string
@@ -9,7 +10,7 @@ export function FillBar({ label = 'Kelengkapan form', pct }: FillBarProps) {
   return (
     <div
       aria-live="polite"
-      className="mt-3.5 rounded-[10px] border border-[var(--color-line-2)] bg-surface p-3 shadow-elev"
+      className={cn('mt-3.5', CARD_SHELL, 'p-3 shadow-elev')}
     >
       <div className="flex justify-between text-xs font-semibold text-muted">
         <span>{label}</span>

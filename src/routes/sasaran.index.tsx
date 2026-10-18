@@ -4,11 +4,16 @@ import { useAsyncData } from '@/hooks/use-async-data'
 import { getSasaranList } from '@/lib/utils.functions'
 import type { SasaranListRow } from '@/lib/utils.functions'
 import { requireAuth } from '@/lib/auth'
-import { KELS, PAGE_SIZE } from '@/lib/constants'
+import { PAGE_SIZE } from '@/lib/constants'
 import { downloadCsv, fmtDate } from '@/lib/utils'
 import { DataTable, FilterCard } from '@/components/organisms'
 import { MobileRow, Td, Tr } from '@/components/organisms/DataTable'
-import { PageHeader, SectionCard, Toolbar } from '@/components/molecules'
+import {
+  KelurahanSelect,
+  PageHeader,
+  SectionCard,
+  Toolbar,
+} from '@/components/molecules'
 import { Button, Input, Select, StatusBadge } from '@/components/atoms'
 
 const DEBOUNCE_MS = 500
@@ -166,17 +171,11 @@ function Sasaran() {
             <option>Sudah</option>
             <option>Belum</option>
           </Select>
-          <Select
+          <KelurahanSelect
             value={kel}
-            onChange={(e) => setFilter({ kel: e.target.value })}
-            aria-label="Filter kelurahan"
+            onChange={(k) => setFilter({ kel: k })}
             className="max-w-45 max-md:max-w-none"
-          >
-            <option value="all">Semua kelurahan</option>
-            {KELS.map((k) => (
-              <option key={k}>{k}</option>
-            ))}
-          </Select>
+          />
         </Toolbar>
       </FilterCard>
 

@@ -324,7 +324,7 @@ function DynamicFieldImpl({
         {baris.map((satu, barisKe) => (
           <div
             key={barisKe}
-            className="rounded-lg border border-[var(--color-line-2)] bg-surface-2 p-2.5"
+            className="rounded-lg border border-line-2 bg-surface-2 p-2.5"
           >
             <div className="mb-2 flex items-center justify-between gap-2">
               <b className="text-[12px] text-ink">Baris {barisKe + 1}</b>

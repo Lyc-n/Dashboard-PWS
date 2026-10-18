@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { RoutePending } from '@/components/RoutePending'
 import { getSasaranDetail } from '@/lib/utils.functions'
 import { requireAuth } from '@/lib/auth'
 import { fmtDate } from '@/lib/utils'
@@ -10,9 +11,7 @@ export const Route = createFileRoute('/sasaran/$id')({
   beforeLoad: requireAuth,
   loader: async ({ params }) =>
     await getSasaranDetail({ data: { nik: params.id } }),
-  pendingComponent: () => (
-    <p className="p-4 text-sm text-muted">Memuat detail sasaran…</p>
-  ),
+  pendingComponent: () => <RoutePending>Memuat detail sasaran…</RoutePending>,
   component: SasaranDetail,
 })
 

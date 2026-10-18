@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 import type { HTMLAttributes, ReactNode } from 'react'
-import { cn } from '@/lib/utils'
+import { cn, CARD_SHELL } from '@/lib/utils'
 import { Pagination } from '@/components/molecules/Pagination'
 
 /**
@@ -119,7 +119,7 @@ function SortTh({ col, active, sortDir, onSort }: SortThProps) {
           : undefined
       }
       className={cn(
-        'whitespace-nowrap border-b border-[var(--color-line-2)] bg-surface-2 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted',
+        'whitespace-nowrap border-b border-line-2 bg-surface-2 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted',
         sortable &&
           'cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-accent',
         col.headerClassName,
@@ -180,16 +180,9 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   const hasPagination = page !== undefined || onPrev || onNext
   return (
-    <div
-      className={cn(
-        'mt-3.5 overflow-hidden rounded-[10px] border border-[var(--color-line-2)] bg-surface',
-        className,
-      )}
-    >
+    <div className={cn('mt-3.5 overflow-hidden', CARD_SHELL, className)}>
       {toolbar ? (
-        <div className="border-b border-[var(--color-line-2)] px-3.5 py-3">
-          {toolbar}
-        </div>
+        <div className="border-b border-line-2 px-3.5 py-3">{toolbar}</div>
       ) : null}
       {renderMobileRow ? (
         <>

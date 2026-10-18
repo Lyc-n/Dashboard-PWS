@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { Foto } from '@/hooks/use-kegiatan'
 import { DocCard } from '@/components/molecules/DocCard'
 import { DropZone } from '@/components/molecules/DropZone'
+import { cn, CARD_SHELL } from '@/lib/utils'
 
 export interface DokumentasiPanelProps {
   fotos: Foto[]
@@ -19,7 +20,7 @@ export function DokumentasiPanel({
   title = `Dokumentasi Kegiatan (${fotos.length}/6)`,
 }: DokumentasiPanelProps) {
   return (
-    <div className="rounded-[10px] border border-line bg-surface p-3.5">
+    <div className={cn(CARD_SHELL, 'p-3.5')}>
       <b className="text-[13px] text-ink">{title}</b>
       <DropZone
         onFiles={onAddFiles}

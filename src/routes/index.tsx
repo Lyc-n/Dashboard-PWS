@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { RoutePending } from '@/components/RoutePending'
 import { getDashboardData } from '@/lib/utils.functions'
 import { fmtDate } from '@/lib/utils'
 import { PAGE_SIZE } from '@/lib/constants'
@@ -21,9 +22,7 @@ import { KegiatanTrendChart } from '@/features/dashboard/KegiatanTrendChart'
 export const Route = createFileRoute('/')({
   beforeLoad: requireAuth,
   loader: async () => await getDashboardData(),
-  pendingComponent: () => (
-    <p className="p-4 text-sm text-muted">Memuat dashboard…</p>
-  ),
+  pendingComponent: () => <RoutePending>Memuat dashboard…</RoutePending>,
   component: Dashboard,
 })
 

@@ -16,7 +16,7 @@ export function DropZone({
     <>
       <label
         htmlFor={id}
-        className="mt-3 block cursor-pointer rounded-[10px] border-[1.5px] border-dashed border-accent-border bg-[var(--color-surface)] p-4 text-center transition-colors hover:border-accent"
+        className="mt-3 block cursor-pointer rounded-[10px] border-[1.5px] border-dashed border-accent-border bg-surface p-4 text-center transition-colors hover:border-accent"
       >
         <b className="text-[13px] text-accent">{title}</b>
         {hint ? <p className="mt-1 text-[11.5px] text-muted">{hint}</p> : null}

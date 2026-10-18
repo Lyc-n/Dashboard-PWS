@@ -101,6 +101,15 @@ export function pctOf(bagian: number, total: number): number {
   return total > 0 ? Math.round((bagian / total) * 100) : 0
 }
 
+/**
+ * Cangkang kartu isi: radius, garis, dan latar yang sama-satunya.
+ *
+ * Dulu lima komponen menulis string ini dengan token yang mengembar
+ * (`border-line` vs bracket `border-[var(--color-line-2)]`); sekarang padding,
+ * bayangan, dan margin jadi milik pemanggil, sedang cangkangnya satu kelas.
+ */
+export const CARD_SHELL = 'rounded-[10px] border border-line-2 bg-surface'
+
 export function statusVariantFrom(value?: string | null): StatusVariant {
   switch (value) {
     case 'Sudah':

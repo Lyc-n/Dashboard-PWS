@@ -2,11 +2,10 @@ import { useState } from 'react'
 import { KELS } from '@/lib/constants'
 import type { Peserta } from '@/hooks/use-kegiatan'
 import { Button } from '@/components/atoms/Button'
+import { Input } from '@/components/atoms/Input'
 import { Checkbox } from '@/components/atoms/Checkbox'
 import { Select } from '@/components/atoms/Select'
-
-const INPUT_CLS =
-  'w-full rounded-lg border border-line bg-surface px-2.5 py-2 text-xs text-ink outline-none placeholder:text-[var(--color-muted-soft)] focus:border-accent'
+import { cn, CARD_SHELL } from '@/lib/utils'
 
 export interface PesertaPanelProps {
   participants: Peserta[]
@@ -33,7 +32,7 @@ export function PesertaPanel({
   }
 
   return (
-    <div className="rounded-[10px] border border-line bg-surface p-3.5">
+    <div className={cn(CARD_SHELL, 'p-3.5')}>
       <b className="text-[13px] text-ink">
         Daftar Peserta{' '}
         <span className="text-muted">({participants.length})</span>
@@ -46,7 +45,7 @@ export function PesertaPanel({
               key={i}
               className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-center gap-2 max-md:grid-cols-1"
             >
-              <input value={p.nama} className={INPUT_CLS} readOnly />
+              <Input value={p.nama} size="sm" readOnly />
               <Select
                 value={p.kel}
                 className="py-2 text-xs"
@@ -75,12 +74,12 @@ export function PesertaPanel({
       )}
 
       <div className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(0,110px)] gap-2 max-md:grid-cols-1">
-        <input
+        <Input
           value={nama}
+          size="sm"
           placeholder="Nama peserta"
           onChange={(e) => setNama(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
-          className={INPUT_CLS}
         />
         <Select
           value={kel}

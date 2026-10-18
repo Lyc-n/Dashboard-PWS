@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { RoutePending } from '@/components/RoutePending'
 import {
   getFormAdaSubmit,
   getLaporanKunjunganRumah,
@@ -9,11 +10,17 @@ import {
 import type { KegiatanRecord } from '@/hooks/use-kegiatan'
 import { formIdOf } from '@/features/laporan/report-filter'
 import { JENIS_KEGIATAN, KELS, PAGE_SIZE, POSY } from '@/lib/constants'
-import { downloadCsv, fmtDate } from '@/lib/utils'
+import { downloadCsv, fmtDate, pctOf } from '@/lib/utils'
 import { useToast } from '@/providers/toast'
 import { AppShell, DataTable } from '@/components/organisms'
 import { MobileRow, Td, Tr } from '@/components/organisms/DataTable'
-import { PageHeader, SectionCard, StatCard } from '@/components/molecules'
+import {
+  DateRange,
+  KelurahanSelect,
+  PageHeader,
+  SectionCard,
+  StatCard,
+} from '@/components/molecules'
 import { Input, Select, StatusBadge } from '@/components/atoms'
 import { requireAuth } from '@/lib/auth'
 import { RekapKunjunganRumahSection } from '@/features/laporan/RekapKunjunganRumahSection'
@@ -51,9 +58,7 @@ export const Route = createFileRoute('/laporan')({
       ])
     return { kunjunganRumah, kegiatan, riwayatSubmit, formAdaSubmit }
   },
-  pendingComponent: () => (
-    <p className="p-4 text-sm text-muted">Memuat laporan…</p>
-  ),
+  pendingComponent: () => <RoutePending>Memuat laporan…</RoutePending>,
   component: Laporan,
 })
 
@@ -162,9 +167,7 @@ function Laporan() {
     return {
       kel: k,
       n: sub.length,
-      pct: filtered.length
-        ? Math.round((sub.length / filtered.length) * 100)
-        : 0,
+      pct: pctOf(sub.length, filtered.length),
     }
   })
 
@@ -231,15 +234,13 @@ function Laporan() {
   const totalKegiatan = filteredKegiatan.length
   const totalPeserta = filteredKegiatan.reduce((a, r) => a + r.total, 0)
   const totalHadir = filteredKegiatan.reduce((a, r) => a + r.hadir, 0)
-  const pctHadir = totalPeserta
-    ? Math.round((totalHadir / totalPeserta) * 100)
-    : 0
+  const pctHadir = pctOf(totalHadir, totalPeserta)
   const gKelStats = KELS.map((k) => {
     const sub = filteredKegiatan.filter((r) => r.kel === k)
     return {
       kel: k,
       n: sub.length,
-      pct: totalKegiatan ? Math.round((sub.length / totalKegiatan) * 100) : 0,
+      pct: pctOf(sub.length, totalKegiatan),
     }
   })
   const gJenisStats = JENIS_KEGIATAN.map((j) => {
@@ -247,7 +248,7 @@ function Laporan() {
     return {
       jenis: j,
       n: sub.length,
-      pct: totalKegiatan ? Math.round((sub.length / totalKegiatan) * 100) : 0,
+      pct: pctOf(sub.length, totalKegiatan),
     }
   })
   const {
@@ -326,31 +327,13 @@ function Laporan() {
         sub="Filter tanggal dan kelurahan berlaku untuk Isian Form, Kegiatan, dan Riwayat Submit."
       >
         <div className="flex flex-wrap items-end gap-3">
-          <Input
-            type="date"
-            value={dari}
-            onChange={(e) => setDari(e.target.value)}
-            aria-label="Tanggal awal"
-            className="max-w-42.5 max-md:max-w-none"
+          <DateRange
+            dari={dari}
+            sampai={sampai}
+            onDari={setDari}
+            onSampai={setSampai}
           />
-          <Input
-            type="date"
-            value={sampai}
-            onChange={(e) => setSampai(e.target.value)}
-            aria-label="Tanggal akhir"
-            className="max-w-42.5 max-md:max-w-none"
-          />
-          <Select
-            value={kel}
-            onChange={(e) => setKel(e.target.value)}
-            aria-label="Filter kelurahan"
-            className="max-w-42.5 max-md:max-w-none"
-          >
-            <option value="all">Semua kelurahan</option>
-            {KELS.map((k) => (
-              <option key={k}>{k}</option>
-            ))}
-          </Select>
+          <KelurahanSelect value={kel} onChange={setKel} />
         </div>
       </SectionCard>
 
@@ -455,7 +438,7 @@ function Laporan() {
             renderRow={(r, i) => (
               <tr
                 key={r.id}
-                className="border-b border-[var(--color-surface-2)] last:border-none"
+                className="border-b border-surface-2 last:border-none"
               >
                 <td className="px-2.5 py-2">{i + 1}</td>
                 <td className="whitespace-nowrap px-2.5 py-2">
@@ -694,7 +677,7 @@ function Laporan() {
             renderRow={(r, i) => (
               <tr
                 key={i}
-                className="border-b border-[var(--color-surface-2)] last:border-none"
+                className="border-b border-surface-2 last:border-none"
               >
                 <td className="px-2.5 py-2">{i + 1}</td>
                 <td className="whitespace-nowrap px-2.5 py-2">

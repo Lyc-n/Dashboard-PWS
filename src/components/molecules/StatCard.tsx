@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { cn } from '@/lib/utils'
+import { cn, CARD_SHELL } from '@/lib/utils'
 import { ProgressBar } from '@/components/atoms/ProgressBar'
 
 export interface StatCardProps {
@@ -24,19 +24,14 @@ export function StatCard({
   className,
 }: StatCardProps) {
   return (
-    <div
-      className={cn(
-        'rounded-[10px] border border-[var(--color-line-2)] bg-surface p-3.5 shadow-card',
-        className,
-      )}
-    >
+    <div className={cn(CARD_SHELL, 'p-3.5 shadow-card', className)}>
       <div className="flex items-start justify-between gap-2">
         <span className="text-xs font-medium text-muted">{caption}</span>
         {badge}
       </div>
       <span
         className={cn(
-          'block text-[26px] font-extrabold tracking-tight text-[var(--color-ink-strong)] max-sm:text-[22px]',
+          'block text-[26px] font-extrabold tracking-tight text-ink-strong max-sm:text-[22px]',
           valueClassName,
         )}
       >

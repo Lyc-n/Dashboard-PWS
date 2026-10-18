@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Printer, RotateCcw } from 'lucide-react'
 
-import { KELS, POSY } from '@/lib/constants'
+import { POSY } from '@/lib/constants'
 import {
   NUMBER_FIELDS,
   autoValueOf,
@@ -15,6 +15,7 @@ import { useKaderAktif } from '@/hooks/use-kader-aktif'
 import { useToast } from '@/providers/toast'
 import { SectionCard } from '@/components/molecules/SectionCard'
 import { Toolbar } from '@/components/molecules/Toolbar'
+import { KelurahanSelect } from '@/components/molecules'
 import { Input } from '@/components/atoms/Input'
 import { Select } from '@/components/atoms/Select'
 import { Button } from '@/components/atoms/Button'
@@ -128,17 +129,7 @@ export function RekapKunjunganRumahSection({
             aria-label="Periode bulan"
             className="max-w-42.5 max-md:max-w-none"
           />
-          <Select
-            value={kel}
-            onChange={(e) => setKel(e.target.value)}
-            aria-label="Filter kelurahan"
-            className="max-w-42.5 max-md:max-w-none"
-          >
-            <option value="all">Semua kelurahan</option>
-            {KELS.map((k) => (
-              <option key={k}>{k}</option>
-            ))}
-          </Select>
+          <KelurahanSelect value={kel} onChange={setKel} />
           <Select
             value={posy}
             onChange={(e) => setPosy(e.target.value)}

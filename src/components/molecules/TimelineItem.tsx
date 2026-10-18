@@ -29,7 +29,7 @@ export function TimelineItem({
           'absolute -left-[6px] top-[14px] h-2.5 w-2.5 rounded-full border-2 border-white',
           done
             ? 'bg-accent shadow-[0_0_0_2px_var(--color-accent-light)]'
-            : 'bg-[var(--color-muted-soft)] shadow-[0_0_0_2px_var(--color-line)]',
+            : 'bg-muted-soft shadow-[0_0_0_2px_var(--color-line)]',
         )}
       />
       <div className="min-w-0">
