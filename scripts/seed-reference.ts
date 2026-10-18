@@ -44,7 +44,7 @@
  * `pnpm db:seed` berulang kali aman dan tidak pernah menimpa editan admin.
  */
 import { and, eq, sql } from 'drizzle-orm'
-import { db } from '@/lib/db.server'
+import { db } from '@/lib/server/db.server'
 import { fasilitasKesehatan, users, wilayahKerja } from '@/lib/schema/schema'
 
 /** `kecamatan` tunggal, dari `data_warga_import`. */

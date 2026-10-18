@@ -19,27 +19,29 @@
  * akhir, termasuk bila ada sisa dari penjalanan sebelumnya.
  */
 import { eq, sql } from 'drizzle-orm'
-import { db } from '@/lib/db.server'
-import { pastikanDatabaseUji } from '@/lib/database-uji'
+import { db } from '@/lib/server/db.server'
+import { pastikanDatabaseUji } from '@/lib/uji/database-uji'
 import { dataWargaTable, surveys } from '@/lib/schema/schema'
 import { HASIL_KUNJUNGAN_RUMAH, KODE_FORM_BAWAAN } from '@/lib/constants'
-import { ambilDefinisiVersi } from '@/features/form-builder/services/section.server'
-import { buildFormVersion } from '@/features/form-builder/services/build.server'
+import { ambilDefinisiVersi } from '../src/lib/server/form-builder/section.server.ts'
+import { buildFormVersion } from '../src/lib/server/form-builder/build.server.ts'
 import {
   buatDraftBerikutnya,
   terbitkanVersiForm,
-} from '@/features/form-builder/services/form-version.server'
-import { listPetugasOpsi } from '@/lib/user-registry.server'
+} from '../src/lib/server/form-builder/form-version.server.ts'
+import { listPetugasOpsi } from '../src/lib/server/petugas/user-registry.server.ts'
 import {
   getKunjunganRumahRecord,
   listKunjunganRumahRecords,
   updateKunjunganRumahRecord,
-  querySurveysWithWarga,
-  querySurveyStatsByNik,
-  queryWargaList,
   removeKunjunganRumahRecord,
   saveKunjunganRumahRecord,
-} from '@/lib/utils.server'
+} from '@/lib/server/kunjungan-rumah.server'
+import { querySurveysWithWarga } from '@/lib/server/submit.server'
+import {
+  querySurveyStatsByNik,
+  queryWargaList,
+} from '@/lib/server/sasaran.server'
 
 const NIK_DUMMY = '9000000000000901'
 

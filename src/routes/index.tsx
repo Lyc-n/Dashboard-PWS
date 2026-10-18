@@ -1,28 +1,30 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { getDashboardData } from '@/lib/utils.functions'
+import { RoutePending } from '@/components/ui/RoutePending'
+import { getDashboardData } from '@/lib/api/server-fns'
 import { fmtDate } from '@/lib/utils'
 import { PAGE_SIZE } from '@/lib/constants'
-import { requireAuth } from '@/lib/auth'
-import { AppShell, DataTable, KelurahanSection } from '@/components/organisms'
-import type { SummaryCardData } from '@/components/organisms'
+import { requireAuth } from '@/lib/auth/auth'
+import { AppShell } from '@/components/layout'
+import { DataTable, KelurahanSection } from '@/components/shared'
+import { MobileRow, Td, Tr } from '@/components/shared/DataTable'
+import type { SummaryCardData } from '@/components/shared'
 import {
   PageHeader,
   SectionCard,
   StatCard,
   Toolbar,
-} from '@/components/molecules'
-import { Select, StatusBadge } from '@/components/atoms'
-import { paginate } from '@/features/laporan/components/report-shared'
-import { useKegiatanTrend } from '@/features/dashboard/useKegiatanTrend'
-import { KegiatanTrendChart } from '@/features/dashboard/KegiatanTrendChart'
+  Select,
+  StatusBadge,
+} from '@/components/ui'
+import { paginate } from '@/lib/laporan/report-shared'
+import { useKegiatanTrend } from '@/hooks/dashboard/use-kegiatan-trend'
+import { KegiatanTrendChart } from '@/components/dashboard/KegiatanTrendChart'
 
 export const Route = createFileRoute('/')({
   beforeLoad: requireAuth,
   loader: async () => await getDashboardData(),
-  pendingComponent: () => (
-    <p className="p-4 text-sm text-muted">Memuat dashboard…</p>
-  ),
+  pendingComponent: () => <RoutePending>Memuat dashboard…</RoutePending>,
   component: Dashboard,
 })
 
@@ -130,28 +132,23 @@ function Dashboard() {
             ]}
             rows={pageRows}
             renderRow={(row) => (
-              <tr
-                key={row.id}
-                className="border-b border-surface-2 last:border-none hover:bg-surface-2"
-              >
-                <td className="whitespace-nowrap px-3 py-2.5">
-                  {fmtDate(row.tanggal)}
-                </td>
-                <td className="px-3 py-2.5">
+              <Tr key={row.id}>
+                <Td className="whitespace-nowrap">{fmtDate(row.tanggal)}</Td>
+                <Td>
                   <div className="font-semibold text-ink">{row.formNama}</div>
                   <div className="text-muted">Kel. {row.kelurahan}</div>
-                </td>
-                <td className="px-3 py-2.5">
+                </Td>
+                <Td>
                   <div className="font-semibold text-ink">{row.nama}</div>
                   <div className="text-[11px] text-muted">
                     {row.nik ? `NIK ${row.nik}` : 'Tanpa warga'}
                   </div>
-                </td>
-                <td className="px-3 py-2.5 text-muted">{row.petugas}</td>
-                <td className="px-3 py-2.5">
+                </Td>
+                <Td className="text-muted">{row.petugas}</Td>
+                <Td>
                   <StatusBadge value="Selesai" />
-                </td>
-                <td className="px-3 py-2.5">
+                </Td>
+                <Td>
                   {row.nik ? (
                     <Link
                       to="/sasaran/$id"
@@ -163,14 +160,11 @@ function Dashboard() {
                   ) : (
                     <span className="text-[11px] text-muted">—</span>
                   )}
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             )}
             renderMobileRow={(row) => (
-              <div
-                key={row.id}
-                className="border-b border-surface-2 last:border-none px-3.5 py-3"
-              >
+              <MobileRow key={row.id}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="font-semibold text-ink">{row.nama}</div>
@@ -197,7 +191,7 @@ function Dashboard() {
                     Lihat Detail
                   </Link>
                 ) : null}
-              </div>
+              </MobileRow>
             )}
             sortKey={sortKey}
             sortDir={sortDir}

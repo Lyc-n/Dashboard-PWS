@@ -1,6 +1,6 @@
 import { ChevronDown } from 'lucide-react'
 import { useState } from 'react'
-import { SectionCard } from '@/components/molecules/SectionCard'
+import { SectionCard } from './SectionCard'
 
 interface CollapsibleSectionProps {
   title: string

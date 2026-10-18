@@ -56,14 +56,19 @@ pnpm dev
 | `/form`                | Daftar form.                                               |
 | `/isi/$formVersionId`  | Isi form hasil Form Builder.                               |
 
-| Feature                         | Isi                                                                                                                       |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `src/features/survey/`          | Formulir dinamis dari Form Builder, termasuk kegiatan Posyandu. `DynamicField`, `form-runtime.server`, `kegiatan.server`. |
-| `src/features/kunjungan-rumah/` | Formulir kunjungan rumah generasi-1: komponen seksi, reducer, selector, validasi, progres, foto.                          |
-| `src/features/form-builder/`    | Definisi form: versi, section, field, sumber opsi, validasi, audit.                                                       |
-| `src/features/kelola/`          | Halaman admin: Form Builder workspace, manajemen petugas.                                                                 |
-| `src/features/laporan/`         | Cetak surat laporan dan rekap kunjungan rumah.                                                                            |
-| `src/features/dashboard/`       | Widget dashboard: tren kegiatan.                                                                                          |
+| Fitur             | Komponen                      | Logika dan server                                                                                                             |
+| ----------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `survey`          | `components/survey/`          | Formulir dinamis dari Form Builder, termasuk kegiatan Posyandu. `lib/server/survey/` (`form-runtime`, `kegiatan`).            |
+| `kunjungan-rumah` | `components/kunjungan-rumah/` | Formulir kunjungan rumah generasi-1: seksi, reducer, selector, validasi, progres, foto.                                       |
+| `form-builder`    | `components/kelola/builder/`  | Definisi form: versi, section, field, sumber opsi, validasi, audit (`lib/service/form-builder/`, `lib/server/form-builder/`). |
+| `kelola`          | `components/kelola/`          | Halaman admin: Form Builder workspace, manajemen petugas.                                                                     |
+| `petugas`         | `hooks/petugas/`              | Data kader dan petugas: tabel users, opsi petugas, daftar aktif (`lib/petugas/`, `lib/server/petugas/`).                      |
+| `laporan`         | `components/laporan/`         | Cetak surat laporan dan rekap kunjungan rumah (`lib/laporan/`).                                                               |
+| `dashboard`       | `components/dashboard/`       | Widget dashboard: tren kegiatan.                                                                                              |
+
+Setiap fitur dipecah per lapisan di `src/`: `components/<fitur>/`, `hooks/<fitur>/`, `lib/<fitur>/`, `lib/service/<fitur>/`, dan `lib/server/<fitur>/`.
+
+Struktur lengkap setiap folder dan file yang harus diubah per tugas ada di [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Database
 

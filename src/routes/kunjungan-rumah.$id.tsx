@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { requireAuth } from '@/lib/auth'
-import { getKunjunganRumah } from '@/lib/utils.functions'
-import { sanitizeRecord } from '@/features/kunjungan-rumah/types'
-import { KunjunganRumahFormScene } from '@/features/kunjungan-rumah/components/KunjunganRumahFormScene'
-import type { KunjunganRumahRecord } from '@/features/kunjungan-rumah/types'
+import { requireAuth } from '@/lib/auth/auth'
+import { getKunjunganRumah } from '@/lib/api/server-fns'
+import { sanitizeRecord } from '@/lib/kunjungan-rumah/types'
+import { KunjunganRumahFormScene } from '@/components/kunjungan-rumah/KunjunganRumahFormScene'
+import type { KunjunganRumahRecord } from '@/lib/kunjungan-rumah/types'
 
 export const Route = createFileRoute('/kunjungan-rumah/$id')({
   beforeLoad: requireAuth,

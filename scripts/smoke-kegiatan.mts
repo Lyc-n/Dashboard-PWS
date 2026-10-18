@@ -17,16 +17,16 @@
  *       pnpm db:smoke-kegiatan
  */
 import { eq } from 'drizzle-orm'
-import { db } from '@/lib/db.server'
-import { pastikanDatabaseUji } from '@/lib/database-uji'
+import { db } from '@/lib/server/db.server'
+import { pastikanDatabaseUji } from '@/lib/uji/database-uji'
 import { surveys } from '@/lib/schema/schema'
 import {
   simpanKegiatan,
   listKegiatan,
-} from '@/features/survey/services/kegiatan.server'
-import { listPetugasOpsi } from '@/lib/user-registry.server'
-import { querySurveyStatsByNik } from '@/lib/utils.server'
-import { resolveOpsiDinamis } from '@/features/form-builder/services/option-source.server'
+} from '../src/lib/server/survey/kegiatan.server.ts'
+import { listPetugasOpsi } from '../src/lib/server/petugas/user-registry.server.ts'
+import { querySurveyStatsByNik } from '@/lib/server/sasaran.server'
+import { resolveOpsiDinamis } from '../src/lib/server/form-builder/option-source.server.ts'
 
 async function main(): Promise<void> {
   pastikanDatabaseUji('smoke test')

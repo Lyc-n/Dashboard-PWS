@@ -16,7 +16,7 @@
  * YANG TIDAK DISENTUH
  * -------------------
  * Hanya baris dengan `kode IS NULL` — form Form Builder (pola yang sama dengan
- * `listFormBaru` di src/features/form-builder/services/form.server.ts). Form
+ * `listFormBaru` di src/lib/server/form-builder/form.server.ts). Form
  * bawaan seeder punya `kode` terisi (CHECKLIST_KUNJUNGAN_RUMAH,
  * KEGIATAN_PEMBERDAYAAN) dan nilainya tidak berubah, jadi Form Kunjungan Rumah
  * tetap menanyakan warga.
@@ -38,9 +38,9 @@
  */
 import 'dotenv/config'
 import { and, eq, isNull } from 'drizzle-orm'
-import { db } from '@/lib/db.server'
+import { db } from '@/lib/server/db.server'
 import { forms } from '@/lib/schema/schema'
-import { pastikanDatabaseUji } from '@/lib/database-uji'
+import { pastikanDatabaseUji } from '@/lib/uji/database-uji'
 
 async function hitung(): Promise<
   Array<{ nama: string; kode: string | null; wajib: boolean }>
