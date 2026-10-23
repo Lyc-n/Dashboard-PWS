@@ -1,31 +1,36 @@
 import { useState } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { useKegiatan } from '@/hooks/use-kegiatan'
-import { useKegiatanRecords } from '@/hooks/use-kegiatan-records'
-import { usePetugasOpsi } from '@/hooks/use-petugas-opsi'
-import type { KegiatanRow } from '@/hooks/use-kegiatan-records'
+import { createFileRoute } from '@tanstack/react-router'
+import { useKegiatan } from '@/hooks/survey/use-kegiatan'
+import { useKegiatanRecords } from '@/hooks/survey/use-kegiatan-records'
+import { usePetugasOpsi } from '@/hooks/petugas/use-petugas-opsi'
+import type { KegiatanRow } from '@/hooks/survey/use-kegiatan-records'
 import { JENIS_KEGIATAN, KELS, POSY } from '@/lib/constants'
 import { fmtDate } from '@/lib/utils'
 import { useToast } from '@/providers/toast'
+import { AppShell } from '@/components/layout'
 import {
-  AppShell,
   DokumentasiPanel,
   HistoryPanel,
   PesertaPanel,
   SuccessPanel,
-} from '@/components/organisms'
+} from '@/components/shared'
 import {
   FillBar,
   FormField,
   HistoryRow,
   PageHeader,
+  SaveBar,
   SectionCard,
   Stepper,
-  Toolbar,
-} from '@/components/molecules'
-import type { Step } from '@/components/molecules'
-import { Badge, Button, Input, Select, Textarea } from '@/components/atoms'
-import { requireAuth } from '@/lib/auth'
+  Badge,
+  Button,
+  ButtonLink,
+  Input,
+  Select,
+  Textarea,
+} from '@/components/ui'
+import type { Step } from '@/components/ui'
+import { requireAuth } from '@/lib/auth/auth'
 
 export const Route = createFileRoute('/kegiatan')({
   beforeLoad: requireAuth,
@@ -275,20 +280,16 @@ function Kegiatan() {
       <SectionCard
         title="5. Simpan"
         actions={
-          <Toolbar className="w-full">
-            <span className="ml-auto text-xs text-muted">
-              Simpan ke database.
-            </span>
-            <Button variant="default" onClick={k.clearAll}>
-              Reset
-            </Button>
+          <SaveBar
+            onReset={k.clearAll}
+            onSubmit={handleSubmit}
+            disabled={saving}
+            submitLabel={saving ? 'Menyimpan…' : 'Simpan kegiatan'}
+          >
             <Button variant="ghost" onClick={k.loadDemo}>
               Isi contoh
             </Button>
-            <Button variant="primary" onClick={handleSubmit} disabled={saving}>
-              {saving ? 'Menyimpan…' : 'Simpan kegiatan'}
-            </Button>
-          </Toolbar>
+          </SaveBar>
         }
       >
         <span className="text-xs text-muted">
@@ -304,12 +305,9 @@ function Kegiatan() {
           <Button variant="primary" onClick={handleNext}>
             Catat kegiatan berikutnya
           </Button>
-          <Link
-            to="/sasaran"
-            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-accent bg-accent px-[18px] py-[11px] text-[13px] font-bold text-on-accent hover:bg-accent-hover"
-          >
+          <ButtonLink to="/sasaran" variant="primary">
             Lihat Data Sasaran
-          </Link>
+          </ButtonLink>
         </SuccessPanel>
       ) : null}
 

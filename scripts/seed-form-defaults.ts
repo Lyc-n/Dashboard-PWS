@@ -18,7 +18,7 @@
  * lokal setelah salah satu sisipan berubah.
  */
 import { eq } from 'drizzle-orm'
-import { db } from '@/lib/db.server'
+import { db } from '@/lib/server/db.server'
 import {
   formFieldOptions,
   formFields,
@@ -29,13 +29,13 @@ import {
 import {
   createDefaultKunjunganRumahTemplates,
   KUNJUNGAN_RUMAH_TEMPLATE_VERSION,
-} from '@/lib/kunjungan-rumah-templates'
-import type { KunjunganRumahTemplateField } from '@/lib/kunjungan-rumah-templates'
-import { SASARAN_KEYS } from '@/lib/kunjungan-rumah-form'
+} from '../src/lib/kunjungan-rumah/template/kunjungan-rumah-templates.ts'
+import type { KunjunganRumahTemplateField } from '../src/lib/kunjungan-rumah/template/kunjungan-rumah-templates.ts'
+import { SASARAN_KEYS } from '../src/lib/kunjungan-rumah/template/kunjungan-rumah-form.ts'
 import {
   namaFieldUnik,
   FORM_KUNJUNGAN_RUMAH,
-} from '@/features/kunjungan-rumah/lib/template-from-rows'
+} from '../src/lib/kunjungan-rumah/template/template-from-rows.ts'
 import { JENIS_KEGIATAN, KODE_FORM_BAWAAN } from '@/lib/constants'
 
 /**

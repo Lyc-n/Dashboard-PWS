@@ -1,16 +1,38 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useAsyncData } from '@/hooks/use-async-data'
-import { getSasaranList } from '@/lib/utils.functions'
-import type { SasaranListRow } from '@/lib/utils.functions'
-import { requireAuth } from '@/lib/auth'
-import { KELS, PAGE_SIZE } from '@/lib/constants'
+import { getSasaranList } from '@/lib/api/server-fns'
+import type { SasaranListRow } from '@/lib/api/server-fns'
+import { requireAuth } from '@/lib/auth/auth'
+import { PAGE_SIZE } from '@/lib/constants'
 import { downloadCsv, fmtDate } from '@/lib/utils'
-import { DataTable, FilterCard } from '@/components/organisms'
-import { PageHeader, SectionCard, Toolbar } from '@/components/molecules'
-import { Button, Input, Select, StatusBadge } from '@/components/atoms'
+import { DataTable, FilterCard } from '@/components/shared'
+import { MobileRow, Td, Tr } from '@/components/shared/DataTable'
+import {
+  KelurahanSelect,
+  PageHeader,
+  SectionCard,
+  Toolbar,
+  Button,
+  Input,
+  Select,
+  StatusBadge,
+} from '@/components/ui'
 
 const DEBOUNCE_MS = 500
+
+/**
+ * Chip "butuh update" di samping nama sasaran. Markupnya ada di dua bentuk
+ * baris (tabel dan mobile) dengan satu kelas yang sama; salinan kembar itu
+ * yang paling mudah saling menarik ketika chip diubah.
+ */
+function TandaPerluUpdate() {
+  return (
+    <span className="inline-block rounded bg-warn/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warn">
+      butuh update
+    </span>
+  )
+}
 
 function opsiSearch(search: Record<string, unknown>): {
   q?: string
@@ -152,17 +174,11 @@ function Sasaran() {
             <option>Sudah</option>
             <option>Belum</option>
           </Select>
-          <Select
+          <KelurahanSelect
             value={kel}
-            onChange={(e) => setFilter({ kel: e.target.value })}
-            aria-label="Filter kelurahan"
+            onChange={(k) => setFilter({ kel: k })}
             className="max-w-45 max-md:max-w-none"
-          >
-            <option value="all">Semua kelurahan</option>
-            {KELS.map((k) => (
-              <option key={k}>{k}</option>
-            ))}
-          </Select>
+          />
         </Toolbar>
       </FilterCard>
 
@@ -204,11 +220,8 @@ function Sasaran() {
             ]}
             rows={rows}
             renderRow={(row) => (
-              <tr
-                key={row.rawId}
-                className="border-b border-surface-2 last:border-none hover:bg-surface-2"
-              >
-                <td className="px-3 py-2.5">
+              <Tr key={row.rawId}>
+                <Td>
                   <Link
                     to="/sasaran/$id"
                     params={{ id: row.nik }}
@@ -217,27 +230,25 @@ function Sasaran() {
                     {row.nama}
                   </Link>
                   {row.needsUpdate ? (
-                    <span className="ml-1.5 inline-block rounded bg-warn/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warn">
-                      butuh update
+                    <span className="ml-1.5">
+                      <TandaPerluUpdate />
                     </span>
                   ) : null}
                   <div className="text-[11px] text-muted">NIK {row.nik}</div>
-                </td>
-                <td className="px-3 py-2.5">
+                </Td>
+                <Td>
                   <div className="font-semibold text-ink">
                     Kel. {row.kelurahan}
                   </div>
-                </td>
-                <td className="px-3 py-2.5 text-muted">
-                  {row.kunjunganRumah}×
-                </td>
-                <td className="px-3 py-2.5">
+                </Td>
+                <Td className="text-muted">{row.kunjunganRumah}×</Td>
+                <Td>
                   <StatusBadge value={row.status} />
-                </td>
-                <td className="whitespace-nowrap px-3 py-2.5">
+                </Td>
+                <Td className="whitespace-nowrap">
                   {row.tgl ? fmtDate(row.tgl) : '—'}
-                </td>
-                <td className="px-3 py-2.5">
+                </Td>
+                <Td>
                   <Link
                     to="/sasaran/$id"
                     params={{ id: row.nik }}
@@ -245,14 +256,11 @@ function Sasaran() {
                   >
                     Detail
                   </Link>
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             )}
             renderMobileRow={(row) => (
-              <div
-                key={row.rawId}
-                className="border-b border-surface-2 last:border-none px-3.5 py-3"
-              >
+              <MobileRow key={row.rawId}>
                 <div className="flex items-start justify-between gap-2">
                   <Link
                     to="/sasaran/$id"
@@ -265,8 +273,8 @@ function Sasaran() {
                 </div>
                 <div className="text-[11px] text-muted">NIK {row.nik}</div>
                 {row.needsUpdate ? (
-                  <div className="mt-1 inline-block rounded bg-warn/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warn">
-                    butuh update
+                  <div className="mt-1">
+                    <TandaPerluUpdate />
                   </div>
                 ) : null}
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -286,7 +294,7 @@ function Sasaran() {
                     Detail
                   </Link>
                 </div>
-              </div>
+              </MobileRow>
             )}
             info={`Hal ${page} · ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} dari ${total}`}
             page={page}

@@ -1,23 +1,25 @@
-import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
 
-import { AppShell } from "@/components/organisms";
-import { PageHeader, SectionCard, StatCard } from "@/components/molecules";
-import { Select } from "@/components/atoms";
-import { requireAuth } from "@/lib/auth";
-import { fmtDate } from "@/lib/utils";
-import { WARNING_CONFIG } from "@/features/dashboard/warning.config";
-import { computePeriod } from "@/features/dashboard/warning";
-import { SEVERITY_META, SEVERITY_URUTAN, WARNING_TYPE_LABEL } from "@/features/dashboard/severity";
-import { FILTER_SEMUA } from "@/features/notifikasi/lib/ringkasan";
-import { NotifikasiList } from "@/features/notifikasi/components/NotifikasiList";
-import { useNotifikasi } from "@/hooks/use-notifikasi";
-import type { FilterNotifikasi } from "@/features/notifikasi/types";
+import { AppShell } from '@/components/layout'
+import { PageHeader, SectionCard, StatCard, Select } from '@/components/ui'
+import { requireAuth } from '@/lib/auth/auth'
+import { fmtDate } from '@/lib/utils'
+import { computePeriod } from '@/lib/dashboard/warning'
+import {
+  SEVERITY_META,
+  SEVERITY_URUTAN,
+  WARNING_TYPE_LABEL,
+} from '@/components/dashboard/severity'
+import { FILTER_SEMUA } from '@/lib/notifikasi/ringkasan'
+import { NotifikasiList } from '@/components/notifikasi/NotifikasiList'
+import { useNotifikasi } from '@/hooks/notifikasi/use-notifikasi'
+import type { FilterNotifikasi } from '@/lib/notifikasi/types'
 
-export const Route = createFileRoute("/notifikasi")({
+export const Route = createFileRoute('/notifikasi')({
   beforeLoad: requireAuth,
   component: Notifikasi,
-});
+})
 
 /**
  * Halaman notifikasi — pengganti pesan WhatsApp.
@@ -32,37 +34,44 @@ export const Route = createFileRoute("/notifikasi")({
  * lonceng karena itu menghitung warning aktif, bukan belum dibaca.
  */
 function Notifikasi() {
-  const [severity, setSeverity] = useState(FILTER_SEMUA);
-  const [type, setType] = useState(FILTER_SEMUA);
-  const [region, setRegion] = useState(FILTER_SEMUA);
+  const [severity, setSeverity] = useState(FILTER_SEMUA)
+  const [type, setType] = useState(FILTER_SEMUA)
+  const [region, setRegion] = useState(FILTER_SEMUA)
 
-  const filter: FilterNotifikasi = { severity, type, region };
-  const { data, warnings, regions, ringkasan, loading, error, reload } = useNotifikasi(filter);
+  const filter: FilterNotifikasi = { severity, type, region }
+  const { data, warnings, regions, ringkasan, loading, error, reload } =
+    useNotifikasi(filter)
 
   // Periode hanya untuk keterangan; objek stabil supaya tidak recompute tiap render.
-  const period = useMemo(() => computePeriod(), []);
+  const period = useMemo(() => computePeriod(), [])
 
-  const adaFilter = severity !== FILTER_SEMUA || type !== FILTER_SEMUA || region !== FILTER_SEMUA;
-
-  const bersihkanFilter = () => {
-    setSeverity(FILTER_SEMUA);
-    setType(FILTER_SEMUA);
-    setRegion(FILTER_SEMUA);
-  };
+  const adaFilter =
+    severity !== FILTER_SEMUA ||
+    type !== FILTER_SEMUA ||
+    region !== FILTER_SEMUA
 
   return (
     <AppShell>
       <PageHeader
         title="Notifikasi"
-        description="Peringatan otomatis dari cakupan kunjungan, jadwal kunjungan berikutnya, dan tindak lanjut yang belum selesai. Menyerupai pesan pengingat yang sebelumnya dikirim lewat WhatsApp, tapi bisa dibaca dan ditindaklanjuti langsung dari halaman ini."
+        description="Peringatan otomatis dari cakupan kunjungan, jadwal kunjungan berikutnya, dan tindak lanjut yang belum selesai."
       />
       <p className="mt-1 text-xs text-muted">
-        Periode {fmtDate(period.startDate)} - {fmtDate(period.endDate)} · {period.daysRemaining} hari tersisa
+        Periode {fmtDate(period.startDate)} - {fmtDate(period.endDate)} ·{' '}
+        {period.daysRemaining} hari tersisa
       </p>
 
       <div className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-1">
-        <StatCard caption="Notifikasi aktif" value={ringkasan.total} sub="dihitung ulang tiap halaman dibuka" />
-        <StatCard caption="Perlu tindakan segera" value={ringkasan.kritis} sub="severity kritis" />
+        <StatCard
+          caption="Notifikasi aktif"
+          value={ringkasan.total}
+          sub="dihitung ulang tiap halaman dibuka"
+        />
+        <StatCard
+          caption="Perlu tindakan segera"
+          value={ringkasan.kritis}
+          sub="severity kritis"
+        />
         <StatCard
           caption="Warga terpantau"
           value={data.ringkasan.warga}
@@ -74,11 +83,11 @@ function Notifikasi() {
         title="Daftar notifikasi"
         sub={
           loading
-            ? "Memuat data..."
+            ? 'Memuat data...'
             : `${warnings.length} notifikasi ditampilkan dari ${ringkasan.total} aktif.`
         }
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col items-center gap-2 sm:flex-row">
             <Select
               value={severity}
               onChange={(e) => setSeverity(e.target.value)}
@@ -120,16 +129,6 @@ function Notifikasi() {
                 </option>
               ))}
             </Select>
-
-            {adaFilter ? (
-              <button
-                type="button"
-                onClick={bersihkanFilter}
-                className="cursor-pointer text-[12px] font-semibold text-accent hover:underline"
-              >
-                Reset
-              </button>
-            ) : null}
           </div>
         }
       >
@@ -149,37 +148,12 @@ function Notifikasi() {
             warnings={warnings}
             kosong={
               adaFilter
-                ? "Tidak ada notifikasi yang cocok dengan filter ini."
-                : "Tidak ada notifikasi aktif. Cakupan kunjungan, jadwal, dan tindak lanjut sedang beres."
+                ? 'Tidak ada notifikasi yang cocok dengan filter ini.'
+                : 'Tidak ada notifikasi aktif. Cakupan kunjungan, jadwal, dan tindak lanjut sedang beres.'
             }
           />
         )}
       </SectionCard>
-
-      <SectionCard
-        title="Cara notifikasi ini dihitung"
-        sub="Semua angka berasal dari data yang sudah ada; tidak ada input manual."
-      >
-        <ul className="space-y-1.5 text-[12px] text-muted">
-          <li>
-            <span className="font-semibold text-ink">Cakupan kunjungan</span> - warga di{" "}
-            <code className="rounded bg-surface-2 px-1">data_warga</code> yang belum punya submission di{" "}
-            <code className="rounded bg-surface-2 px-1">surveys</code>.
-          </li>
-          <li>
-            <span className="font-semibold text-ink">Jadwal kunjungan</span> - field jadwal di form Hasil, satu
-            jadwal terbuka per warga. Tanggal yang sudah lewat tetap ditampilkan supaya terlihat sebagai terlambat.
-          </li>
-          <li>
-            <span className="font-semibold text-ink">Tindak lanjut</span> - kunjungan terakhir warga yang hasilnya{" "}
-            {WARNING_CONFIG.tindakLanjut.openHasil.join(" atau ")}, dengan severity naik semakin lama umurnya.
-          </li>
-          <li>
-            <span className="font-semibold text-ink">Cakupan wilayah</span> - kelurahan dengan minimal{" "}
-            {WARNING_CONFIG.coverage.minSasaran} sasaran dan cakupan di bawah {WARNING_CONFIG.coverage.lowPct}%.
-          </li>
-        </ul>
-      </SectionCard>
     </AppShell>
-  );
+  )
 }

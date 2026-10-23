@@ -12,51 +12,77 @@
  *
  * Jalankan: npx tsx scripts/smoke-notifikasi.mts
  */
-import { queryKelurahanStats, listKunjunganRumahRecords } from "../src/lib/utils.server";
-import { buildWarnings } from "../src/features/dashboard/warning";
+import {
+  queryKelurahanStats,
+  listKunjunganRumahRecords,
+} from '../src/lib/utils.server'
+import { buildWarnings } from '../src/features/dashboard/warning'
 import {
   keVisitRecord,
   deriveJadwal,
   deriveTindakLanjutDari,
-} from "../src/features/notifikasi/lib/sumber-warning";
+} from '../src/lib/notifikasi/sumber-warning'
 
-async function peta<T>(label: string, fn: () => Promise<T>, kosong: T): Promise<T> {
+async function peta<T>(
+  label: string,
+  fn: () => Promise<T>,
+  kosong: T,
+): Promise<T> {
   try {
-    return await fn();
+    return await fn()
   } catch (err) {
-    console.log(`[GAGAL] ${label}: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
-    return kosong;
+    console.log(
+      `[GAGAL] ${label}: ${err instanceof Error ? err.message.split('\n')[0] : String(err)}`,
+    )
+    return kosong
   }
 }
 
-const records = await peta("listKunjunganRumahRecords", listKunjunganRumahRecords, []);
-const kelurahan = await peta("queryKelurahanStats", queryKelurahanStats, []);
+const records = await peta(
+  'listKunjunganRumahRecords',
+  listKunjunganRumahRecords,
+  [],
+)
+const kelurahan = await peta('queryKelurahanStats', queryKelurahanStats, [])
 
-const visits = keVisitRecord(records);
-const jadwal = deriveJadwal(visits);
-const tindak = deriveTindakLanjutDari(visits);
-const regions = kelurahan.map((k) => ({ name: k.name, total: k.total, dikunjungi: k.dikunjungi }));
+const visits = keVisitRecord(records)
+const jadwal = deriveJadwal(visits)
+const tindak = deriveTindakLanjutDari(visits)
+const regions = kelurahan.map((k) => ({
+  name: k.name,
+  total: k.total,
+  dikunjungi: k.dikunjungi,
+}))
 
-const warnings = buildWarnings({ regions, jadwal, tindakLanjut: tindak }, { now: new Date() });
+const warnings = buildWarnings(
+  { regions, jadwal, tindakLanjut: tindak },
+  { now: new Date() },
+)
 
-console.log("--- sumber ---");
-console.log("record kunjungan   :", records.length);
-console.log("visit terpetakan   :", visits.length, "dari", records.length);
-console.log("  tanpa NIK        :", visits.filter((v) => !v.nik).length);
-console.log("  tanpa tanggal    :", visits.filter((v) => !v.tanggal).length);
-console.log("  tanpa hasil      :", visits.filter((v) => !v.hasil).length);
-console.log("  jadwal terisi    :", visits.filter((v) => v.jadwal).length);
-console.log("kelurahan          :", regions.length);
-console.log("jadwal terbuka     :", jadwal.length);
-console.log("tindak terbuka     :", tindak.length);
+console.log('--- sumber ---')
+console.log('record kunjungan   :', records.length)
+console.log('visit terpetakan   :', visits.length, 'dari', records.length)
+console.log('  tanpa NIK        :', visits.filter((v) => !v.nik).length)
+console.log('  tanpa tanggal    :', visits.filter((v) => !v.tanggal).length)
+console.log('  tanpa hasil      :', visits.filter((v) => !v.hasil).length)
+console.log('  jadwal terisi    :', visits.filter((v) => v.jadwal).length)
+console.log('kelurahan          :', regions.length)
+console.log('jadwal terbuka     :', jadwal.length)
+console.log('tindak terbuka     :', tindak.length)
 
-console.log("\n--- warning ---");
+console.log('\n--- warning ---')
 for (const w of warnings) {
-  console.log(`[${w.severity}] ${w.type}: ${w.title}`);
+  console.log(`[${w.severity}] ${w.type}: ${w.title}`)
 }
 
-const hitung = (t: string) => warnings.filter((w) => w.type === t).length;
-console.log("\njadwal_terlambat muncul            :", hitung("jadwal_terlambat"));
-console.log("tindak_lanjut_belum_selesai muncul:", hitung("tindak_lanjut_belum_selesai"));
+const hitung = (t: string) => warnings.filter((w) => w.type === t).length
+console.log(
+  '\njadwal_terlambat muncul            :',
+  hitung('jadwal_terlambat'),
+)
+console.log(
+  'tindak_lanjut_belum_selesai muncul:',
+  hitung('tindak_lanjut_belum_selesai'),
+)
 
-process.exit(0);
+process.exit(0)

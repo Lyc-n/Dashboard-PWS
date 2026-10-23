@@ -60,6 +60,56 @@ export function priorityTagVariant(prio?: string | null): TagVariant {
   return PRIO_TO_TAG[prio ?? ''] ?? 'odgj'
 }
 
+export type ButtonVariant =
+  'default' | 'primary' | 'ghost' | 'danger' | 'export'
+export type ButtonSize = 'md' | 'sm'
+
+export const BUTTON_VARIANT_CLASS: Record<ButtonVariant, string> = {
+  default: 'border-line bg-surface text-ink-2 hover:border-accent',
+  primary: 'border-accent bg-accent text-on-accent hover:bg-accent-hover',
+  ghost: 'border-accent-border bg-surface text-accent hover:bg-accent-light',
+  danger:
+    'border-[var(--color-danger-border)] bg-surface text-danger hover:bg-[var(--color-danger-soft)]',
+  export: 'border-accent bg-accent text-on-accent hover:bg-accent-hover',
+}
+
+export const BUTTON_SIZE_CLASS: Record<ButtonSize, string> = {
+  md: 'min-h-10 px-5 py-2.5 text-[13px]',
+  sm: 'min-h-8 px-3 py-1 text-xs',
+}
+
+/**
+ * Kelas `Button` versi string, dipisah dari komponennya supaya `Link` TanStack
+ * bisa tampil sebagai tombol (lihat `ButtonLink`) tanpa menduplikasi daftar
+ * kelasnya. Bentuk berubah di sini, lima tempat ikut.
+ */
+export function buttonClass(
+  variant: ButtonVariant = 'default',
+  size: ButtonSize = 'md',
+): string {
+  return `${BUTTON_VARIANT_CLASS[variant]} ${BUTTON_SIZE_CLASS[size]}`
+}
+
+/**
+ * Persen bulat dari `bagian` terhadap `total`, aman untuk total 0.
+ *
+ * Bentuk `total ? Math.round(bagian/total*100) : 0` sebelumnya ditulis tangan
+ * di tiga kartu statistik laporan; satu ketidaksengajaan `(bagian/total)` yang
+ * terbalik tidak akan terlihat review tapi bisa membalik arti angkanya.
+ */
+export function pctOf(bagian: number, total: number): number {
+  return total > 0 ? Math.round((bagian / total) * 100) : 0
+}
+
+/**
+ * Cangkang kartu isi: radius, garis, dan latar yang sama-satunya.
+ *
+ * Dulu lima komponen menulis string ini dengan token yang mengembar
+ * (`border-line` vs bracket `border-[var(--color-line-2)]`); sekarang padding,
+ * bayangan, dan margin jadi milik pemanggil, sedang cangkangnya satu kelas.
+ */
+export const CARD_SHELL = 'rounded-[10px] border border-line-2 bg-surface'
+
 export function statusVariantFrom(value?: string | null): StatusVariant {
   switch (value) {
     case 'Sudah':

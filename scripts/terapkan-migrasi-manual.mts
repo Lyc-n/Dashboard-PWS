@@ -14,26 +14,30 @@
  *   npx tsx scripts/terapkan-migrasi-manual.mts drizzle/manual/foo.sql
  *   npx tsx scripts/terapkan-migrasi-manual.mts --dry-run drizzle/manual/foo.sql
  */
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import postgres from "postgres";
-import dotenv from "dotenv";
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import postgres from 'postgres'
+import dotenv from 'dotenv'
 
-dotenv.config();
+dotenv.config()
 
-const args = process.argv.slice(2);
-const dryRun = args.includes("--dry-run");
-const fileArgs = args.filter((a) => a !== "--dry-run");
+const args = process.argv.slice(2)
+const dryRun = args.includes('--dry-run')
+const fileArgs = args.filter((a) => a !== '--dry-run')
 
 if (fileArgs.length === 0) {
-  console.error("Tanpa file: npx tsx scripts/terapkan-migrasi-manual.mts [--dry-run] <file1.sql> [file2.sql ...]");
-  process.exit(1);
+  console.error(
+    'Tanpa file: npx tsx scripts/terapkan-migrasi-manual.mts [--dry-run] <file1.sql> [file2.sql ...]',
+  )
+  process.exit(1)
 }
 
-const connectionUrl = process.env.DATABASE_URL;
+const connectionUrl = process.env.DATABASE_URL
 if (!connectionUrl) {
-  console.error("DATABASE_URL belum diisi. Skrip ini tidak boleh menebak database mana yang dituju.");
-  process.exit(1);
+  console.error(
+    'DATABASE_URL belum diisi. Skrip ini tidak boleh menebak database mana yang dituju.',
+  )
+  process.exit(1)
 }
 
 /** Postgres.js menolak BEGIN TRANSACTION eksplisit di dalam kueri multi-
@@ -48,98 +52,117 @@ if (!connectionUrl) {
  *  seluruh file manual di repo ini memang begitu.
  */
 function bagianLuarDollarQuote(text: string): string {
-  const bagian: string[] = [];
-  let dalam = false;
-  for (const potong of text.split("$$")) {
-    if (!dalam) bagian.push(potong);
-    dalam = !dalam;
+  const bagian: string[] = []
+  let dalam = false
+  for (const potong of text.split('$$')) {
+    if (!dalam) bagian.push(potong)
+    dalam = !dalam
   }
-  return bagian.join("\n");
+  return bagian.join('\n')
 }
 
 /** Buang komentar SQL (baris -- dan blok slash-star). Kata `begin` yang hanya
  *  disebut di penjelasan tidak boleh ikut menyalakan penolakan. */
 function tanpaKomentar(text: string): string {
-  return text.replace(/--[^\n]*/g, " ").replace(/\/\*[\s\S]*?\*\//g, " ");
+  return text.replace(/--[^\n]*/g, ' ').replace(/\/\*[\s\S]*?\*\//g, ' ')
 }
 
 function tanpaTransactionSendiri(fileArg: string, text: string): void {
-  const aktif = tanpaKomentar(bagianLuarDollarQuote(text));
-  const masalah = ["begin", "commit", "rollback"].filter((kata) =>
-    new RegExp(`(^|[^a-zA-Z])${kata}\\b`, "i").test(aktif),
-  );
+  const aktif = tanpaKomentar(bagianLuarDollarQuote(text))
+  const masalah = ['begin', 'commit', 'rollback'].filter((kata) =>
+    new RegExp(`(^|[^a-zA-Z])${kata}\\b`, 'i').test(aktif),
+  )
   if (masalah.length > 0) {
-    console.error(`\n  DITOLAK: ${fileArg} memakai perintah transaction ${masalah.join(" dan ")} sendiri.`);
-    console.error("  Transaksi dimiliki runner ini (sql.begin), bukan file SQL.");
-    console.error("  Kalau file dijalankan gagal di tengah, Postgres harus membatalkan semuanya,");
-    console.error("  bukan hanya statement yang sempat jalan.");
-    console.error("  Hapus BEGIN/COMMIT tingkat atas dari file (bukan dari dalam blok do $$), lalu jalankan lagi.");
-    process.exit(1);
+    console.error(
+      `\n  DITOLAK: ${fileArg} memakai perintah transaction ${masalah.join(' dan ')} sendiri.`,
+    )
+    console.error(
+      '  Transaksi dimiliki runner ini (sql.begin), bukan file SQL.',
+    )
+    console.error(
+      '  Kalau file dijalankan gagal di tengah, Postgres harus membatalkan semuanya,',
+    )
+    console.error('  bukan hanya statement yang sempat jalan.')
+    console.error(
+      '  Hapus BEGIN/COMMIT tingkat atas dari file (bukan dari dalam blok do $$), lalu jalankan lagi.',
+    )
+    process.exit(1)
   }
 }
 
 /** Supaya database yang dipakai lewat pooler tidak salah ditempeli. */
 function labelDb(url: string): string {
   try {
-    const u = new URL(url);
-    const nama = u.pathname.replace(/^\//, "");
-    return `${u.hostname} / ${nama || "(tanpa nama)"}`;
+    const u = new URL(url)
+    const nama = u.pathname.replace(/^\//, '')
+    return `${u.hostname} / ${nama || '(tanpa nama)'}`
   } catch {
-    return "(URL tidak biasa)";
+    return '(URL tidak biasa)'
   }
 }
 
-const sql = postgres(connectionUrl, { prepare: false });
+const sql = postgres(connectionUrl, { prepare: false })
 
-console.log(`DATABASE_URL -> ${labelDb(connectionUrl)}`);
+console.log(`DATABASE_URL -> ${labelDb(connectionUrl)}`)
 
 /** Daftar tabel, untuk membandingkan sebelum/di setelah supaya laporan
  *  "tabel baru" tidak bergantung pada log yang mungkin tidak terbaca. */
 async function daftarTabel(): Promise<string[]> {
-  const rows = await sql`select table_name from information_schema.tables where table_schema = 'public' order by 1`;
-  return rows.map((r: any) => r.table_name);
+  const rows =
+    await sql`select table_name from information_schema.tables where table_schema = 'public' order by 1`
+  return rows.map((r: any) => r.table_name)
 }
 
-const sebelum = await daftarTabel();
-console.log(`Sebelum: ${sebelum.length} tabel.`);
+const sebelum = await daftarTabel()
+console.log(`Sebelum: ${sebelum.length} tabel.`)
 
 for (const fileArg of fileArgs) {
-  const file = resolve(fileArg);
-  const text = readFileSync(file, "utf8");
-  const baris = text.split("\n").filter((l) => l.trim()).length;
+  const file = resolve(fileArg)
+  const text = readFileSync(file, 'utf8')
+  const baris = text.split('\n').filter((l) => l.trim()).length
 
-  tanpaTransactionSendiri(fileArg, text);
+  tanpaTransactionSendiri(fileArg, text)
 
   if (dryRun) {
-    console.log(`\n[dry-run] ${fileArg} (# ${baris} baris SQL di file). Tidak ada yang dijalankan.`);
-    console.log("--- isi ---");
-    console.log(text);
-    continue;
+    console.log(
+      `\n[dry-run] ${fileArg} (# ${baris} baris SQL di file). Tidak ada yang dijalankan.`,
+    )
+    console.log('--- isi ---')
+    console.log(text)
+    continue
   }
 
-  console.log(`\nTerapkan ${fileArg} (# ${baris} baris SQL)`);
+  console.log(`\nTerapkan ${fileArg} (# ${baris} baris SQL)`)
   try {
     // Satu transaksi untuk satu file. Kalau statement mana pun gagal,
     // seluruh file dibatalkan — tidak ada yang jalan separuh.
     await sql.begin(async (tx) => {
-      await tx.unsafe(text);
-    });
-    console.log("  OK: seluruh statement di file ini dijalankan dalam satu transaksi.");
+      await tx.unsafe(text)
+    })
+    console.log(
+      '  OK: seluruh statement di file ini dijalankan dalam satu transaksi.',
+    )
   } catch (err) {
-    console.error("\n  GAGAL. Semua statement file ini dibatalkan oleh sql.begin (rollback).");
-    console.error(`  Istilah error: ${err instanceof Error ? err.message : String(err)}`);
-    break;
+    console.error(
+      '\n  GAGAL. Semua statement file ini dibatalkan oleh sql.begin (rollback).',
+    )
+    console.error(
+      `  Istilah error: ${err instanceof Error ? err.message : String(err)}`,
+    )
+    break
   }
 }
 
 // Perubahan dicetak di sini juga setelah file gagal, supaya laporan ini
 // menunjukkan apa yang PERSIS terjadi di database, bukan perkiraan.
 if (!dryRun) {
-  const sesudah = await daftarTabel();
-  const baru = sesudah.filter((t) => !sebelum.includes(t));
-  console.log(`\nSesudah: ${sesudah.length} tabel.`);
-  console.log(`Tabel baru: ${baru.length === 0 ? "(tidak ada)" : baru.join(", ")}`);
+  const sesudah = await daftarTabel()
+  const baru = sesudah.filter((t) => !sebelum.includes(t))
+  console.log(`\nSesudah: ${sesudah.length} tabel.`)
+  console.log(
+    `Tabel baru: ${baru.length === 0 ? '(tidak ada)' : baru.join(', ')}`,
+  )
 }
 
-await sql.end();
-process.exit(process.exitCode ?? 0);
+await sql.end()
+process.exit(process.exitCode ?? 0)

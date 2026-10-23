@@ -1,16 +1,15 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 
-import { useUserRegistry } from '@/hooks/use-user-registry'
-import { useKunjunganRumahTemplates } from '@/hooks/use-kunjungan-rumah-templates'
-import { AppShell } from '@/components/organisms'
-import { PageHeader, StatCard } from '@/components/molecules'
-import { Tab } from '@/components/atoms'
-import { requireAuth } from '@/lib/auth'
-import { TABS } from '@/features/kelola/types'
-import type { KelolaTab } from '@/features/kelola/types'
-import { FormBuilderSection } from '@/features/kelola/components/FormBuilderSection'
-import { UserSection } from '@/features/kelola/components/UserSection'
+import { useUserRegistry } from '@/hooks/petugas/use-user-registry'
+import { useKunjunganRumahTemplates } from '@/hooks/kunjungan-rumah/use-kunjungan-rumah-templates'
+import { AppShell } from '@/components/layout'
+import { PageHeader, StatCard, Tab } from '@/components/ui'
+import { requireAuth } from '@/lib/auth/auth'
+import { TABS } from '@/lib/kelola/types'
+import type { KelolaTab } from '@/lib/kelola/types'
+import { FormBuilderSection } from '@/components/kelola/FormBuilderSection'
+import { UserSection } from '@/components/kelola/UserSection'
 
 export const Route = createFileRoute('/kelola')({
   beforeLoad: requireAuth,

@@ -1,11 +1,10 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { AppShell } from '@/components/organisms'
-import { PageHeader, SectionCard } from '@/components/molecules'
-import { Badge, EmptyState } from '@/components/atoms'
+import { AppShell } from '@/components/layout'
+import { PageHeader, SectionCard, Badge, EmptyState } from '@/components/ui'
 import { useAsyncData } from '@/hooks/use-async-data'
-import { listFormulir } from '@/lib/utils.functions'
-import type { BarisFormulirTerisi } from '@/features/survey/services/form-runtime.server'
-import { requireAuth } from '@/lib/auth'
+import { listFormulir } from '@/lib/api/server-fns'
+import type { BarisFormulirTerisi } from '@/lib/server/survey/form-runtime.server'
+import { requireAuth } from '@/lib/auth/auth'
 
 // Search param di-narrow dari `unknown` ke `string`. Tanpa return type eksplisit,
 // `validateSearch` membuat `jenis` jadi `{}` dan pembacaan di bawah gagal.

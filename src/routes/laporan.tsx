@@ -1,28 +1,39 @@
 import { useMemo, useState, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { RoutePending } from '@/components/ui/RoutePending'
 import {
   getFormAdaSubmit,
   getLaporanKunjunganRumah,
   getRiwayatSubmit,
   listKegiatan,
-} from '@/lib/utils.functions'
-import type { KegiatanRecord } from '@/hooks/use-kegiatan'
-import { formIdOf } from '@/features/laporan/report-filter'
+} from '@/lib/api/server-fns'
+import type { KegiatanRecord } from '@/hooks/survey/use-kegiatan'
+import { formIdOf } from '@/lib/laporan/report-filter'
 import { JENIS_KEGIATAN, KELS, PAGE_SIZE, POSY } from '@/lib/constants'
-import { downloadCsv, fmtDate } from '@/lib/utils'
+import { downloadCsv, fmtDate, pctOf } from '@/lib/utils'
 import { useToast } from '@/providers/toast'
-import { AppShell, DataTable } from '@/components/organisms'
-import { PageHeader, SectionCard, StatCard } from '@/components/molecules'
-import { Input, Select, StatusBadge } from '@/components/atoms'
-import { requireAuth } from '@/lib/auth'
-import { RekapKunjunganRumahSection } from '@/features/laporan/RekapKunjunganRumahSection'
-import { RiwayatSubmitSection } from '@/features/laporan/RiwayatSubmitSection'
-import { FilterToolbar } from '@/features/laporan/components/FilterToolbar'
-import { KelStatsGrid } from '@/features/laporan/components/KelStatsGrid'
-import { KopSection } from '@/features/laporan/components/KopSection'
-import { KopSurat } from '@/features/laporan/components/KopSurat'
-import { KopTable } from '@/features/laporan/components/KopTable'
-import { paginate } from '@/features/laporan/components/report-shared'
+import { AppShell } from '@/components/layout'
+import { DataTable } from '@/components/shared'
+import { MobileRow, Td, Tr } from '@/components/shared/DataTable'
+import {
+  DateRange,
+  KelurahanSelect,
+  PageHeader,
+  SectionCard,
+  StatCard,
+  Input,
+  Select,
+  StatusBadge,
+} from '@/components/ui'
+import { requireAuth } from '@/lib/auth/auth'
+import { RekapKunjunganRumahSection } from '@/components/laporan/RekapKunjunganRumahSection'
+import { RiwayatSubmitSection } from '@/components/laporan/RiwayatSubmitSection'
+import { FilterToolbar } from '@/components/laporan/FilterToolbar'
+import { KelStatsGrid } from '@/components/laporan/KelStatsGrid'
+import { KopSection } from '@/components/laporan/KopSection'
+import { KopSurat } from '@/components/laporan/KopSurat'
+import { KopTable } from '@/components/laporan/KopTable'
+import { paginate } from '@/lib/laporan/report-shared'
 import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
 
 // Search param di-narrow dari `unknown` ke `string`. Tanpa return type eksplisit,
@@ -50,9 +61,7 @@ export const Route = createFileRoute('/laporan')({
       ])
     return { kunjunganRumah, kegiatan, riwayatSubmit, formAdaSubmit }
   },
-  pendingComponent: () => (
-    <p className="p-4 text-sm text-muted">Memuat laporan…</p>
-  ),
+  pendingComponent: () => <RoutePending>Memuat laporan…</RoutePending>,
   component: Laporan,
 })
 
@@ -161,9 +170,7 @@ function Laporan() {
     return {
       kel: k,
       n: sub.length,
-      pct: filtered.length
-        ? Math.round((sub.length / filtered.length) * 100)
-        : 0,
+      pct: pctOf(sub.length, filtered.length),
     }
   })
 
@@ -230,15 +237,13 @@ function Laporan() {
   const totalKegiatan = filteredKegiatan.length
   const totalPeserta = filteredKegiatan.reduce((a, r) => a + r.total, 0)
   const totalHadir = filteredKegiatan.reduce((a, r) => a + r.hadir, 0)
-  const pctHadir = totalPeserta
-    ? Math.round((totalHadir / totalPeserta) * 100)
-    : 0
+  const pctHadir = pctOf(totalHadir, totalPeserta)
   const gKelStats = KELS.map((k) => {
     const sub = filteredKegiatan.filter((r) => r.kel === k)
     return {
       kel: k,
       n: sub.length,
-      pct: totalKegiatan ? Math.round((sub.length / totalKegiatan) * 100) : 0,
+      pct: pctOf(sub.length, totalKegiatan),
     }
   })
   const gJenisStats = JENIS_KEGIATAN.map((j) => {
@@ -246,7 +251,7 @@ function Laporan() {
     return {
       jenis: j,
       n: sub.length,
-      pct: totalKegiatan ? Math.round((sub.length / totalKegiatan) * 100) : 0,
+      pct: pctOf(sub.length, totalKegiatan),
     }
   })
   const {
@@ -325,31 +330,13 @@ function Laporan() {
         sub="Filter tanggal dan kelurahan berlaku untuk Isian Form, Kegiatan, dan Riwayat Submit."
       >
         <div className="flex flex-wrap items-end gap-3">
-          <Input
-            type="date"
-            value={dari}
-            onChange={(e) => setDari(e.target.value)}
-            aria-label="Tanggal awal"
-            className="max-w-42.5 max-md:max-w-none"
+          <DateRange
+            dari={dari}
+            sampai={sampai}
+            onDari={setDari}
+            onSampai={setSampai}
           />
-          <Input
-            type="date"
-            value={sampai}
-            onChange={(e) => setSampai(e.target.value)}
-            aria-label="Tanggal akhir"
-            className="max-w-42.5 max-md:max-w-none"
-          />
-          <Select
-            value={kel}
-            onChange={(e) => setKel(e.target.value)}
-            aria-label="Filter kelurahan"
-            className="max-w-42.5 max-md:max-w-none"
-          >
-            <option value="all">Semua kelurahan</option>
-            {KELS.map((k) => (
-              <option key={k}>{k}</option>
-            ))}
-          </Select>
+          <KelurahanSelect value={kel} onChange={setKel} />
         </div>
       </SectionCard>
 
@@ -454,7 +441,7 @@ function Laporan() {
             renderRow={(r, i) => (
               <tr
                 key={r.id}
-                className="border-b border-[var(--color-surface-2)] last:border-none"
+                className="border-b border-surface-2 last:border-none"
               >
                 <td className="px-2.5 py-2">{i + 1}</td>
                 <td className="whitespace-nowrap px-2.5 py-2">
@@ -504,42 +491,30 @@ function Laporan() {
               ]}
               rows={pageRows}
               renderRow={(r, i) => (
-                <tr
-                  key={r.id}
-                  className="border-b border-[var(--color-surface-2)] last:border-none hover:bg-surface-2"
-                >
-                  <td className="px-3 py-2.5">
-                    {(pageClamped - 1) * PAGE_SIZE + i + 1}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2.5">
-                    {fmtDate(r.tanggal)}
-                  </td>
-                  <td className="px-3 py-2.5">
+                <Tr key={r.id}>
+                  <Td>{(pageClamped - 1) * PAGE_SIZE + i + 1}</Td>
+                  <Td className="whitespace-nowrap">{fmtDate(r.tanggal)}</Td>
+                  <Td>
                     <div className="font-semibold text-ink">{r.formNama}</div>
                     <div className="text-[11px] text-muted">
                       Versi {r.formVersion}
                     </div>
-                  </td>
-                  <td className="px-3 py-2.5">
+                  </Td>
+                  <Td>
                     <div className="font-semibold text-ink">{r.nama}</div>
                     <div className="text-[11px] text-muted">
                       {r.nik ? `NIK ${r.nik}` : 'Tanpa warga'}
                     </div>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2.5">
-                    Kel. {r.kelurahan}
-                  </td>
-                  <td className="px-3 py-2.5 text-muted">{r.petugas}</td>
-                  <td className="px-3 py-2.5">
+                  </Td>
+                  <Td className="whitespace-nowrap">Kel. {r.kelurahan}</Td>
+                  <Td className="text-muted">{r.petugas}</Td>
+                  <Td>
                     <StatusBadge value="Selesai" />
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               )}
               renderMobileRow={(r) => (
-                <div
-                  key={r.id}
-                  className="border-b border-[var(--color-surface-2)] last:border-none px-3.5 py-3"
-                >
+                <MobileRow key={r.id}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="font-semibold text-ink">{r.formNama}</div>
@@ -560,7 +535,7 @@ function Laporan() {
                       </span>
                     ) : null}
                   </div>
-                </div>
+                </MobileRow>
               )}
               toolbar={
                 <span className="text-xs font-semibold text-muted">
@@ -705,7 +680,7 @@ function Laporan() {
             renderRow={(r, i) => (
               <tr
                 key={i}
-                className="border-b border-[var(--color-surface-2)] last:border-none"
+                className="border-b border-surface-2 last:border-none"
               >
                 <td className="px-2.5 py-2">{i + 1}</td>
                 <td className="whitespace-nowrap px-2.5 py-2">
@@ -746,41 +721,33 @@ function Laporan() {
             rows={gPageRows}
             emptyMessage="Belum ada kegiatan untuk filter ini. Isi di halaman Kegiatan."
             renderRow={(r, i) => (
-              <tr
-                key={i}
-                className="border-b border-[var(--color-surface-2)] last:border-none hover:bg-surface-2"
-              >
-                <td className="px-3 py-2.5">
-                  {(gPageClamped - 1) * PAGE_SIZE + i + 1}
-                </td>
-                <td className="whitespace-nowrap px-3 py-2.5">
+              <Tr key={i}>
+                <Td>{(gPageClamped - 1) * PAGE_SIZE + i + 1}</Td>
+                <Td className="whitespace-nowrap">
                   {fmtDate(r.tgl)} <span className="text-muted">{r.jam}</span>
-                </td>
-                <td className="px-3 py-2.5">
+                </Td>
+                <Td>
                   <div className="font-semibold text-ink">{r.nama}</div>
                   <div className="text-[11px] text-muted">{r.jenis}</div>
-                </td>
-                <td className="px-3 py-2.5">
+                </Td>
+                <Td>
                   <div>
                     Kel. {r.kel} {r.posy ? `· ${r.posy}` : ''}
                   </div>
                   <div className="text-[11px] text-muted">{r.lokasi}</div>
-                </td>
-                <td className="px-3 py-2.5">{r.petugas}</td>
-                <td className="whitespace-nowrap px-3 py-2.5">
+                </Td>
+                <Td>{r.petugas}</Td>
+                <Td className="whitespace-nowrap">
                   {r.hadir}/{r.total}
                   <div className="text-[11px] text-muted">{r.foto} foto</div>
-                </td>
-                <td className="max-w-50 truncate px-3 py-2.5 text-muted">
+                </Td>
+                <Td className="max-w-50 truncate text-muted">
                   {r.deskripsi || '—'}
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             )}
             renderMobileRow={(r, i) => (
-              <div
-                key={i}
-                className="border-b border-[var(--color-surface-2)] last:border-none px-3.5 py-3"
-              >
+              <MobileRow key={i}>
                 <div className="font-semibold text-ink">{r.nama}</div>
                 <div className="text-[11px] text-muted">
                   {r.jenis} · {fmtDate(r.tgl)} {r.jam}
@@ -801,7 +768,7 @@ function Laporan() {
                     {r.deskripsi}
                   </div>
                 ) : null}
-              </div>
+              </MobileRow>
             )}
             toolbar={
               <span className="text-xs font-semibold text-muted">

@@ -2,9 +2,7 @@
   "version": "8",
   "dialect": "postgres",
   "id": "9d483b34-80b2-4ba3-a007-f88b489fb987",
-  "prevIds": [
-    "d781cc7d-7fd4-4ead-87ea-4f2ae1b4f299"
-  ],
+  "prevIds": ["d781cc7d-7fd4-4ead-87ea-4f2ae1b4f299"],
   "ddl": [
     {
       "values": [
@@ -39,10 +37,7 @@
       "schema": "public"
     },
     {
-      "values": [
-        "laki-laki",
-        "perempuan"
-      ],
+      "values": ["laki-laki", "perempuan"],
       "name": "jenis_kelamin",
       "entityType": "enums",
       "schema": "public"
@@ -64,12 +59,7 @@
       "schema": "public"
     },
     {
-      "values": [
-        "belum kawin",
-        "kawin",
-        "cerai mati",
-        "cerai hidup"
-      ],
+      "values": ["belum kawin", "kawin", "cerai mati", "cerai hidup"],
       "name": "status_kawin",
       "entityType": "enums",
       "schema": "public"
@@ -930,14 +920,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "formId"
-      ],
+      "columns": ["formId"],
       "schemaTo": "public",
       "tableTo": "forms",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "form_sections_formId_forms_id_fkey",
@@ -947,14 +933,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "sectionId"
-      ],
+      "columns": ["sectionId"],
       "schemaTo": "public",
       "tableTo": "form_sections",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "questions_sectionId_form_sections_id_fkey",
@@ -964,14 +946,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "parentId"
-      ],
+      "columns": ["parentId"],
       "schemaTo": "public",
       "tableTo": "questions",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "questions_parentId_questions_id_fkey",
@@ -981,14 +959,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "surveyId"
-      ],
+      "columns": ["surveyId"],
       "schemaTo": "public",
       "tableTo": "surveys",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "survey_images_surveyId_surveys_id_fkey",
@@ -998,14 +972,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "questionId"
-      ],
+      "columns": ["questionId"],
       "schemaTo": "public",
       "tableTo": "questions",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "survey_images_questionId_questions_id_fkey",
@@ -1015,14 +985,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "formId"
-      ],
+      "columns": ["formId"],
       "schemaTo": "public",
       "tableTo": "forms",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "surveys_formId_forms_id_fkey",
@@ -1032,14 +998,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "nik"
-      ],
+      "columns": ["nik"],
       "schemaTo": "public",
       "tableTo": "data_warga",
-      "columnsTo": [
-        "nik"
-      ],
+      "columnsTo": ["nik"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "surveys_nik_data_warga_nik_fkey",
@@ -1049,14 +1011,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "petugasId"
-      ],
+      "columns": ["petugasId"],
       "schemaTo": "public",
       "tableTo": "surveyor",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "name": "surveys_petugasId_surveyor_id_fkey",
@@ -1065,9 +1023,7 @@
       "table": "surveys"
     },
     {
-      "columns": [
-        "nik"
-      ],
+      "columns": ["nik"],
       "nameExplicit": false,
       "name": "data_warga_pkey",
       "schema": "public",
@@ -1075,9 +1031,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "form_sections_pkey",
       "schema": "public",
@@ -1085,9 +1039,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "forms_pkey",
       "schema": "public",
@@ -1095,9 +1047,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "questions_pkey",
       "schema": "public",
@@ -1105,9 +1055,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "survey_images_pkey",
       "schema": "public",
@@ -1115,9 +1063,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "surveyor_pkey",
       "schema": "public",
@@ -1125,9 +1071,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "surveys_pkey",
       "schema": "public",
@@ -1135,9 +1079,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "uid"
-      ],
+      "columns": ["uid"],
       "nameExplicit": false,
       "name": "valid_session_pkey",
       "schema": "public",
@@ -1146,9 +1088,7 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "token"
-      ],
+      "columns": ["token"],
       "nullsNotDistinct": false,
       "name": "valid_session_token_key",
       "schema": "public",

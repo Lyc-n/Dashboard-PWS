@@ -40,7 +40,9 @@ export const Route = createRootRoute({
     <div className="grid min-h-screen place-items-center px-4 text-center">
       <div>
         <p className="text-base font-bold text-ink">Halaman tidak ditemukan.</p>
-        <p className="mt-1 text-xs text-muted">Periksa kembali tautan yang kamu buka.</p>
+        <p className="mt-1 text-xs text-muted">
+          Periksa kembali tautan yang kamu buka.
+        </p>
       </div>
     </div>
   ),
