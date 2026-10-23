@@ -30,8 +30,8 @@ export const Route = createRootRoute({
       {
         rel: 'icon',
         type: 'image/png',
-        href: icon,       
-      }
+        href: icon,
+      },
     ],
   }),
   shellComponent: RootDocument,

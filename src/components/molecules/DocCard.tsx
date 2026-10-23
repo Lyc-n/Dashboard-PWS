@@ -1,18 +1,28 @@
-import { Button } from "@/components/atoms/Button";
-import { Input } from "@/components/atoms/Input";
+import { Button } from '@/components/atoms/Button'
+import { Input } from '@/components/atoms/Input'
 
 export interface DocCardProps {
-  src: string;
-  caption: string;
-  index: number;
-  onChangeCaption?: (caption: string) => void;
-  onDelete?: () => void;
+  src: string
+  caption: string
+  index: number
+  onChangeCaption?: (caption: string) => void
+  onDelete?: () => void
 }
 
-export function DocCard({ src, caption, index, onChangeCaption, onDelete }: DocCardProps) {
+export function DocCard({
+  src,
+  caption,
+  index,
+  onChangeCaption,
+  onDelete,
+}: DocCardProps) {
   return (
     <div className="grid overflow-hidden rounded-[10px] border border-line bg-surface">
-      <img src={src} alt={`Dokumentasi kegiatan ${index + 1}`} className="block h-[150px] w-full bg-line-2 object-cover" />
+      <img
+        src={src}
+        alt={`Dokumentasi kegiatan ${index + 1}`}
+        className="block h-[150px] w-full bg-line-2 object-cover"
+      />
       <div className="grid gap-2 p-2.5">
         <Input
           value={caption}
@@ -25,5 +35,5 @@ export function DocCard({ src, caption, index, onChangeCaption, onDelete }: DocC
         </Button>
       </div>
     </div>
-  );
+  )
 }

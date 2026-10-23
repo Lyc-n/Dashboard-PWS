@@ -10,7 +10,10 @@ import type {
   PenilaianForm,
 } from '@/features/kunjungan-rumah/models'
 import { buildConditionalMap, isConditionalActive } from './conditional'
-import { anggotaKepalaKeluarga, kePekerjaan } from '@/features/kunjungan-rumah/lib/warga-row'
+import {
+  anggotaKepalaKeluarga,
+  kePekerjaan,
+} from '@/features/kunjungan-rumah/lib/warga-row'
 
 export interface ValidateInput {
   info: KeluargaInfo
@@ -28,8 +31,17 @@ export function validateKunjunganRumah(input: ValidateInput): {
   ok: boolean
   invalid: Record<string, boolean>
 } {
-  const { info, anggota, penilaian, masalah, hasil, jadwal, ttd, fotos, templates } =
-    input
+  const {
+    info,
+    anggota,
+    penilaian,
+    masalah,
+    hasil,
+    jadwal,
+    ttd,
+    fotos,
+    templates,
+  } = input
   const nextInvalid: Record<string, boolean> = {}
   let ok = true
 

@@ -39,10 +39,16 @@ import {
   validasiNilaiOpsiTerpilih,
   validasiNik,
 } from '@/features/form-builder/services/validasi'
-import type { HasilValidasi, TipeField } from '@/features/form-builder/services/validasi'
+import type {
+  HasilValidasi,
+  TipeField,
+} from '@/features/form-builder/services/validasi'
 import { KesalahanValidasi } from '@/features/form-builder/services/form-version.server'
 import { resolveOpsiDinamis } from '@/features/form-builder/services/option-source.server'
-import { cariSumber, SUMBER_CARI_WARGA } from '@/features/form-builder/services/sumber-opsi'
+import {
+  cariSumber,
+  SUMBER_CARI_WARGA,
+} from '@/features/form-builder/services/sumber-opsi'
 import type { KolomWarga } from '@/features/form-builder/services/sumber-opsi'
 import { catatAudit } from '@/features/form-builder/services/audit.server'
 import { pastikanPetugasValid } from '@/lib/user-registry.server'
@@ -64,7 +70,10 @@ function pastikan(hasil: HasilValidasi): void {
   if (!hasil.ok) throw new KesalahanValidasi(hasil)
 }
 
-function tolak(kode: Extract<HasilValidasi, { ok: false }>['kode'], pesan: string): never {
+function tolak(
+  kode: Extract<HasilValidasi, { ok: false }>['kode'],
+  pesan: string,
+): never {
   throw new KesalahanValidasi({ ok: false, kode, pesan })
 }
 
@@ -130,7 +139,10 @@ export async function daftarFormulirTerisi(): Promise<BarisFormulirTerisi[]> {
     })
     .from(formSections)
     .where(
-      and(inArray(formSections.formVersionId, versiIds), eq(formSections.aktif, true)),
+      and(
+        inArray(formSections.formVersionId, versiIds),
+        eq(formSections.aktif, true),
+      ),
     )
     .groupBy(formSections.formVersionId)
 
@@ -152,7 +164,9 @@ export async function daftarFormulirTerisi(): Promise<BarisFormulirTerisi[]> {
     )
     .groupBy(formFields.formVersionId)
 
-  const totalSection = new Map(hitungSection.map((b) => [b.formVersionId, b.total]))
+  const totalSection = new Map(
+    hitungSection.map((b) => [b.formVersionId, b.total]),
+  )
   const totalField = new Map(hitungField.map((b) => [b.formVersionId, b.total]))
 
   return baris.map((b) => ({
@@ -310,7 +324,10 @@ async function muatDefinisiRuntime(
     )
   }
   if (!baris.formAktif) {
-    tolak('VERSI_TIDAK_ADA', 'Form ini sedang dinonaktifkan, jadi belum bisa diisi.')
+    tolak(
+      'VERSI_TIDAK_ADA',
+      'Form ini sedang dinonaktifkan, jadi belum bisa diisi.',
+    )
   }
 
   const semuaSection = await executor
@@ -369,7 +386,9 @@ async function muatDefinisiRuntime(
     .orderBy(asc(formFields.urutan))
 
   const sectionAktifId = new Set(sections.map((s) => s.id))
-  const fields = semuaField.filter((f) => f.aktif && sectionAktifId.has(f.sectionId))
+  const fields = semuaField.filter(
+    (f) => f.aktif && sectionAktifId.has(f.sectionId),
+  )
 
   // Dikelompokkan per section supaya penyusunan payload tidak menyaring ulang
   // seluruh daftar field untuk tiap section.
@@ -414,7 +433,12 @@ async function muatDefinisiRuntime(
       aktif: formFieldOptions.aktif,
     })
     .from(formFieldOptions)
-    .where(inArray(formFieldOptions.fieldId, fields.map((f) => f.id)))
+    .where(
+      inArray(
+        formFieldOptions.fieldId,
+        fields.map((f) => f.id),
+      ),
+    )
     .orderBy(asc(formFieldOptions.urutan))
 
   const opsiPerField = new Map<string, OpsiRuntime[]>()
@@ -440,7 +464,12 @@ async function muatDefinisiRuntime(
   >()
   const opsiDinamisField = new Map<
     string,
-    { opsi: OpsiDinamisRuntime[]; tidakDikenali: boolean; label: string | null; saran: string[] }
+    {
+      opsi: OpsiDinamisRuntime[]
+      tidakDikenali: boolean
+      label: string | null
+      saran: string[]
+    }
   >()
 
   for (const field of fields) {
@@ -448,7 +477,9 @@ async function muatDefinisiRuntime(
     // Saran menempel pada field-nya sendiri (baris form_field_options-nya),
     // jadi tidak ikut cache bersama sumber.
     const perField = field.optionSourceType === 'suggest'
-    const kunci = perField ? field.id : kunciSumber(field.optionSourceType, field.optionSourceKey)
+    const kunci = perField
+      ? field.id
+      : kunciSumber(field.optionSourceType, field.optionSourceKey)
     let hasil = cacheOpsiDinamis.get(kunci)
     if (!hasil) {
       const resolved = await resolveOpsiDinamis({
@@ -456,7 +487,11 @@ async function muatDefinisiRuntime(
         optionSourceKey: field.optionSourceKey,
         fieldId: field.id,
       })
-      hasil = { opsi: resolved.opsi, tidakDikenali: resolved.sumberTidakDikenali, label: resolved.label }
+      hasil = {
+        opsi: resolved.opsi,
+        tidakDikenali: resolved.sumberTidakDikenali,
+        label: resolved.label,
+      }
       cacheOpsiDinamis.set(kunci, hasil)
     }
     opsiDinamisField.set(field.id, {
@@ -496,7 +531,10 @@ async function muatDefinisiRuntime(
           urutan: field.urutan,
           jumlahKolom: field.jumlahKolom,
           aktif: field.aktif,
-          cariWarga: kolomCariWarga(field.optionSourceType, field.optionSourceKey),
+          cariWarga: kolomCariWarga(
+            field.optionSourceType,
+            field.optionSourceKey,
+          ),
           opsi: opsiPerField.get(field.id) ?? [],
           opsiDinamis: dinamis ? dinamis.opsi : null,
           sumberOpsiTidakDikenali: dinamis ? dinamis.tidakDikenali : false,
@@ -514,7 +552,9 @@ async function muatDefinisiRuntime(
  * Sama dengan `muatDefinisiRuntime`, hanya dipanggil dengan `db` supaya
  * pemanggil di luar tidak perlu tahu bentuk executor-nya.
  */
-export async function ambilFormulirUntukIsi(formVersionId: string): Promise<DefinisiRuntime> {
+export async function ambilFormulirUntukIsi(
+  formVersionId: string,
+): Promise<DefinisiRuntime> {
   return await muatDefinisiRuntime(db, formVersionId)
 }
 
@@ -599,7 +639,9 @@ function sebutkan(list: readonly string[]): string {
  *   6. Semua field wajib yang terlihat terisi (semuanya sekaligus)
  *   7. Bentuk nilai dan pilihan jawaban sesuai definisi
  */
-export async function simpanFormulir(input: SimpanFormulirInput): Promise<HasilSimpanFormulir> {
+export async function simpanFormulir(
+  input: SimpanFormulirInput,
+): Promise<HasilSimpanFormulir> {
   const { formVersionId, petugasId, actorId, jawaban } = input
 
   // 1. Definisi dimuat ulang di sini, bukan diambil dari layar isi. Halaman
@@ -626,7 +668,10 @@ export async function simpanFormulir(input: SimpanFormulirInput): Promise<HasilS
   const tanggal = input.tanggal.trim()
   const cekTanggal = validasiNilaiField({ tipe: 'date', value: tanggal })
   if (!cekTanggal.ok) {
-    tolak('NILAI_TIDAK_COCOK', 'Tanggal isian harus ditulis YYYY-MM-DD dan berupa tanggal yang sah.')
+    tolak(
+      'NILAI_TIDAK_COCOK',
+      'Tanggal isian harus ditulis YYYY-MM-DD dan berupa tanggal yang sah.',
+    )
   }
 
   const petaField = new Map<string, FieldRuntime>()
@@ -680,7 +725,10 @@ export async function simpanFormulir(input: SimpanFormulirInput): Promise<HasilS
   const nikDiminta = (input.wargaNik ?? '').trim()
   if (definisi.form.subjekWargaWajib) {
     if (nikDiminta === '') {
-      tolak('NIK_TIDAK_VALID', 'Form ini wajib menunjuk satu warga. Pilih warga terlebih dahulu.')
+      tolak(
+        'NIK_TIDAK_VALID',
+        'Form ini wajib menunjuk satu warga. Pilih warga terlebih dahulu.',
+      )
     }
     pastikan(validasiNik(nikDiminta))
     const [warga] = await db
@@ -689,7 +737,10 @@ export async function simpanFormulir(input: SimpanFormulirInput): Promise<HasilS
       .where(eq(dataWargaTable.nik, nikDiminta))
       .limit(1)
     if (!warga) {
-      tolak('NIK_TIDAK_VALID', `Warga dengan NIK ${nikDiminta} tidak ditemukan di data warga.`)
+      tolak(
+        'NIK_TIDAK_VALID',
+        `Warga dengan NIK ${nikDiminta} tidak ditemukan di data warga.`,
+      )
     }
   } else if (nikDiminta !== '') {
     tolak(
@@ -738,11 +789,19 @@ export async function simpanFormulir(input: SimpanFormulirInput): Promise<HasilS
     }
 
     const opsi = opsiSah(field)
-    const bentuk = validasiNilaiField({ tipe: field.tipe, value: item.value, opsi })
+    const bentuk = validasiNilaiField({
+      tipe: field.tipe,
+      value: item.value,
+      opsi,
+    })
     if (!bentuk.ok) {
       tolak(bentuk.kode, `Field "${field.label}": ${bentuk.pesan}`)
     }
-    const pilihan = validasiNilaiOpsiTerpilih({ tipe: field.tipe, nilai: item.value, opsi })
+    const pilihan = validasiNilaiOpsiTerpilih({
+      tipe: field.tipe,
+      nilai: item.value,
+      opsi,
+    })
     if (!pilihan.ok) {
       tolak(pilihan.kode, `Field "${field.label}": ${pilihan.pesan}`)
     }
@@ -787,7 +846,12 @@ export async function simpanFormulir(input: SimpanFormulirInput): Promise<HasilS
     entitas: 'surveys',
     entitasId: surveyId,
     nik: wargaNik ?? undefined,
-    sesudah: { formVersionId, jumlahJawaban: jawabanTersimpan.length, petugasId: petugas.id, tanggal },
+    sesudah: {
+      formVersionId,
+      jumlahJawaban: jawabanTersimpan.length,
+      petugasId: petugas.id,
+      tanggal,
+    },
   })
 
   return { surveyId, jumlahJawaban: jawabanTersimpan.length }

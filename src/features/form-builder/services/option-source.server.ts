@@ -29,7 +29,12 @@
 import { eq, isNotNull } from 'drizzle-orm'
 import { db } from '@/lib/db.server'
 import { listPetugasOpsi } from '@/lib/user-registry.server'
-import { fasilitasKesehatan, formFieldOptions, dataWargaTable, wilayahKerja } from '@/lib/schema/schema'
+import {
+  fasilitasKesehatan,
+  formFieldOptions,
+  dataWargaTable,
+  wilayahKerja,
+} from '@/lib/schema/schema'
 import { riwayatKsImport } from '@/lib/schema/data-import'
 import {
   BATAS_NILAI_DISTINCT,
@@ -63,7 +68,12 @@ export interface HasilResolverOpsi {
   saran: string[]
 }
 
-const KOSONG: HasilResolverOpsi = { opsi: [], sumberTidakDikenali: false, label: null, saran: [] }
+const KOSONG: HasilResolverOpsi = {
+  opsi: [],
+  sumberTidakDikenali: false,
+  label: null,
+  saran: [],
+}
 
 /** Petugas: staff dan kader aktif. `fasKesId` null = semua fasilitas. */
 async function opsiPetugas(fasKesId: number | null): Promise<OpsiDinamis[]> {
@@ -79,16 +89,24 @@ async function opsiFaskes(key: string): Promise<OpsiDinamis[]> {
   }
 
   const baris = await db
-    .select({ id: fasilitasKesehatan.id, nama: fasilitasKesehatan.nama, jenis: fasilitasKesehatan.fasKesType })
+    .select({
+      id: fasilitasKesehatan.id,
+      nama: fasilitasKesehatan.nama,
+      jenis: fasilitasKesehatan.fasKesType,
+    })
     .from(fasilitasKesehatan)
     .orderBy(fasilitasKesehatan.nama)
 
-  return baris.map((b) => ({ value: String(b.id), label: `${b.nama} — ${b.jenis}` }))
+  return baris.map((b) => ({
+    value: String(b.id),
+    label: `${b.nama} — ${b.jenis}`,
+  }))
 }
 
 /** Kecamatan atau kelurahan dari `wilayah_kerja`. Value berupa teks, bukan id. */
 async function opsiWilayah(key: string): Promise<OpsiDinamis[]> {
-  const kolom = key === 'kecamatan' ? wilayahKerja.kecamatan : wilayahKerja.kelurahan
+  const kolom =
+    key === 'kecamatan' ? wilayahKerja.kecamatan : wilayahKerja.kelurahan
   const baris = await db
     .selectDistinct({ nilai: kolom })
     .from(wilayahKerja)
@@ -191,7 +209,10 @@ export async function resolveOpsiDinamis(params: {
   let opsi: OpsiDinamis[]
   switch (optionSourceType) {
     case 'enum':
-      opsi = (nilaiEnum(optionSourceKey ?? '') ?? []).map((v) => ({ value: v, label: v }))
+      opsi = (nilaiEnum(optionSourceKey ?? '') ?? []).map((v) => ({
+        value: v,
+        label: v,
+      }))
       break
     case 'users':
       opsi = await opsiPetugas(fasKesId ?? null)
@@ -231,7 +252,9 @@ export async function resolveOpsiDinamis(params: {
   // banner "perbaiki di Kelola". Pengecualiannya dua sumber yang memang tidak
   // punya daftar: `suggest` (daftar sarannya boleh kosong karena petugas tetap
   // boleh mengisi bebas) dan `cari_warga` (pencariannya nanti saat mengetik).
-  const tanpaDaftar = optionSourceType === SUMBER_SUGGEST || optionSourceType === SUMBER_CARI_WARGA
+  const tanpaDaftar =
+    optionSourceType === SUMBER_SUGGEST ||
+    optionSourceType === SUMBER_CARI_WARGA
 
   return {
     opsi,

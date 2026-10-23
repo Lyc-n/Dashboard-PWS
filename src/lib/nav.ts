@@ -3,12 +3,13 @@ import { isAdminUser } from "@/lib/auth";
 import type { AuthUser } from "@/lib/auth";
 
 export interface NavItem {
-  label: string;
-  to?: string;
-  Icon: typeof LayoutDashboard;
-  adminOnly?: boolean;
-  children?: NavItem[];
-  isDropdownTrigger?: boolean;
+  label: string
+  /** Label ringkas untuk nav bawah yang sempit. Falls back ke `label` kalau kosong. */
+  shortLabel?: string
+  to?: string
+  Icon: LucideIcon
+  children?: NavItem[]
+  isDropdownTrigger?: boolean
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -21,39 +22,39 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Kelola", to: "/kelola", Icon: Settings, adminOnly: true },
 ] as const;
 
-function filterAdminOnly(items: NavItem[], user: AuthUser | null): NavItem[] {
-  return items
-    .filter((item) => !item.adminOnly || isAdminUser(user))
-    .map((item) => ({
-      ...item,
-      children: item.children ? filterAdminOnly(item.children, user) : undefined,
-    }));
-}
-
-let dynamicFormChildren: NavItem[] = [];
+let dynamicFormChildren: NavItem[] = []
 
 export function setDynamicFormChildren(children: NavItem[]): void {
-  dynamicFormChildren = children;
+  dynamicFormChildren = children
 }
 
 function mergeDynamicChildren(items: NavItem[]): NavItem[] {
   return items.map((item) => {
-    if (item.isDropdownTrigger && item.label === "Formulir") {
-      return { ...item, children: dynamicFormChildren };
+    if (item.isDropdownTrigger && item.label === 'Formulir') {
+      return { ...item, children: dynamicFormChildren }
     }
-    return item;
-  });
+    return item
+  })
 }
 
-export function navItemsForUser(user: AuthUser | null): NavItem[] {
-  const filtered = filterAdminOnly(NAV_ITEMS, user);
-  return mergeDynamicChildren(filtered);
+/**
+ * Semua pengguna melihat menu yang sama.
+ *
+ * Sebelumnya ada `adminOnly` + `filterAdminOnly` yang menyaring berdasarkan
+ * `isAdminUser`. Karena profil sesi konstan dengan role "Admin", saringan itu
+ * selalu lolos untuk setiap item — tidak pernah menyembunyikan apa pun. Para
+ * pemanggilnya sudah kehilangan akses ke user: nav tidak lagi bergantung pada
+ * siapa yang login. Kolom `users.role` yang dulu dimaksudkan sebagai sumber
+ * saringan itu juga sudah dihapus dari skema, jadi tidak ada bahan lain untuk
+ * menyaring tanpa mengubah keputusan "semua sesi valid setara".
+ */
+export function navItemsForUser(): NavItem[] {
+  return mergeDynamicChildren(NAV_ITEMS)
 }
 
-export function bottomNavItemsForUser(user: AuthUser | null): NavItem[] {
-  const items = navItemsForUser(user);
-  return items
-    .filter((item) => item.label !== "Formulir")
+export function bottomNavItemsForUser(): NavItem[] {
+  return navItemsForUser()
+    .filter((item) => item.label !== 'Formulir')
     .slice(0, 5)
-    .map((item) => ({ ...item, children: undefined }));
+    .map((item) => ({ ...item, children: undefined }))
 }

@@ -1,47 +1,47 @@
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
-import { Pagination } from "@/components/molecules/Pagination";
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { cn } from '@/lib/utils'
+import { Pagination } from '@/components/molecules/Pagination'
 
 export interface DataTableColumn {
-  key: string;
-  label?: ReactNode;
-  sortable?: boolean;
-  className?: string;
-  headerClassName?: string;
+  key: string
+  label?: ReactNode
+  sortable?: boolean
+  className?: string
+  headerClassName?: string
 }
 
 export interface DataTableProps<T> {
-  columns: DataTableColumn[];
-  rows: T[];
-  renderRow: (row: T, index: number) => ReactNode;
-  renderMobileRow?: (row: T, index: number) => ReactNode;
-  sortKey?: string | null;
-  sortDir?: "asc" | "desc";
-  onSort?: (key: string) => void;
-  toolbar?: ReactNode;
-  info?: ReactNode;
-  emptyMessage?: ReactNode;
-  page?: number;
-  canPrev?: boolean;
-  canNext?: boolean;
-  onPrev?: () => void;
-  onNext?: () => void;
-  className?: string;
+  columns: DataTableColumn[]
+  rows: T[]
+  renderRow: (row: T, index: number) => ReactNode
+  renderMobileRow?: (row: T, index: number) => ReactNode
+  sortKey?: string | null
+  sortDir?: 'asc' | 'desc'
+  onSort?: (key: string) => void
+  toolbar?: ReactNode
+  info?: ReactNode
+  emptyMessage?: ReactNode
+  page?: number
+  canPrev?: boolean
+  canNext?: boolean
+  onPrev?: () => void
+  onNext?: () => void
+  className?: string
 }
 
 interface SortThProps {
-  col: DataTableColumn;
-  active: boolean;
-  sortDir: "asc" | "desc";
-  onSort?: (key: string) => void;
+  col: DataTableColumn
+  active: boolean
+  sortDir: 'asc' | 'desc'
+  onSort?: (key: string) => void
 }
 
 function SortTh({ col, active, sortDir, onSort }: SortThProps) {
-  const sortable = col.sortable && onSort;
+  const sortable = col.sortable && onSort
   const handleSort = () => {
-    if (sortable) onSort(col.key);
-  };
+    if (sortable) onSort(col.key)
+  }
   return (
     <th
       key={col.key}
@@ -49,27 +49,38 @@ function SortTh({ col, active, sortDir, onSort }: SortThProps) {
       onKeyDown={
         sortable
           ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                handleSort();
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                handleSort()
               }
             }
           : undefined
       }
       tabIndex={sortable ? 0 : undefined}
-      role={sortable ? "button" : undefined}
-      aria-sort={sortable ? (active ? (sortDir === "asc" ? "ascending" : "descending") : "none") : undefined}
+      role={sortable ? 'button' : undefined}
+      aria-sort={
+        sortable
+          ? active
+            ? sortDir === 'asc'
+              ? 'ascending'
+              : 'descending'
+            : 'none'
+          : undefined
+      }
       className={cn(
-        "whitespace-nowrap border-b border-[var(--color-line-2)] bg-surface-2 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted",
-        sortable && "cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-accent",
+        'whitespace-nowrap border-b border-[var(--color-line-2)] bg-surface-2 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted',
+        sortable &&
+          'cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-accent',
         col.headerClassName,
       )}
     >
-      <span className={cn("inline-flex items-center gap-1", active && "text-ink")}>
+      <span
+        className={cn('inline-flex items-center gap-1', active && 'text-ink')}
+      >
         {col.label}
         {sortable ? (
           active ? (
-            sortDir === "asc" ? (
+            sortDir === 'asc' ? (
               <ArrowUp size={12} />
             ) : (
               <ArrowDown size={12} />
@@ -80,7 +91,7 @@ function SortTh({ col, active, sortDir, onSort }: SortThProps) {
         ) : null}
       </span>
     </th>
-  );
+  )
 }
 
 export function DataTable<T>({
@@ -89,7 +100,7 @@ export function DataTable<T>({
   renderRow,
   renderMobileRow,
   sortKey,
-  sortDir = "asc",
+  sortDir = 'asc',
   onSort,
   toolbar,
   info,
@@ -101,10 +112,19 @@ export function DataTable<T>({
   onNext,
   className,
 }: DataTableProps<T>) {
-  const hasPagination = page !== undefined || onPrev || onNext;
+  const hasPagination = page !== undefined || onPrev || onNext
   return (
-    <div className={cn("mt-3.5 overflow-hidden rounded-[10px] border border-[var(--color-line-2)] bg-surface", className)}>
-      {toolbar ? <div className="border-b border-[var(--color-line-2)] px-3.5 py-3">{toolbar}</div> : null}
+    <div
+      className={cn(
+        'mt-3.5 overflow-hidden rounded-[10px] border border-[var(--color-line-2)] bg-surface',
+        className,
+      )}
+    >
+      {toolbar ? (
+        <div className="border-b border-[var(--color-line-2)] px-3.5 py-3">
+          {toolbar}
+        </div>
+      ) : null}
       {renderMobileRow ? (
         <>
           <div className="overflow-auto">
@@ -112,7 +132,13 @@ export function DataTable<T>({
               <thead>
                 <tr>
                   {columns.map((col) => (
-                    <SortTh key={col.key} col={col} active={sortKey === col.key} sortDir={sortDir} onSort={onSort} />
+                    <SortTh
+                      key={col.key}
+                      col={col}
+                      active={sortKey === col.key}
+                      sortDir={sortDir}
+                      onSort={onSort}
+                    />
                   ))}
                 </tr>
               </thead>
@@ -121,8 +147,11 @@ export function DataTable<T>({
                   rows.map((row, i) => renderRow(row, i))
                 ) : (
                   <tr>
-                    <td colSpan={columns.length} className="px-3 py-5 text-center text-muted">
-                      {emptyMessage ?? "Tidak ada data"}
+                    <td
+                      colSpan={columns.length}
+                      className="px-3 py-5 text-center text-muted"
+                    >
+                      {emptyMessage ?? 'Tidak ada data'}
                     </td>
                   </tr>
                 )}
@@ -134,7 +163,7 @@ export function DataTable<T>({
               rows.map((row, i) => renderMobileRow(row, i))
             ) : (
               <div className="px-3 py-5 text-center text-muted text-xs">
-                {emptyMessage ?? "Tidak ada data"}
+                {emptyMessage ?? 'Tidak ada data'}
               </div>
             )}
           </div>
@@ -145,7 +174,13 @@ export function DataTable<T>({
             <thead>
               <tr>
                 {columns.map((col) => (
-                  <SortTh key={col.key} col={col} active={sortKey === col.key} sortDir={sortDir} onSort={onSort} />
+                  <SortTh
+                    key={col.key}
+                    col={col}
+                    active={sortKey === col.key}
+                    sortDir={sortDir}
+                    onSort={onSort}
+                  />
                 ))}
               </tr>
             </thead>
@@ -154,8 +189,11 @@ export function DataTable<T>({
                 rows.map((row, i) => renderRow(row, i))
               ) : (
                 <tr>
-                  <td colSpan={columns.length} className="px-3 py-5 text-center text-muted">
-                    {emptyMessage ?? "Tidak ada data"}
+                  <td
+                    colSpan={columns.length}
+                    className="px-3 py-5 text-center text-muted"
+                  >
+                    {emptyMessage ?? 'Tidak ada data'}
                   </td>
                 </tr>
               )}
@@ -164,8 +202,14 @@ export function DataTable<T>({
         </div>
       )}
       {hasPagination ? (
-        <Pagination info={info} canPrev={canPrev} canNext={canNext} onPrev={onPrev} onNext={onNext} />
+        <Pagination
+          info={info}
+          canPrev={canPrev}
+          canNext={canNext}
+          onPrev={onPrev}
+          onNext={onNext}
+        />
       ) : null}
     </div>
-  );
+  )
 }

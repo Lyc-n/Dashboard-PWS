@@ -113,7 +113,9 @@ export interface HasilBuatFormBaru {
  * itu membuka `db.transaction` sendiri, ia dapat koneksi pool lain, tidak
  * melihat baris `forms` yang belum commit, dan insert versi gagal FK.
  */
-export async function buatFormBaru(input: BuatFormBaruInput): Promise<HasilBuatFormBaru> {
+export async function buatFormBaru(
+  input: BuatFormBaruInput,
+): Promise<HasilBuatFormBaru> {
   const { nama, deskripsi, actorId } = input
   const namaBersih = nama.trim()
 
@@ -153,7 +155,11 @@ export async function buatFormBaru(input: BuatFormBaruInput): Promise<HasilBuatF
       aksi: 'create',
       entitas: 'forms',
       entitasId: String(hasil.formId),
-      sesudah: { nama: namaBersih, deskripsi: deskripsi ?? null, formVersionId: hasil.formVersionId },
+      sesudah: {
+        nama: namaBersih,
+        deskripsi: deskripsi ?? null,
+        formVersionId: hasil.formVersionId,
+      },
     })
 
     return hasil
@@ -177,9 +183,15 @@ export async function buatFormBaru(input: BuatFormBaruInput): Promise<HasilBuatF
  * hilang. Satu query dengan subquery teragregasi, bukan satu query per angka —
  * tabel `surveys` sudah berisi data warga yang tidak boleh dipindai berulang.
  */
-export async function ringkasanHapusForm(formId: number): Promise<RingkasanHapusForm> {
+export async function ringkasanHapusForm(
+  formId: number,
+): Promise<RingkasanHapusForm> {
   if (!Number.isInteger(formId) || formId < 1) {
-    throw new KesalahanValidasi({ ok: false, kode: 'VERSI_TIDAK_ADA', pesan: 'Form tidak valid.' })
+    throw new KesalahanValidasi({
+      ok: false,
+      kode: 'VERSI_TIDAK_ADA',
+      pesan: 'Form tidak valid.',
+    })
   }
 
   const form = await db
@@ -190,7 +202,11 @@ export async function ringkasanHapusForm(formId: number): Promise<RingkasanHapus
 
   const baris = form[0]
   if (!baris) {
-    throw new KesalahanValidasi({ ok: false, kode: 'VERSI_TIDAK_ADA', pesan: 'Form tidak ditemukan.' })
+    throw new KesalahanValidasi({
+      ok: false,
+      kode: 'VERSI_TIDAK_ADA',
+      pesan: 'Form tidak ditemukan.',
+    })
   }
   if (baris.kode !== null) {
     throw new KesalahanValidasi({
@@ -223,7 +239,7 @@ export async function ringkasanHapusForm(formId: number): Promise<RingkasanHapus
 
   // `db.execute` mengembalikan baris postgres apa adanya; semua angka sudah
   // di-cast ke int di SQL, jadi di sini hanya dibaca sebagai number.
-  const angka = (hasil as Record<string, unknown>) as {
+  const angka = hasil as Record<string, unknown> as {
     jumlahVersi?: number
     jumlahSubmit?: number
     jumlahJawaban?: number
@@ -281,7 +297,11 @@ export async function hapusForm(input: {
     .limit(1)
 
   if (!form[0]) {
-    throw new KesalahanValidasi({ ok: false, kode: 'VERSI_TIDAK_ADA', pesan: 'Form tidak ditemukan.' })
+    throw new KesalahanValidasi({
+      ok: false,
+      kode: 'VERSI_TIDAK_ADA',
+      pesan: 'Form tidak ditemukan.',
+    })
   }
 
   const ringkasan = await ringkasanHapusForm(formId)
@@ -301,14 +321,12 @@ export async function hapusForm(input: {
 
   await db.transaction(async (tx) => {
     if (idsVersi.length > 0) {
-      await tx
-        .delete(surveys)
-        .where(
-          inArray(
-            surveys.formVersionId,
-            idsVersi.map((v) => v.id),
-          ),
-        )
+      await tx.delete(surveys).where(
+        inArray(
+          surveys.formVersionId,
+          idsVersi.map((v) => v.id),
+        ),
+      )
     }
     await tx.delete(forms).where(eq(forms.id, formId))
   })

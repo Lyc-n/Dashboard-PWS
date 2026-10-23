@@ -1,19 +1,19 @@
-import { TODAY } from "./report-shared";
+import { TODAY } from './report-shared'
 
 export interface TandaTanganProps {
-  nama: string;
-  jabatan: string;
-  containerClassName?: string;
-  boxClassName?: string;
-  namaClassName?: string;
+  nama: string
+  jabatan: string
+  containerClassName?: string
+  boxClassName?: string
+  namaClassName?: string
 }
 
 export function TandaTangan({
   nama,
   jabatan,
-  containerClassName = "mt-6 grid justify-items-end",
-  boxClassName = "text-center text-[11px]",
-  namaClassName = "mt-9 font-semibold text-ink",
+  containerClassName = 'mt-6 grid justify-items-end',
+  boxClassName = 'text-center text-[11px]',
+  namaClassName = 'mt-9 font-semibold text-ink',
 }: TandaTanganProps) {
   return (
     <div className={containerClassName}>
@@ -23,5 +23,5 @@ export function TandaTangan({
         <div className="mt-0.5 text-muted">{jabatan}</div>
       </div>
     </div>
-  );
+  )
 }

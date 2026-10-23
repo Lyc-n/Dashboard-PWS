@@ -10,9 +10,10 @@ import {
   validasiNilaiOpsiTerpilih,
   validasiSumberOpsi,
   validasiHapusForm,
+  validasiHapusDraftVersi,
   validasiTerbitkanVersi,
 } from '@/features/form-builder/services/validasi'
-import type {HasilValidasi} from '@/features/form-builder/services/validasi';
+import type { HasilValidasi } from '@/features/form-builder/services/validasi'
 import { maskNik } from '@/features/form-builder/services/masking'
 import { namaTanpaPrefix } from '@/features/form-builder/lib/kode-bawaan'
 
@@ -26,7 +27,9 @@ describe('validasiOpsiField', () => {
   })
 
   it('select tanpa opsi ditolak', () => {
-    expect(kode(validasiOpsiField({ tipe: 'select', opsi: [] }))).toBe('OPSI_KOSONG')
+    expect(kode(validasiOpsiField({ tipe: 'select', opsi: [] }))).toBe(
+      'OPSI_KOSONG',
+    )
   })
 
   it('opsi nonaktif tidak dihitung sebagai opsi tersedia', () => {
@@ -46,7 +49,10 @@ describe('validasiOpsiField', () => {
   })
 
   it('opsi kosong whitespace ditolak', () => {
-    const hasil = validasiOpsiField({ tipe: 'select', opsi: [{ value: '   ' }] })
+    const hasil = validasiOpsiField({
+      tipe: 'select',
+      opsi: [{ value: '   ' }],
+    })
     expect(kode(hasil)).toBe('OPSI_KOSONG')
   })
 })
@@ -87,56 +93,72 @@ describe('validasiNilaiField', () => {
   const opsi = [{ value: 'Ya' }, { value: 'Tidak' }]
 
   it('nilai kosong dianggap belum diisi dan lolos', () => {
-    expect(validasiNilaiField({ tipe: 'text', value: null })).toEqual({ ok: true })
-    expect(validasiNilaiField({ tipe: 'text', value: '' })).toEqual({ ok: true })
+    expect(validasiNilaiField({ tipe: 'text', value: null })).toEqual({
+      ok: true,
+    })
+    expect(validasiNilaiField({ tipe: 'text', value: '' })).toEqual({
+      ok: true,
+    })
   })
 
   it('text menolak angka', () => {
-    expect(kode(validasiNilaiField({ tipe: 'text', value: 42 }))).toBe('NILAI_TIDAK_COCOK')
+    expect(kode(validasiNilaiField({ tipe: 'text', value: 42 }))).toBe(
+      'NILAI_TIDAK_COCOK',
+    )
   })
 
   it('number menolak teks', () => {
-    expect(kode(validasiNilaiField({ tipe: 'number', value: '42' }))).toBe('NILAI_TIDAK_COCOK')
+    expect(kode(validasiNilaiField({ tipe: 'number', value: '42' }))).toBe(
+      'NILAI_TIDAK_COCOK',
+    )
   })
 
   it('number menolak NaN dan Infinity', () => {
-    expect(kode(validasiNilaiField({ tipe: 'number', value: Number.NaN }))).toBe(
-      'NILAI_TIDAK_COCOK',
-    )
+    expect(
+      kode(validasiNilaiField({ tipe: 'number', value: Number.NaN })),
+    ).toBe('NILAI_TIDAK_COCOK')
     expect(kode(validasiNilaiField({ tipe: 'number', value: Infinity }))).toBe(
       'NILAI_TIDAK_COCOK',
     )
   })
 
   it('date menolak tanggal yang tidak ada di kalender', () => {
-    expect(kode(validasiNilaiField({ tipe: 'date', value: '2026-02-30' }))).toBe(
-      'NILAI_TIDAK_COCOK',
-    )
-    expect(validasiNilaiField({ tipe: 'date', value: '2026-02-28' })).toEqual({ ok: true })
+    expect(
+      kode(validasiNilaiField({ tipe: 'date', value: '2026-02-30' })),
+    ).toBe('NILAI_TIDAK_COCOK')
+    expect(validasiNilaiField({ tipe: 'date', value: '2026-02-28' })).toEqual({
+      ok: true,
+    })
   })
 
   it('date menolak format lain', () => {
-    expect(kode(validasiNilaiField({ tipe: 'date', value: '28-02-2026' }))).toBe(
-      'NILAI_TIDAK_COCOK',
-    )
+    expect(
+      kode(validasiNilaiField({ tipe: 'date', value: '28-02-2026' })),
+    ).toBe('NILAI_TIDAK_COCOK')
   })
 
   it('time menolak jam di luar 24 jam', () => {
-    expect(kode(validasiNilaiField({ tipe: 'time', value: '24:00' }))).toBe('NILAI_TIDAK_COCOK')
-    expect(validasiNilaiField({ tipe: 'time', value: '23:59' })).toEqual({ ok: true })
+    expect(kode(validasiNilaiField({ tipe: 'time', value: '24:00' }))).toBe(
+      'NILAI_TIDAK_COCOK',
+    )
+    expect(validasiNilaiField({ tipe: 'time', value: '23:59' })).toEqual({
+      ok: true,
+    })
   })
 
   it('radio menolak jawaban di luar opsi', () => {
-    expect(kode(validasiNilaiField({ tipe: 'radio', value: 'Mungkin', opsi }))).toBe(
-      'NILAI_TIDAK_COCOK',
-    )
-    expect(validasiNilaiField({ tipe: 'radio', value: 'Ya', opsi })).toEqual({ ok: true })
+    expect(
+      kode(validasiNilaiField({ tipe: 'radio', value: 'Mungkin', opsi })),
+    ).toBe('NILAI_TIDAK_COCOK')
+    expect(validasiNilaiField({ tipe: 'radio', value: 'Ya', opsi })).toEqual({
+      ok: true,
+    })
   })
 
   it('checkbox menolak nilai tunggal, harus daftar', () => {
-    expect(kode(validasiNilaiField({ tipe: 'checkbox', value: 'Ya', opsi }))).toBe(
-      'NILAI_TIDAK_COCOK',
-    )
+    expect(
+      kode(validasiNilaiField({ tipe: 'checkbox', value: 'Ya', opsi })),
+    ).toBe('NILAI_TIDAK_COCOK')
   })
 
   it('checkbox menerima daftar opsi', () => {
@@ -164,8 +186,12 @@ describe('validasiNilaiField', () => {
   })
 
   it('image dan file tidak divalidasi di sini', () => {
-    expect(validasiNilaiField({ tipe: 'image', value: 123 })).toEqual({ ok: true })
-    expect(validasiNilaiField({ tipe: 'file', value: 123 })).toEqual({ ok: true })
+    expect(validasiNilaiField({ tipe: 'image', value: 123 })).toEqual({
+      ok: true,
+    })
+    expect(validasiNilaiField({ tipe: 'file', value: 123 })).toEqual({
+      ok: true,
+    })
   })
 
   it('group menerima daftar baris bertipe primitif', () => {
@@ -181,13 +207,15 @@ describe('validasiNilaiField', () => {
   })
 
   it('group menerima daftar kosong', () => {
-    expect(validasiNilaiField({ tipe: 'group', value: [] })).toEqual({ ok: true })
+    expect(validasiNilaiField({ tipe: 'group', value: [] })).toEqual({
+      ok: true,
+    })
   })
 
   it('group menolak nilai tunggal, harus daftar', () => {
-    expect(kode(validasiNilaiField({ tipe: 'group', value: { nama: 'Siti' } }))).toBe(
-      'GROUP_BARIS_SISIP',
-    )
+    expect(
+      kode(validasiNilaiField({ tipe: 'group', value: { nama: 'Siti' } })),
+    ).toBe('GROUP_BARIS_SISIP')
   })
 
   it('group menolak baris yang bukan objek', () => {
@@ -204,13 +232,23 @@ describe('validasiNilaiField', () => {
 
   it('group menolak sel bersarang, karena struktur kolom tidak disimpan', () => {
     expect(
-      kode(validasiNilaiField({ tipe: 'group', value: [{ anak: { nama: 'Siti' } }] })),
+      kode(
+        validasiNilaiField({
+          tipe: 'group',
+          value: [{ anak: { nama: 'Siti' } }],
+        }),
+      ),
     ).toBe('GROUP_NILAI_SISIP')
   })
 
   it('group menolak daftar di dalam sel', () => {
     expect(
-      kode(validasiNilaiField({ tipe: 'group', value: [{ anggota: ['Siti', 'Agus'] }] })),
+      kode(
+        validasiNilaiField({
+          tipe: 'group',
+          value: [{ anggota: ['Siti', 'Agus'] }],
+        }),
+      ),
     ).toBe('GROUP_NILAI_SISIP')
   })
 
@@ -264,20 +302,30 @@ describe('maskNik', () => {
 
 describe('validasiOpsiField dengan sumber opsi dinamis', () => {
   it('field select tanpa opsi statis ditolak kalau sumbernya tidak dinamis', () => {
-    expect(kode(validasiOpsiField({ tipe: 'select', opsi: [] }))).toBe('OPSI_KOSONG')
+    expect(kode(validasiOpsiField({ tipe: 'select', opsi: [] }))).toBe(
+      'OPSI_KOSONG',
+    )
   })
 
   it('field dengan optionSourceType boleh tanpa opsi statis', () => {
     // Opsinya dibaca dari tabel `users` saat render, jadi tidak ada baris di
     // form_field_options. Menolaknya di sini akan membuat field Petugas mustahil
     // disimpan.
-    expect(validasiOpsiField({ tipe: 'select', opsi: [], sumberOpsiDinamis: 'users' })).toEqual({ ok: true })
+    expect(
+      validasiOpsiField({
+        tipe: 'select',
+        opsi: [],
+        sumberOpsiDinamis: 'users',
+      }),
+    ).toEqual({ ok: true })
   })
 
   it('sumber dinamis hanya membebaskan field yang butuh opsi', () => {
     // Field teks tidak butuh opsi sama sekali, jadi aturan ini tidak berlaku
     // untuk tipe lain meski sumbernya terisi.
-    expect(validasiOpsiField({ tipe: 'text', opsi: [], sumberOpsiDinamis: null })).toEqual({ ok: true })
+    expect(
+      validasiOpsiField({ tipe: 'text', opsi: [], sumberOpsiDinamis: null }),
+    ).toEqual({ ok: true })
   })
 
   it('sumber dinamis melompati pengecekan duplikasi opsi statis', () => {
@@ -299,54 +347,78 @@ describe('validasiNilaiOpsiTerpilih', () => {
   const opsi = [{ value: 'a' }, { value: 'b' }, { value: 'c', aktif: false }]
 
   it('nilai yang ada di daftar diterima', () => {
-    expect(validasiNilaiOpsiTerpilih({ tipe: 'select', nilai: 'a', opsi })).toEqual({ ok: true })
+    expect(
+      validasiNilaiOpsiTerpilih({ tipe: 'select', nilai: 'a', opsi }),
+    ).toEqual({ ok: true })
   })
 
   it('nilai yang tidak ada di daftar ditolak', () => {
     // Ini yang mencegah request yang dimanipulasi storing nilai bebas di
     // survey_entries.
-    expect(kode(validasiNilaiOpsiTerpilih({ tipe: 'select', nilai: 'zzz', opsi }))).toBe('OPSI_TIDAK_VALID')
+    expect(
+      kode(validasiNilaiOpsiTerpilih({ tipe: 'select', nilai: 'zzz', opsi })),
+    ).toBe('OPSI_TIDAK_VALID')
   })
 
   it('opsi nonaktif tidak bisa dipilih', () => {
-    expect(kode(validasiNilaiOpsiTerpilih({ tipe: 'select', nilai: 'c', opsi }))).toBe('OPSI_TIDAK_VALID')
+    expect(
+      kode(validasiNilaiOpsiTerpilih({ tipe: 'select', nilai: 'c', opsi })),
+    ).toBe('OPSI_TIDAK_VALID')
   })
 
   it('checkbox accepts some options and rejects unknown ones', () => {
-    expect(validasiNilaiOpsiTerpilih({ tipe: 'checkbox', nilai: ['a', 'b'], opsi })).toEqual({ ok: true })
-    expect(kode(validasiNilaiOpsiTerpilih({ tipe: 'checkbox', nilai: ['a', 'zzz'], opsi }))).toBe(
-      'OPSI_TIDAK_VALID',
-    )
+    expect(
+      validasiNilaiOpsiTerpilih({ tipe: 'checkbox', nilai: ['a', 'b'], opsi }),
+    ).toEqual({ ok: true })
+    expect(
+      kode(
+        validasiNilaiOpsiTerpilih({
+          tipe: 'checkbox',
+          nilai: ['a', 'zzz'],
+          opsi,
+        }),
+      ),
+    ).toBe('OPSI_TIDAK_VALID')
   })
 
   it('checkbox yang tidak dicentang (array kosong) tetap sah', () => {
     // Kalau ini ditolak, petugas tidak bisa menyimpan form tanpa memilih
     // salah satu checkbox pun.
-    expect(validasiNilaiOpsiTerpilih({ tipe: 'checkbox', nilai: [], opsi })).toEqual({ ok: true })
+    expect(
+      validasiNilaiOpsiTerpilih({ tipe: 'checkbox', nilai: [], opsi }),
+    ).toEqual({ ok: true })
   })
 
   it('nilai dengan spasi excess diterima karena dibandingkan setelah trim', () => {
-    expect(validasiNilaiOpsiTerpilih({ tipe: 'select', nilai: '  a  ', opsi })).toEqual({ ok: true })
+    expect(
+      validasiNilaiOpsiTerpilih({ tipe: 'select', nilai: '  a  ', opsi }),
+    ).toEqual({ ok: true })
   })
 
   it('nilai non-string ditolak', () => {
-    expect(kode(validasiNilaiOpsiTerpilih({ tipe: 'select', nilai: 42, opsi }))).toBe('OPSI_TIDAK_VALID')
+    expect(
+      kode(validasiNilaiOpsiTerpilih({ tipe: 'select', nilai: 42, opsi })),
+    ).toBe('OPSI_TIDAK_VALID')
   })
 
   it('field tanpa opsi (teks) tidak dicek kelistanya', () => {
-    expect(validasiNilaiOpsiTerpilih({ tipe: 'text', nilai: 'apa saja', opsi: [] })).toEqual({ ok: true })
+    expect(
+      validasiNilaiOpsiTerpilih({ tipe: 'text', nilai: 'apa saja', opsi: [] }),
+    ).toEqual({ ok: true })
   })
 })
 
 describe('validasiNamaField', () => {
   it('snake_case lolos', () => {
-    expect(validasiNamaField({ nama: 'tekanan_darah', label: 'Tekanan darah' })).toEqual({ ok: true })
+    expect(
+      validasiNamaField({ nama: 'tekanan_darah', label: 'Tekanan darah' }),
+    ).toEqual({ ok: true })
   })
 
   it('nama dengan huruf kapital ditolak', () => {
-    expect(kode(validasiNamaField({ nama: 'TekananDarah', label: 'Tekanan darah' }))).toBe(
-      'NAMA_FIELD_TIDAK_VALID',
-    )
+    expect(
+      kode(validasiNamaField({ nama: 'TekananDarah', label: 'Tekanan darah' })),
+    ).toBe('NAMA_FIELD_TIDAK_VALID')
   })
 
   it('nama dengan spasi, strip, dan tanda baca ditolak', () => {
@@ -359,26 +431,36 @@ describe('validasiNamaField', () => {
   })
 
   it('nama lebih dari 100 karakter ditolak', () => {
-    expect(kode(validasiNamaField({ nama: 'a'.repeat(101), label: 'Nama' }))).toBe(
-      'NAMA_FIELD_TIDAK_VALID',
+    expect(
+      kode(validasiNamaField({ nama: 'a'.repeat(101), label: 'Nama' })),
+    ).toBe('NAMA_FIELD_TIDAK_VALID')
+    expect(validasiNamaField({ nama: 'a'.repeat(100), label: 'Nama' })).toEqual(
+      { ok: true },
     )
-    expect(validasiNamaField({ nama: 'a'.repeat(100), label: 'Nama' })).toEqual({ ok: true })
   })
 
   it('label kosong ditolak', () => {
-    expect(kode(validasiNamaField({ nama: 'nama', label: '   ' }))).toBe('NAMA_FIELD_TIDAK_VALID')
+    expect(kode(validasiNamaField({ nama: 'nama', label: '   ' }))).toBe(
+      'NAMA_FIELD_TIDAK_VALID',
+    )
   })
 
   it('label lebih dari 255 karakter ditolak', () => {
-    expect(kode(validasiNamaField({ nama: 'nama', label: 'a'.repeat(256) }))).toBe(
-      'NAMA_FIELD_TIDAK_VALID',
+    expect(
+      kode(validasiNamaField({ nama: 'nama', label: 'a'.repeat(256) })),
+    ).toBe('NAMA_FIELD_TIDAK_VALID')
+    expect(validasiNamaField({ nama: 'nama', label: 'a'.repeat(255) })).toEqual(
+      { ok: true },
     )
-    expect(validasiNamaField({ nama: 'nama', label: 'a'.repeat(255) })).toEqual({ ok: true })
   })
 })
 
 describe('validasiFieldPenuh', () => {
-  const teks = { nama: 'nama_warga', label: 'Nama warga', tipe: 'text' as const }
+  const teks = {
+    nama: 'nama_warga',
+    label: 'Nama warga',
+    tipe: 'text' as const,
+  }
 
   it('daftar field valid lolos', () => {
     const hasil = validasiFieldPenuh({
@@ -386,7 +468,12 @@ describe('validasiFieldPenuh', () => {
         teks,
         { nama: 'usia', label: 'Usia', tipe: 'number' },
         { nama: 'kelompok', label: 'Kelompok', tipe: 'group', jumlahKolom: 3 },
-        { nama: 'jk', label: 'Jenis kelamin', tipe: 'radio', opsi: [{ value: 'L' }, { value: 'P' }] },
+        {
+          nama: 'jk',
+          label: 'Jenis kelamin',
+          tipe: 'radio',
+          opsi: [{ value: 'L' }, { value: 'P' }],
+        },
       ],
     })
     expect(hasil).toEqual({ ok: true })
@@ -401,13 +488,18 @@ describe('validasiFieldPenuh', () => {
 
   it('nama dobel yang beda spasi tetap dianggap dobel', () => {
     const hasil = validasiFieldPenuh({
-      fields: [{ ...teks, nama: 'nama_warga' }, { ...teks, nama: ' nama_warga ' }],
+      fields: [
+        { ...teks, nama: 'nama_warga' },
+        { ...teks, nama: ' nama_warga ' },
+      ],
     })
     expect(kode(hasil)).toBe('NAMA_FIELD_BENTARAK')
   })
 
   it('nama tidak valid di salah satu field menolak seluruh daftar', () => {
-    const hasil = validasiFieldPenuh({ fields: [teks, { nama: 'Nama KTP', label: 'No KTP', tipe: 'text' }] })
+    const hasil = validasiFieldPenuh({
+      fields: [teks, { nama: 'Nama KTP', label: 'No KTP', tipe: 'text' }],
+    })
     expect(kode(hasil)).toBe('NAMA_FIELD_TIDAK_VALID')
   })
 
@@ -422,14 +514,28 @@ describe('validasiFieldPenuh', () => {
     expect(
       kode(
         validasiFieldPenuh({
-          fields: [{ nama: 'anggota', label: 'Anggota', tipe: 'group', jumlahKolom: 0 }],
+          fields: [
+            {
+              nama: 'anggota',
+              label: 'Anggota',
+              tipe: 'group',
+              jumlahKolom: 0,
+            },
+          ],
         }),
       ),
     ).toBe('KOLOM_GROUP_KOSONG')
     expect(
       kode(
         validasiFieldPenuh({
-          fields: [{ nama: 'anggota', label: 'Anggota', tipe: 'group', jumlahKolom: -2 }],
+          fields: [
+            {
+              nama: 'anggota',
+              label: 'Anggota',
+              tipe: 'group',
+              jumlahKolom: -2,
+            },
+          ],
         }),
       ),
     ).toBe('KOLOM_GROUP_KOSONG')
@@ -463,14 +569,24 @@ describe('validasiFieldPenuh', () => {
 
   it('field dengan sumber opsi dinamis boleh tanpa opsi statis', () => {
     const hasil = validasiFieldPenuh({
-      fields: [{ nama: 'petugas', label: 'Petugas', tipe: 'select', optionSourceType: 'users' }],
+      fields: [
+        {
+          nama: 'petugas',
+          label: 'Petugas',
+          tipe: 'select',
+          optionSourceType: 'users',
+        },
+      ],
     })
     expect(hasil).toEqual({ ok: true })
   })
 
   it('field ditandai hapus tidak ikut diperiksa', () => {
     const hasil = validasiFieldPenuh({
-      fields: [teks, { nama: 'Salah Nama', label: '', tipe: 'select', hapus: true }],
+      fields: [
+        teks,
+        { nama: 'Salah Nama', label: '', tipe: 'select', hapus: true },
+      ],
     })
     expect(hasil).toEqual({ ok: true })
   })
@@ -488,7 +604,9 @@ describe('validasiSumberOpsi', () => {
   const tanpaOpsi: readonly { value: string }[] = []
 
   it('tanpa sumber selalu lolos', () => {
-    expect(validasiSumberOpsi({ tipe: 'text', opsi: tanpaOpsi })).toEqual({ ok: true })
+    expect(validasiSumberOpsi({ tipe: 'text', opsi: tanpaOpsi })).toEqual({
+      ok: true,
+    })
   })
 
   it('sumber enum pada select lolos tanpa opsi statis', () => {
@@ -598,7 +716,13 @@ describe('validasiSumberOpsi', () => {
     const hasil = validasiFieldPenuh({
       fields: [
         { nama: 'umur', label: 'Umur', tipe: 'number' },
-        { nama: 'agama', label: 'Agama', tipe: 'select', optionSourceType: 'entah', optionSourceKey: 'x' },
+        {
+          nama: 'agama',
+          label: 'Agama',
+          tipe: 'select',
+          optionSourceType: 'entah',
+          optionSourceKey: 'x',
+        },
       ],
     })
     expect(kode(hasil)).toBe('SUMBER_OPSI_TIDAK_DIKENAL')
@@ -624,14 +748,22 @@ describe('validasiHapusForm', () => {
   })
 
   it('form bawaan sistem tidak boleh dihapus, walau tanpa isian', () => {
-    const hasil = validasiHapusForm({ ...base, kode: 'CHECKLIST_KUNJUNGAN_RUMAH' })
+    const hasil = validasiHapusForm({
+      ...base,
+      kode: 'CHECKLIST_KUNJUNGAN_RUMAH',
+    })
     expect(kode(hasil)).toBe('FORM_BAWAAN')
   })
 
   it('form berisian ditolak tanpa hapusPermanent', () => {
     const hasil = validasiHapusForm({
       ...base,
-      ringkasan: { ...base.ringkasan, jumlahSubmit: 12, jumlahJawaban: 96, jumlahWarga: 12 },
+      ringkasan: {
+        ...base.ringkasan,
+        jumlahSubmit: 12,
+        jumlahJawaban: 96,
+        jumlahWarga: 12,
+      },
     })
     expect(kode(hasil)).toBe('FORM_PUNYA_ISIAN')
     if (!hasil.ok) {
@@ -655,14 +787,22 @@ describe('validasiHapusForm', () => {
       ringkasan: { ...base.ringkasan, jumlahSubmit: 1 },
       hapusPermanent: true,
     }
-    expect(kode(validasiHapusForm({ ...params, konfirmasiNama: 'form uji coba' }))).toBe(
-      'KONFIRMASI_NAMA_SALAH',
-    )
-    expect(validasiHapusForm({ ...params, konfirmasiNama: '  Form Uji Coba  ' })).toEqual({ ok: true })
+    expect(
+      kode(validasiHapusForm({ ...params, konfirmasiNama: 'form uji coba' })),
+    ).toBe('KONFIRMASI_NAMA_SALAH')
+    expect(
+      validasiHapusForm({ ...params, konfirmasiNama: '  Form Uji Coba  ' }),
+    ).toEqual({ ok: true })
   })
 
   it('konfirmasi nama tidak diminta kalau form tidak punya isian', () => {
-    expect(validasiHapusForm({ ...base, hapusPermanent: true, konfirmasiNama: null })).toEqual({ ok: true })
+    expect(
+      validasiHapusForm({
+        ...base,
+        hapusPermanent: true,
+        konfirmasiNama: null,
+      }),
+    ).toEqual({ ok: true })
   })
 
   it('kunci konfirmasi hanya diminta kalau memang ada isian', () => {
@@ -731,7 +871,8 @@ describe('validasiFieldPenuh dengan normalisasiNama', () => {
     expect(anggota).toEqual({ ok: true })
   })
 
-  it('dua nama berbeda di section yang sama tetap ditolak setelah prefix dibuka', () => {    const hasil = validasiFieldPenuh({
+  it('dua nama berbeda di section yang sama tetap ditolak setelah prefix dibuka', () => {
+    const hasil = validasiFieldPenuh({
       normalisasiNama: bukaPrefix,
       fields: [
         { nama: 'keluargaInfo::nik', label: 'NIK', tipe: 'text' },
@@ -753,7 +894,9 @@ describe('validasiFieldPenuh dengan fieldBawaan', () => {
   it('field bawaan boleh punya nama yang tidak lolos pola nama', () => {
     // Nama bawaan form kunjungan rumah mengandung huruf besar dan sudah dipakai
     // data yang tersimpan, jadi tidak boleh ditolak hanya karena bentuknya.
-    const hasil = validasiFieldPenuh({ fields: [bawaan('tglPengumpulan', 'date')] })
+    const hasil = validasiFieldPenuh({
+      fields: [bawaan('tglPengumpulan', 'date')],
+    })
     expect(hasil).toEqual({ ok: true })
   })
 
@@ -763,7 +906,9 @@ describe('validasiFieldPenuh dengan fieldBawaan', () => {
   })
 
   it('field bawaan boleh tanpa jumlah kolom walau tipenya group', () => {
-    const hasil = validasiFieldPenuh({ fields: [bawaan('record_legacy', 'group')] })
+    const hasil = validasiFieldPenuh({
+      fields: [bawaan('record_legacy', 'group')],
+    })
     expect(hasil).toEqual({ ok: true })
   })
 
@@ -800,5 +945,79 @@ describe('validasiFieldPenuh dengan fieldBawaan', () => {
       ],
     })
     expect(hasil).toEqual({ ok: true })
+  })
+})
+
+describe('validasiHapusDraftVersi', () => {
+  function dasar(
+    ubah: Partial<Parameters<typeof validasiHapusDraftVersi>[0]> = {},
+  ) {
+    return validasiHapusDraftVersi({
+      status: 'draft',
+      kodeForm: null,
+      jumlahVersi: 2,
+      ringkasan: { jumlahSubmit: 0, jumlahField: 5, jumlahSection: 2 },
+      ...ubah,
+    })
+  }
+
+  it('draft form manual dengan lebih dari satu versi boleh dihapus', () => {
+    expect(dasar()).toEqual({ ok: true })
+  })
+
+  it('versi published tidak boleh dihapus', () => {
+    expect(kode(dasar({ status: 'published' }))).toBe('VERSI_BUKAN_DRAFT')
+  })
+
+  it('versi archived juga ditolak, bukan dianggap draft', () => {
+    expect(kode(dasar({ status: 'archived' }))).toBe('VERSI_BUKAN_DRAFT')
+  })
+
+  it('versi yang tidak ada ditolak lebih dulu sebelum cek lain', () => {
+    // Draft bawaan dan versi tunggalnya sama-sama tidak sah, tapi versi yang
+    // hilang harus disebut lebih dulu supaya pesan tidak menyesatkan.
+    expect(kode(dasar({ status: null, kodeForm: 'kunjungan_rumah' }))).toBe(
+      'VERSI_TIDAK_ADA',
+    )
+  })
+
+  it('draft form bawaan sistem tidak boleh dihapus', () => {
+    const hasil = dasar({ kodeForm: 'kunjungan_rumah' })
+    expect(kode(hasil)).toBe('DRAFT_BAWAAN_TERKUNCI')
+    expect(hasil.ok).toBe(false)
+    if (!hasil.ok) expect(hasil.pesan).toMatch(/bawaan/i)
+  })
+
+  it('draft yang sudah punya isian tidak boleh dihapus', () => {
+    const hasil = dasar({
+      ringkasan: { jumlahSubmit: 3, jumlahField: 5, jumlahSection: 2 },
+    })
+    expect(kode(hasil)).toBe('FORM_PUNYA_ISIAN')
+    if (!hasil.ok) expect(hasil.pesan).toContain('3 isian')
+  })
+
+  it('versi satu-satunya tidak boleh dihapus walau formnya manual', () => {
+    const hasil = dasar({ jumlahVersi: 1 })
+    expect(kode(hasil)).toBe('VERSI_HANYA_SATU')
+    if (!hasil.ok) expect(hasil.pesan).toMatch(/satu-satunya/i)
+  })
+
+  it('cek status berjalan sebelum cek bawaan', () => {
+    // published pada form bawaan harus ditolak sebagai versi yang salah status,
+    // bukan sebagai draft bawaan yang terkunci.
+    expect(
+      kode(dasar({ status: 'published', kodeForm: 'kunjungan_rumah' })),
+    ).toBe('VERSI_BUKAN_DRAFT')
+  })
+
+  it('draft kosong pada form dengan banyak versi tetap boleh dihapus', () => {
+    // Draft kosong bukan alasan menolak: justru itu yang paling sering ingin
+    // dibuang admin setelah salah klik "Draft Berikutnya".
+    expect(
+      dasar({
+        jumlahVersi: 4,
+        ringkasan: { jumlahSubmit: 0, jumlahField: 0, jumlahSection: 0 },
+      }),
+    ).toEqual({ ok: true })
   })
 })

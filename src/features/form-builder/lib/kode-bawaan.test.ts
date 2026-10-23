@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { SEMUA_TIPE_FIELD } from "../services/validasi";
+import { describe, expect, it } from 'vitest'
+import { SEMUA_TIPE_FIELD } from '../services/validasi'
 import {
   FIELD_RECORD_LEGACY,
   kunciBucket,
@@ -8,16 +8,16 @@ import {
   aturanForm,
   SECTION_PENYIMPANAN,
   SECTION_TERLINDUNGI,
-} from "./kode-bawaan";
-import type { FieldBawaan, SectionBawaan } from "./kode-bawaan";
-import { KODE_FORM_BAWAAN } from "@/lib/constants";
-import { SASARAN_KEYS } from "@/lib/kunjungan-rumah-form";
+} from './kode-bawaan'
+import type { FieldBawaan, SectionBawaan } from './kode-bawaan'
+import { KODE_FORM_BAWAAN } from '@/lib/constants'
+import { SASARAN_KEYS } from '@/lib/kunjungan-rumah-form'
 
-const KR = KODE_FORM_BAWAAN.kunjunganRumah;
-const S1 = "sec-1";
-const S2 = "sec-2";
-const PENYIMPANAN_ID = "penyimpanan-id";
-const SAR = SASARAN_KEYS[0]!;
+const KR = KODE_FORM_BAWAAN.kunjunganRumah
+const S1 = 'sec-1'
+const S2 = 'sec-2'
+const PENYIMPANAN_ID = 'penyimpanan-id'
+const SAR = SASARAN_KEYS[0]!
 
 /**
  * Bentuk draft yang meniru hasil seeder: empat section biasa, satu section
@@ -25,8 +25,8 @@ const SAR = SASARAN_KEYS[0]!;
  * validator tidak salah baca sebagai section yang sudah ada.
  */
 interface Draft {
-  sections: SectionBawaan[];
-  fields: FieldBawaan[];
+  sections: SectionBawaan[]
+  fields: FieldBawaan[]
 }
 
 /**
@@ -38,50 +38,62 @@ interface Draft {
  */
 function draftKr(ubah: (d: Draft) => void = () => {}): Draft & Snap {
   const sections: SectionBawaan[] = [
-    { id: S1, nama: "keluargaInfo" },
+    { id: S1, nama: 'keluargaInfo' },
     { id: PENYIMPANAN_ID, nama: SECTION_PENYIMPANAN },
     { id: S2, nama: SAR },
-  ];
+  ]
   const fields: FieldBawaan[] = [
-    { id: "f-nik", sectionId: S1, nama: "keluargaInfo::nik", tipe: "text", optionSourceType: null, optionSourceKey: null },
     {
-      id: "f-payload",
-      sectionId: PENYIMPANAN_ID,
-      nama: `${SECTION_PENYIMPANAN}::${FIELD_RECORD_LEGACY}`,
-      tipe: "group",
+      id: 'f-nik',
+      sectionId: S1,
+      nama: 'keluargaInfo::nik',
+      tipe: 'text',
       optionSourceType: null,
       optionSourceKey: null,
     },
     {
-      id: "f-umur",
+      id: 'f-payload',
+      sectionId: PENYIMPANAN_ID,
+      nama: `${SECTION_PENYIMPANAN}::${FIELD_RECORD_LEGACY}`,
+      tipe: 'group',
+      optionSourceType: null,
+      optionSourceKey: null,
+    },
+    {
+      id: 'f-umur',
       sectionId: S2,
       nama: `${SAR}::umur`,
-      tipe: "number",
+      tipe: 'number',
       optionSourceType: null,
-      optionSourceKey: kunciBucket("identitas"),
+      optionSourceKey: kunciBucket('identitas'),
     },
-  ];
-  const draft: Draft = { sections, fields };
-  const lama = snapshot(draft);
-  ubah(draft);
-  return { ...draft, ...lama };
+  ]
+  const draft: Draft = { sections, fields }
+  const lama = snapshot(draft)
+  ubah(draft)
+  return { ...draft, ...lama }
 }
 
 interface Snap {
-  sectionsLama: { id: string; nama: string }[];
-  fieldsLama: { id: string; sectionId: string; nama: string; optionSourceKey: string | null }[];
+  sectionsLama: { id: string; nama: string }[]
+  fieldsLama: {
+    id: string
+    sectionId: string
+    nama: string
+    optionSourceKey: string | null
+  }[]
 }
 
 function snapshot(d: Draft): Snap {
   return {
-    sectionsLama: d.sections.map((s) => ({ id: s.id ?? "", nama: s.nama })),
+    sectionsLama: d.sections.map((s) => ({ id: s.id ?? '', nama: s.nama })),
     fieldsLama: d.fields.map((f) => ({
-      id: f.id ?? "",
-      sectionId: f.sectionId ?? "",
+      id: f.id ?? '',
+      sectionId: f.sectionId ?? '',
       nama: f.nama,
       optionSourceKey: f.optionSourceKey,
     })),
-  };
+  }
 }
 
 function jalankan(d: Draft & Snap, formKode: string | null = KR) {
@@ -90,274 +102,317 @@ function jalankan(d: Draft & Snap, formKode: string | null = KR) {
     fields: d.fields,
     sectionsLama: d.sectionsLama,
     fieldsLama: d.fieldsLama,
-  });
+  })
 }
 
 /** Kunci editor untuk satu form, lewat registry yang sama seperti produksi. */
 function kunci(formKode: string | null) {
-  return aturanForm(formKode).kunciEditor;
+  return aturanForm(formKode).kunciEditor
 }
 
 function pesanDari(hasil: ReturnType<typeof jalankan>): string {
-  if (hasil.ok) throw new Error("diharapkan gagal, tapi lolos");
-  return hasil.pesan;
+  if (hasil.ok) throw new Error('diharapkan gagal, tapi lolos')
+  return hasil.pesan
 }
 
-describe("aturanForm(...).validasiDraft", () => {
-  it("meloloskan draft form kunjungan rumah yang utuh", () => {
-    expect(jalankan(draftKr())).toEqual({ ok: true });
-  });
+describe('aturanForm(...).validasiDraft', () => {
+  it('meloloskan draft form kunjungan rumah yang utuh', () => {
+    expect(jalankan(draftKr())).toEqual({ ok: true })
+  })
 
-  it("melewatkan form manual sepenuhnya", () => {
+  it('melewatkan form manual sepenuhnya', () => {
     const rusak = draftKr((d) => {
-      d.sections[0]!.nama = "apaSajaBebas";
-      d.fields[0]!.tipe = "textarea";
-    });
-    expect(jalankan(rusak, null)).toEqual({ ok: true });
-  });
+      d.sections[0]!.nama = 'apaSajaBebas'
+      d.fields[0]!.tipe = 'textarea'
+    })
+    expect(jalankan(rusak, null)).toEqual({ ok: true })
+  })
 
-  describe("section", () => {
-    it("menolak section baru yang tidak dikenal", () => {
-      const d = draftKr((x) => x.sections.push({ id: "s-baru", nama: "tambahan" }));
-      expect(pesanDari(jalankan(d))).toMatch(/tidak dikenal/);
-    });
+  describe('section', () => {
+    it('menolak section baru yang tidak dikenal', () => {
+      const d = draftKr((x) =>
+        x.sections.push({ id: 's-baru', nama: 'tambahan' }),
+      )
+      expect(pesanDari(jalankan(d))).toMatch(/tidak dikenal/)
+    })
 
-    it("menolak rename section ke nama di luar daftar yang dilindungi", () => {
+    it('menolak rename section ke nama di luar daftar yang dilindungi', () => {
       const d = draftKr((x) => {
-        x.sections[0]!.nama = "infoKeluarga";
-      });
-      expect(pesanDari(jalankan(d))).toMatch(/tidak dikenal/);
-    });
+        x.sections[0]!.nama = 'infoKeluarga'
+      })
+      expect(pesanDari(jalankan(d))).toMatch(/tidak dikenal/)
+    })
 
-    it("menolak rename section ke nama section lain yang dilindungi", () => {
+    it('menolak rename section ke nama section lain yang dilindungi', () => {
       // Nama tujuan masih sah, jadi yang menolak adalah larangan rename, bukan
       // check nama tak dikenal.
       const d = draftKr((x) => {
-        x.sections[0]!.nama = "masalah";
-      });
-      expect(pesanDari(jalankan(d))).toMatch(/tidak bisa diubah nama/);
-    });
+        x.sections[0]!.nama = 'masalah'
+      })
+      expect(pesanDari(jalankan(d))).toMatch(/tidak bisa diubah nama/)
+    })
 
-    it("menolak penghapusan section yang dilindungi", () => {
-      const d = draftKr((x) => x.sections.splice(2, 1));
-      expect(pesanDari(jalankan(d))).toMatch(/tidak bisa dihapus/);
-    });
+    it('menolak penghapusan section yang dilindungi', () => {
+      const d = draftKr((x) => x.sections.splice(2, 1))
+      expect(pesanDari(jalankan(d))).toMatch(/tidak bisa dihapus/)
+    })
 
-    it("menolak section target yang bukan bagian dari versi ini", () => {
+    it('menolak section target yang bukan bagian dari versi ini', () => {
       const d = draftKr((x) => {
-        x.sections[0]!.id = "id-dari-versi-lain";
-      });
-      expect(pesanDari(jalankan(d))).toMatch(/bukan bagian dari versi ini/);
-    });
+        x.sections[0]!.id = 'id-dari-versi-lain'
+      })
+      expect(pesanDari(jalankan(d))).toMatch(/bukan bagian dari versi ini/)
+    })
 
-    it("memuat seluruh section yang seed buat", () => {
-      expect(SECTION_TERLINDUNGI.has("penyimpanan")).toBe(true);
-      expect(SECTION_TERLINDUNGI.has("keluargaInfo")).toBe(true);
-      for (const key of SASARAN_KEYS) expect(SECTION_TERLINDUNGI.has(key)).toBe(true);
-      expect(SECTION_TERLINDUNGI.size).toBe(5 + SASARAN_KEYS.length);
-    });
-  });
+    it('memuat seluruh section yang seed buat', () => {
+      expect(SECTION_TERLINDUNGI.has('penyimpanan')).toBe(true)
+      expect(SECTION_TERLINDUNGI.has('keluargaInfo')).toBe(true)
+      for (const key of SASARAN_KEYS)
+        expect(SECTION_TERLINDUNGI.has(key)).toBe(true)
+      expect(SECTION_TERLINDUNGI.size).toBe(5 + SASARAN_KEYS.length)
+    })
+  })
 
-  describe("field", () => {
-    it("menolak tipe di luar yang bisa dirender form kader", () => {
+  describe('field', () => {
+    it('menolak tipe di luar yang bisa dirender form kader', () => {
       const d = draftKr((x) => {
-        x.fields[0]!.tipe = "textarea";
-      });
-      expect(pesanDari(jalankan(d))).toMatch(/hanya bisa diisi dengan tipe/);
-    });
+        x.fields[0]!.tipe = 'textarea'
+      })
+      expect(pesanDari(jalankan(d))).toMatch(/hanya bisa diisi dengan tipe/)
+    })
 
-    it("menolak field group baru selain penyimpan data", () => {
+    it('menolak field group baru selain penyimpan data', () => {
       const d = draftKr((x) => {
         x.fields.push({
-          id: "f-grup",
+          id: 'f-grup',
           sectionId: S1,
-          nama: "keluargaInfo::blok",
-          tipe: "group",
+          nama: 'keluargaInfo::blok',
+          tipe: 'group',
           optionSourceType: null,
           optionSourceKey: null,
-        });
-      });
-      expect(pesanDari(jalankan(d))).toMatch(/hanya boleh punya satu field group/);
-    });
+        })
+      })
+      expect(pesanDari(jalankan(d))).toMatch(
+        /hanya boleh punya satu field group/,
+      )
+    })
 
-    it("menolak nama field yang diubah karena nama itu kunci data tersimpan", () => {
+    it('menolak nama field yang diubah karena nama itu kunci data tersimpan', () => {
       const d = draftKr((x) => {
-        x.fields[0]!.nama = "keluargaInfo::nikBaru";
-      });
-      expect(pesanDari(jalankan(d))).toMatch(/tidak bisa diubah/);
-    });
+        x.fields[0]!.nama = 'keluargaInfo::nikBaru'
+      })
+      expect(pesanDari(jalankan(d))).toMatch(/tidak bisa diubah/)
+    })
 
-    it("menolak pemindahan field ke section lain", () => {
+    it('menolak pemindahan field ke section lain', () => {
       const d = draftKr((x) => {
-        x.fields[0]!.sectionId = S2;
-        x.fields[0]!.optionSourceKey = kunciBucket("identitas");
-      });
-      expect(pesanDari(jalankan(d))).toMatch(/tidak bisa dipindahkan/);
-    });
+        x.fields[0]!.sectionId = S2
+        x.fields[0]!.optionSourceKey = kunciBucket('identitas')
+      })
+      expect(pesanDari(jalankan(d))).toMatch(/tidak bisa dipindahkan/)
+    })
 
-    it("menerima nama field dalam bentuk pendek maupun ber-prefix", () => {
+    it('menerima nama field dalam bentuk pendek maupun ber-prefix', () => {
       const d = draftKr((x) => {
-        x.fields[0]!.nama = "nik";
-      });
-      expect(jalankan(d)).toEqual({ ok: true });
-    });
+        x.fields[0]!.nama = 'nik'
+      })
+      expect(jalankan(d)).toEqual({ ok: true })
+    })
 
-    it("menolak penghapusan field penyimpan data kunjungan", () => {
+    it('menolak penghapusan field penyimpan data kunjungan', () => {
       const d = draftKr((x) => {
-        x.fields.splice(1, 1);
-      });
-      expect(pesanDari(jalankan(d))).toMatch(/tidak bisa dihapus/);
-    });
-  });
+        x.fields.splice(1, 1)
+      })
+      expect(pesanDari(jalankan(d))).toMatch(/tidak bisa dihapus/)
+    })
+  })
 
-  describe("sumber pilihan dan bucket", () => {
-    it("menolak option source dari data karena opsi KR ditulis manual", () => {
+  describe('sumber pilihan dan bucket', () => {
+    it('menolak option source dari data karena opsi KR ditulis manual', () => {
       const d = draftKr((x) => {
-        x.fields[0]!.optionSourceType = "users";
-      });
-      expect(pesanDari(jalankan(d))).toMatch(/tidak boleh memakai sumber pilihan/);
-    });
+        x.fields[0]!.optionSourceType = 'users'
+      })
+      expect(pesanDari(jalankan(d))).toMatch(
+        /tidak boleh memakai sumber pilihan/,
+      )
+    })
 
     // Ketiganya memakai field BARU: mengubah `optionSourceKey` field yang sudah
     // ada lebih dulu tertangkap aturan bucket yang tidak bisa berubah, jadi
     // field baru diperlukan supaya aturan bucket-nya sendiri yang diuji.
-    it("menolak field sasaran tanpa bucket", () => {
+    it('menolak field sasaran tanpa bucket', () => {
       const d = draftKr((x) => {
-        x.fields.push({ id: null, sectionId: S2, nama: "baru", tipe: "text", optionSourceType: null, optionSourceKey: null });
-      });
-      expect(pesanDari(jalankan(d))).toMatch(/harus punya bucket layout/);
-    });
+        x.fields.push({
+          id: null,
+          sectionId: S2,
+          nama: 'baru',
+          tipe: 'text',
+          optionSourceType: null,
+          optionSourceKey: null,
+        })
+      })
+      expect(pesanDari(jalankan(d))).toMatch(/harus punya bucket layout/)
+    })
 
-    it("menolak bucket yang tidak dikenal", () => {
+    it('menolak bucket yang tidak dikenal', () => {
       const d = draftKr((x) => {
-        x.fields.push({ id: null, sectionId: S2, nama: "baru", tipe: "text", optionSourceType: null, optionSourceKey: kunciBucket("entah") });
-      });
-      expect(pesanDari(jalankan(d))).toMatch(/harus punya bucket layout/);
-    });
+        x.fields.push({
+          id: null,
+          sectionId: S2,
+          nama: 'baru',
+          tipe: 'text',
+          optionSourceType: null,
+          optionSourceKey: kunciBucket('entah'),
+        })
+      })
+      expect(pesanDari(jalankan(d))).toMatch(/harus punya bucket layout/)
+    })
 
-    it("menolak option source key di section biasa", () => {
+    it('menolak option source key di section biasa', () => {
       const d = draftKr((x) => {
-        x.fields.push({ id: null, sectionId: S1, nama: "baru", tipe: "text", optionSourceType: null, optionSourceKey: kunciBucket("identitas") });
-      });
-      expect(pesanDari(jalankan(d))).toMatch(/tidak boleh punya option source key/);
-    });
+        x.fields.push({
+          id: null,
+          sectionId: S1,
+          nama: 'baru',
+          tipe: 'text',
+          optionSourceType: null,
+          optionSourceKey: kunciBucket('identitas'),
+        })
+      })
+      expect(pesanDari(jalankan(d))).toMatch(
+        /tidak boleh punya option source key/,
+      )
+    })
 
-    it("menolak perubahan option source key field yang sudah ada", () => {
+    it('menolak perubahan option source key field yang sudah ada', () => {
       const d = draftKr((x) => {
-        x.fields[0]!.optionSourceKey = kunciBucket("identitas");
-      });
-      expect(pesanDari(jalankan(d))).toMatch(/Bucket field/);
-    });
+        x.fields[0]!.optionSourceKey = kunciBucket('identitas')
+      })
+      expect(pesanDari(jalankan(d))).toMatch(/Bucket field/)
+    })
 
-    it("menolak perubahan bucket field sasaran", () => {
+    it('menolak perubahan bucket field sasaran', () => {
       const d = draftKr((x) => {
-        x.fields[2]!.optionSourceKey = kunciBucket("kolom");
-      });
-      expect(pesanDari(jalankan(d))).toMatch(/Bucket field/);
-    });
+        x.fields[2]!.optionSourceKey = kunciBucket('kolom')
+      })
+      expect(pesanDari(jalankan(d))).toMatch(/Bucket field/)
+    })
 
-    it("menerima empat bucket yang sah untuk field baru", () => {
+    it('menerima empat bucket yang sah untuk field baru', () => {
       // Field baru, bukan field lama: bucket field yang sudah ada dikunci dan
       // sudah diuji terpisah di kasus "menolak perubahan bucket".
-      for (const bucket of ["identitas", "kolom", "bools", "baha"]) {
+      for (const bucket of ['identitas', 'kolom', 'bools', 'baha']) {
         const d = draftKr((x) => {
           x.fields.push({
             id: null,
             sectionId: S2,
             nama: `baru-${bucket}`,
-            tipe: "text",
+            tipe: 'text',
             optionSourceType: null,
             optionSourceKey: kunciBucket(bucket),
-          });
-        });
-        expect(jalankan(d)).toEqual({ ok: true });
+          })
+        })
+        expect(jalankan(d)).toEqual({ ok: true })
       }
-    });
-  });
+    })
+  })
 
-  describe("aturanForm(...).kunciEditor", () => {
-  it("mengunci seluruh struktur form kunjungan rumah", () => {
-    const k = kunci(KODE_FORM_BAWAAN.kunjunganRumah);
-    expect(k.namaSection).toBe(true);
-    expect(k.strukturSection).toBe(true);
-    expect(k.optionSource).toBe(true);
-    expect([...(k.tipe ?? [])].sort()).toEqual(["checkbox", "date", "number", "select", "text"]);
-  });
+  describe('aturanForm(...).kunciEditor', () => {
+    it('mengunci seluruh struktur form kunjungan rumah', () => {
+      const k = kunci(KODE_FORM_BAWAAN.kunjunganRumah)
+      expect(k.namaSection).toBe(true)
+      expect(k.strukturSection).toBe(true)
+      expect(k.optionSource).toBe(true)
+      expect([...(k.tipe ?? [])].sort()).toEqual([
+        'checkbox',
+        'date',
+        'number',
+        'select',
+        'text',
+      ])
+    })
 
-  it("menandai field penyimpan data sebagai tidak boleh dihapus", () => {
-    const k = kunci(KODE_FORM_BAWAAN.kunjunganRumah);
-    expect(k.namaFieldTidakBolehDihapus("record_legacy")).toBe(true);
-    // Editor menerima nama dalam bentuk pendek (Fase 2), tapi database menyimpan
-    // bentuk ber-prefix. Dua-duanya harus dikenali.
-    expect(k.namaFieldTidakBolehDihapus("penyimpanan::record_legacy")).toBe(true);
-    expect(k.namaFieldTidakBolehDihapus("nik")).toBe(false);
-  });
+    it('menandai field penyimpan data sebagai tidak boleh dihapus', () => {
+      const k = kunci(KODE_FORM_BAWAAN.kunjunganRumah)
+      expect(k.namaFieldTidakBolehDihapus('record_legacy')).toBe(true)
+      // Editor menerima nama dalam bentuk pendek (Fase 2), tapi database menyimpan
+      // bentuk ber-prefix. Dua-duanya harus dikenali.
+      expect(k.namaFieldTidakBolehDihapus('penyimpanan::record_legacy')).toBe(
+        true,
+      )
+      expect(k.namaFieldTidakBolehDihapus('nik')).toBe(false)
+    })
 
-  it("melepas semua kunci untuk form manual", () => {
-    const k = kunci(null);
-    expect(k.namaSection).toBe(false);
-    expect(k.strukturSection).toBe(false);
-    expect(k.optionSource).toBe(false);
-    expect(k.tipe).toBeNull();
-    expect(k.namaFieldTidakBolehDihapus("apaSaja")).toBe(false);
-  });
+    it('melepas semua kunci untuk form manual', () => {
+      const k = kunci(null)
+      expect(k.namaSection).toBe(false)
+      expect(k.strukturSection).toBe(false)
+      expect(k.optionSource).toBe(false)
+      expect(k.tipe).toBeNull()
+      expect(k.namaFieldTidakBolehDihapus('apaSaja')).toBe(false)
+    })
 
-  it("melepas semua kunci untuk kegiatan karena aturannya belum dipetakan", () => {
-    // Kegiatan masih memakai image, textarea, dan time, jadi mengunci tipenya di
-    // editor akan memblokir perubahan yang sebenarnya sah.
-    expect(kunci(KODE_FORM_BAWAAN.kegiatan)).toEqual(kunci(null));
-  });
+    it('melepas semua kunci untuk kegiatan karena aturannya belum dipetakan', () => {
+      // Kegiatan masih memakai image, textarea, dan time, jadi mengunci tipenya di
+      // editor akan memblokir perubahan yang sebenarnya sah.
+      expect(kunci(KODE_FORM_BAWAAN.kegiatan)).toEqual(kunci(null))
+    })
 
-  it("daftar tipe di editor sama persis dengan yang diterima server", () => {
-    // Penjaga utama: kunci editor hanya boleh menyembunyikan tipe yang
-    // `validasiDraft` memang tolak. Kalau daftar ini melebar, admin
-    // bisa memilih tipe yang build-nya pasti gagal; kalau menyempit, perubahan
-    // yang sah jadi terkunci tanpa alasan.
-    const k = kunci(KODE_FORM_BAWAAN.kunjunganRumah);
-    for (const tipe of SEMUA_TIPE_FIELD) {
-      // Field baru di section sasaran supaya tipe satu-satunya aturan yang diuji.
-      const d = draftKr((x) => {
-        x.fields.push({
-          id: null,
-          sectionId: S2,
-          nama: `uji_${tipe}`,
-          tipe,
-          optionSourceType: null,
-          optionSourceKey: kunciBucket("identitas"),
-        });
-      });
-      const diterimaServer = jalankan(d).ok;
-      // Tanpa pengecualian: server menolak field `group` baru di form ini, jadi
-      // editor juga tidak boleh menawarkan tipe itu.
-      const diizinkanEditor = k.tipe?.has(tipe) === true;
-      expect(diizinkanEditor).toBe(diterimaServer);
-    }
-  });
-});
+    it('daftar tipe di editor sama persis dengan yang diterima server', () => {
+      // Penjaga utama: kunci editor hanya boleh menyembunyikan tipe yang
+      // `validasiDraft` memang tolak. Kalau daftar ini melebar, admin
+      // bisa memilih tipe yang build-nya pasti gagal; kalau menyempit, perubahan
+      // yang sah jadi terkunci tanpa alasan.
+      const k = kunci(KODE_FORM_BAWAAN.kunjunganRumah)
+      for (const tipe of SEMUA_TIPE_FIELD) {
+        // Field baru di section sasaran supaya tipe satu-satunya aturan yang diuji.
+        const d = draftKr((x) => {
+          x.fields.push({
+            id: null,
+            sectionId: S2,
+            nama: `uji_${tipe}`,
+            tipe,
+            optionSourceType: null,
+            optionSourceKey: kunciBucket('identitas'),
+          })
+        })
+        const diterimaServer = jalankan(d).ok
+        // Tanpa pengecualian: server menolak field `group` baru di form ini, jadi
+        // editor juga tidak boleh menawarkan tipe itu.
+        const diizinkanEditor = k.tipe?.has(tipe) === true
+        expect(diizinkanEditor).toBe(diterimaServer)
+      }
+    })
+  })
 
-describe("bentuk nama field", () => {
-    it("prefix dan unprefix saling berbalik", () => {
-      expect(namaTanpaPrefix("keluargaInfo::nik")).toBe("nik");
-      expect(namaDenganPrefix("keluargaInfo", "nik")).toBe("keluargaInfo::nik");
-    });
+  describe('bentuk nama field', () => {
+    it('prefix dan unprefix saling berbalik', () => {
+      expect(namaTanpaPrefix('keluargaInfo::nik')).toBe('nik')
+      expect(namaDenganPrefix('keluargaInfo', 'nik')).toBe('keluargaInfo::nik')
+    })
 
-    it("nama tanpa prefix dikembalikan utuh supaya baris manual tetap terbaca", () => {
-      expect(namaTanpaPrefix("nik")).toBe("nik");
-    });
+    it('nama tanpa prefix dikembalikan utuh supaya baris manual tetap terbaca', () => {
+      expect(namaTanpaPrefix('nik')).toBe('nik')
+    })
 
-    it("menulis prefix dua kali tetap menghasilkan satu prefix", () => {
+    it('menulis prefix dua kali tetap menghasilkan satu prefix', () => {
       // Build bisa dijalankan berkali-kali pada draft yang sama. Kalau prefix
       // tidak dibuka lebih dulu, nama akan menjadi `a::b::c` dan
       // `templateFromRows()` akan membaca id-nya sebagai `b::c`.
-      const sekali = namaDenganPrefix("keluargaInfo", namaTanpaPrefix("keluargaInfo::nik"));
-      const dua = namaDenganPrefix("keluargaInfo", namaTanpaPrefix(sekali));
-      expect(sekali).toBe("keluargaInfo::nik");
-      expect(dua).toBe("keluargaInfo::nik");
-    });
+      const sekali = namaDenganPrefix(
+        'keluargaInfo',
+        namaTanpaPrefix('keluargaInfo::nik'),
+      )
+      const dua = namaDenganPrefix('keluargaInfo', namaTanpaPrefix(sekali))
+      expect(sekali).toBe('keluargaInfo::nik')
+      expect(dua).toBe('keluargaInfo::nik')
+    })
 
-    it("prefix dipakai ulang di section lain tetap menghasilkan nama berbeda", () => {
+    it('prefix dipakai ulang di section lain tetap menghasilkan nama berbeda', () => {
       // `nik` ada di banyak section. Namespace section yang membedakan.
-      expect(namaDenganPrefix("keluargaInfo", "nik")).not.toBe(namaDenganPrefix("anggota", "nik"));
-    });
-  });
-});
+      expect(namaDenganPrefix('keluargaInfo', 'nik')).not.toBe(
+        namaDenganPrefix('anggota', 'nik'),
+      )
+    })
+  })
+})

@@ -1,16 +1,16 @@
-import { ChevronDown } from "lucide-react";
-import { useState } from "react";
-import { SectionCard } from "@/components/molecules/SectionCard";
+import { ChevronDown } from 'lucide-react'
+import { useState } from 'react'
+import { SectionCard } from '@/components/molecules/SectionCard'
 
 interface CollapsibleSectionProps {
-  title: string;
-  subtitle?: string;
-  defaultOpen?: boolean;
-  open?: boolean;
-  onChange?: (open: boolean) => void;
-  children: React.ReactNode;
-  className?: string;
-  headerClassName?: string;
+  title: string
+  subtitle?: string
+  defaultOpen?: boolean
+  open?: boolean
+  onChange?: (open: boolean) => void
+  children: React.ReactNode
+  className?: string
+  headerClassName?: string
 }
 
 export function CollapsibleSection({
@@ -23,10 +23,17 @@ export function CollapsibleSection({
   className,
   headerClassName,
 }: CollapsibleSectionProps) {
-  const isControlled = open !== undefined;
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
-  const openState = isControlled ? open : uncontrolledOpen;
-  const setOpen = isControlled ? onChange : setUncontrolledOpen;
+  const isControlled = open !== undefined
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen)
+  const openState = isControlled ? open : uncontrolledOpen
+
+  // Controlled dan uncontrolled butuh operasi berbeda, jadi dicabang di sini
+  // alih-alih `setOpen = isControlled ? onChange : setUncontrolledOpen` — union
+  // dari keduanya tidak bisa dipanggil karena bentuk argumennya beda.
+  const toggle = () => {
+    if (isControlled) onChange?.(!openState)
+    else setUncontrolledOpen((o) => !o)
+  }
 
   return (
     <SectionCard
@@ -34,14 +41,14 @@ export function CollapsibleSection({
       title={
         <div
           className={`flex items-center justify-between gap-2 cursor-pointer ${headerClassName}`}
-          onClick={() => setOpen((o) => !o)}
+          onClick={toggle}
           role="button"
           tabIndex={0}
-          onKeyDown={(e) => e.key === "Enter" && setOpen((o) => !o)}
+          onKeyDown={(e) => e.key === 'Enter' && toggle()}
         >
           <div className="flex items-center gap-2">
             <ChevronDown
-              className={`w-4 h-4 transition-transform ${openState ? "rotate-180" : ""}`}
+              className={`w-4 h-4 transition-transform ${openState ? 'rotate-180' : ''}`}
               aria-hidden="true"
             />
             <span className="font-semibold">{title}</span>
@@ -52,5 +59,5 @@ export function CollapsibleSection({
     >
       {openState && <div className="mt-3 animate-slide-down">{children}</div>}
     </SectionCard>
-  );
+  )
 }

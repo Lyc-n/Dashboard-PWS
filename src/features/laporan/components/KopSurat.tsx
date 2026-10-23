@@ -1,16 +1,22 @@
-import type { ReactNode } from "react";
-import { KopBrandRow } from "./KopBrandRow";
-import { TandaTangan } from "./TandaTangan";
+import type { ReactNode } from 'react'
+import { KopBrandRow } from './KopBrandRow'
+import { TandaTangan } from './TandaTangan'
 
 export interface KopSuratProps {
-  judul: string;
-  subtitle: ReactNode;
-  ttdNama: string;
-  ttdJabatan: string;
-  children: ReactNode;
+  judul: string
+  subtitle: ReactNode
+  ttdNama: string
+  ttdJabatan: string
+  children: ReactNode
 }
 
-export function KopSurat({ judul, subtitle, ttdNama, ttdJabatan, children }: KopSuratProps) {
+export function KopSurat({
+  judul,
+  subtitle,
+  ttdNama,
+  ttdJabatan,
+  children,
+}: KopSuratProps) {
   return (
     <div className="mt-3.5 rounded-[10px] border border-dashed border-line bg-surface p-4 text-xs">
       <KopBrandRow />
@@ -21,5 +27,5 @@ export function KopSurat({ judul, subtitle, ttdNama, ttdJabatan, children }: Kop
       {children}
       <TandaTangan nama={ttdNama} jabatan={ttdJabatan} />
     </div>
-  );
+  )
 }

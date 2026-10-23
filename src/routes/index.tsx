@@ -13,16 +13,18 @@ import { paginate } from "@/features/laporan/components/report-shared";
 import { useKegiatanTrend } from "@/features/dashboard/useKegiatanTrend";
 import { KegiatanTrendChart } from "@/features/dashboard/KegiatanTrendChart";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute('/')({
   beforeLoad: requireAuth,
   loader: async () => await getDashboardData(),
-  pendingComponent: () => <p className="p-4 text-sm text-muted">Memuat dashboard…</p>,
+  pendingComponent: () => (
+    <p className="p-4 text-sm text-muted">Memuat dashboard…</p>
+  ),
   component: Dashboard,
 });
 
 function Dashboard() {
-  const data = Route.useLoaderData();
-  const { data: trendData, loading: trendLoading } = useKegiatanTrend();
+  const data = Route.useLoaderData()
+  const { data: trendData, loading: trendLoading } = useKegiatanTrend()
 
   const [statusF, setStatusF] = useState("all");
   const [wilayahF, setWilayahF] = useState("all");
@@ -41,7 +43,7 @@ function Dashboard() {
         sub: k.sub,
       })),
     [data.kelurahan],
-  );
+  )
 
   // Dependency kosong: objek stabil, tidak memicu recompute tiap render
   const period = useMemo(() => computePeriod(), []);
@@ -59,24 +61,29 @@ function Dashboard() {
   );
 
   const filtered = useMemo(() => {
-    const list = data.recent.filter((r) => statusF === "all" || r.petugas === statusF);
-    if (sortKey === "tgl") {
-      list.sort((a, b) => a.tanggal.localeCompare(b.tanggal) * (sortDir === "asc" ? 1 : -1));
+    const list = data.recent.filter(
+      (r) => statusF === 'all' || r.petugas === statusF,
+    )
+    if (sortKey === 'tgl') {
+      list.sort(
+        (a, b) =>
+          a.tanggal.localeCompare(b.tanggal) * (sortDir === 'asc' ? 1 : -1),
+      )
     }
-    return list;
-  }, [data.recent, statusF, sortKey, sortDir]);
+    return list
+  }, [data.recent, statusF, sortKey, sortDir])
 
-  const paginated = paginate(filtered, page, PAGE_SIZE);
-  const { maxPage, pageClamped, pageRows, info } = paginated;
+  const paginated = paginate(filtered, page, PAGE_SIZE)
+  const { maxPage, pageClamped, pageRows, info } = paginated
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
     } else {
-      setSortKey(key);
-      setSortDir("asc");
+      setSortKey(key)
+      setSortDir('asc')
     }
-  };
+  }
 
   return (
     <AppShell>
@@ -90,8 +97,16 @@ function Dashboard() {
       </p>
 
       <div className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-1">
-        <StatCard caption="Warga terdata" value={data.totals.warga} sub="data_warga" />
-        <StatCard caption="Sudah dikunjungi" value={data.totals.dikunjungi} sub="punya ≥1 isian form" />
+        <StatCard
+          caption="Warga terdata"
+          value={data.totals.warga}
+          sub="data_warga"
+        />
+        <StatCard
+          caption="Sudah dikunjungi"
+          value={data.totals.dikunjungi}
+          sub="punya ≥1 isian form"
+        />
         <StatCard
           caption="Total isian form"
           value={data.totals.kunjunganRumah}
@@ -121,7 +136,8 @@ function Dashboard() {
       >
         {filtered.length === 0 ? (
           <p className="px-1 py-6 text-center text-sm text-muted">
-            Belum ada isian form di database. Isi lewat halaman Isi Formulir atau jalankan seed.
+            Belum ada isian form di database. Isi lewat halaman Isi Formulir
+            atau jalankan seed.
           </p>
         ) : (
           <DataTable
@@ -226,5 +242,10 @@ function Dashboard() {
         )}
       </SectionCard>
     </AppShell>
+<<<<<<< HEAD
   );
 }
+=======
+  )
+}
+>>>>>>> 628afcbb53a9dbc6f74212ea222aa441975f2ba3

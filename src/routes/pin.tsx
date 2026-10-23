@@ -18,61 +18,59 @@ import { normalkanNik, pesanError } from "@/lib/utils";
 5. update expireTime sessionToken kalo akses /laporan
 */
 
-export const Route = createFileRoute("/pin")({
+export const Route = createFileRoute('/pin')({
   beforeLoad: async () => {
     try {
-      await getSessionToken();
+      await getSessionToken()
     } catch {
-      return undefined;
+      return undefined
     }
-    throw redirect({ to: "/" });
+    throw redirect({ to: '/' })
   },
   component: RouteComponent,
-});
+})
 
 function RouteComponent() {
-  const navigate = useNavigate();
-  const toast = useToast();
-  const [pin, setPin] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const navigate = useNavigate()
+  const toast = useToast()
+  const [pin, setPin] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
     if (!pin.trim()) {
-      setError("PIN wajib diisi.");
-      return;
+      setError('PIN wajib diisi.')
+      return
     }
-    setBusy(true);
+    setBusy(true)
     try {
       // expect: PIN benar → cookie sesi terpasang → pindah ke dashboard "/".
-      // PIN dikirim apa adanya (string) supaya leading zero tidak hilang.
-      const ok = await pinLogin({ data: { pin: pin.trim() } });
-      if (!ok) {
-        setError("PIN salah.");
-        return;
+      // Dikirim sebagai string, bukan `Number(...)`: PIN dari env bisa
+      // berawalan nol dan `Number` akan membuangnya, sehingga PIN itu tidak
+      // akan pernah bisa dipakai login. Normalisasi ada di `isValidPin`.
+      const ok = await pinLogin({ data: { pin } })
+      if (!ok.ok) {
+        // Dua alasan ditolak, dua pesan berbeda. Keduanya tetap menolak — yang
+        // dibedakan hanya penjelasan, bukan hasilnya. Error database sengaja
+        // TIDAK dibedakan: user tidak boleh bisa tahu soal infrastruktur, dan
+        // pesan "Gagal masuk. Coba lagi." di `catch` di bawah sudah jujur
+        // tanpa menyebut penyebabnya.
+        setError(
+          ok.sisaLockoutMs > 0
+            ? `Terlalu banyak percobaan. Coba lagi dalam ${sisaMenit(ok.sisaLockoutMs)} menit.`
+            : 'PIN salah.',
+        )
+        return
       }
-      toast("Berhasil masuk. Selamat bekerja!");
-      void navigate({ to: "/" });
-    } catch (err) {
-      // Jangan telan error: penyebab sebenarnya (mis. DB tidak terjangkau dari
-      // .env) kalau tidak dicatat di sini selalu terlihat sebagai "Gagal masuk".
-      console.error("[pinLogin] gagal:", err);
-      // Pesan ke pengguna tetap generik: error server (rincian DB, stack) tidak
-      // boleh bocor ke layar. Yang bocor cuma kalau penyebabnya konfigurasi,
-      // karena itu masalah deployment, bukan salah pengguna.
-      const pesan = pesanError(err, "");
-      setError(
-        isNotFound(err)
-          ? "Server tidak merespons. Coba lagi."
-          : /belum diisi di \.env/i.test(pesan)
-            ? "Konfigurasi server belum lengkap (cek .env)."
-            : "Gagal masuk. Coba lagi.",
-      );
+      toast('Berhasil masuk. Selamat bekerja!')
+      void navigate({ to: '/' })
+    } catch {
+      setError('Gagal masuk. Coba lagi.')
     } finally {
-      setBusy(false);
+      setBusy(false)
     }
-  };
+  }
 
   return (
     <div className="grid min-h-screen place-items-center px-4 py-10">
@@ -82,10 +80,14 @@ function RouteComponent() {
 
       <main>
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <img src={brandIcon} alt="Kunjungan Rumah" width={64}/>
+          <img src={brandIcon} alt="Kunjungan Rumah" width={64} />
           <div>
-            <h1 className="text-lg font-bold leading-tight text-ink">{APP_BRAND.name}</h1>
-            <p className="text-xs font-semibold tracking-[0.22em] text-muted">{APP_BRAND.region}</p>
+            <h1 className="text-lg font-bold leading-tight text-ink">
+              {APP_BRAND.name}
+            </h1>
+            <p className="text-xs font-semibold tracking-[0.22em] text-muted">
+              {APP_BRAND.region}
+            </p>
           </div>
         </div>
 
@@ -93,18 +95,25 @@ function RouteComponent() {
           <form onSubmit={onSubmit} className="grid gap-4" noValidate>
             <div>
               <h2 className="text-base font-bold text-ink">Masuk dengan PIN</h2>
-              <p className="mt-0.5 text-xs text-muted">Satu-satunya gerbang dashboard. Sesi berlaku 1 jam.</p>
+              <p className="mt-0.5 text-xs text-muted">
+                Satu-satunya gerbang dashboard. Sesi berlaku 1 jam.
+              </p>
             </div>
 
-            <FormField label="PIN" required error={error ?? undefined} invalid={!!error}>
+            <FormField
+              label="PIN"
+              required
+              error={error ?? undefined}
+              invalid={!!error}
+            >
               <Input
                 autoFocus
                 type="password"
                 inputMode="numeric"
                 value={pin}
                 onChange={(e) => {
-                  setPin(normalkanNik(e.target.value));
-                  setError(null);
+                  setPin(normalkanPin(e.target.value))
+                  setError(null)
                 }}
                 placeholder="••••••"
                 autoComplete="off"
@@ -112,12 +121,18 @@ function RouteComponent() {
               />
             </FormField>
 
-            <Button type="submit" variant="primary" size="md" className="mt-1 w-full" disabled={busy}>
-              {busy ? "Memeriksa…" : "Masuk"}
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              className="mt-1 w-full"
+              disabled={busy}
+            >
+              {busy ? 'Memeriksa…' : 'Masuk'}
             </Button>
           </form>
         </div>
       </main>
     </div>
-  );
+  )
 }

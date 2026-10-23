@@ -5,6 +5,7 @@ dist-ssr
 *.local
 .env
 .env.*
+!.env.example
 env.txt
 *.env.txt
 .nitro
@@ -14,3 +15,7 @@ env.txt
 .vinxi
 __unconfig*
 todos.json
+
+# Dump pg_dump pra-perubahan. Ambil sendiri sebelum migrasi destruktif,
+# jangan di-commit: file ini besar dan isinya data produksi.
+drizzle/backup/

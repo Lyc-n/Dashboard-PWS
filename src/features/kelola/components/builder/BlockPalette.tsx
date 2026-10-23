@@ -1,18 +1,36 @@
-import { useDraggable } from "@dnd-kit/react";
-import { ikonUntuk } from "./ikon-builder";
-import type { PaletteItem } from "./types";
-import { idDragTemplate, templatePerKelompok } from "@/features/form-builder/services/template-field";
-import type { TemplateField } from "@/features/form-builder/services/template-field";
+import { useDraggable } from '@dnd-kit/react'
+import { ikonUntuk } from './ikon-builder'
+import type { PaletteItem } from './types'
+import {
+  idDragTemplate,
+  templatePerKelompok,
+} from '@/features/form-builder/services/template-field'
+import type { TemplateField } from '@/features/form-builder/services/template-field'
 
-export function BlockPalette({ items, onDragStart, disabled }: { items: PaletteItem[]; onDragStart?: () => void; disabled?: boolean }) {
-  const kelompokTemplate = templatePerKelompok();
+export function BlockPalette({
+  items,
+  onDragStart,
+  disabled,
+}: {
+  items: PaletteItem[]
+  onDragStart?: () => void
+  disabled?: boolean
+}) {
+  const kelompokTemplate = templatePerKelompok()
 
   return (
     <div className="w-60 shrink-0 border-r border-line bg-surface-2 p-3 overflow-y-auto overflow-x-none h-full min-h-0">
-      <h3 className="text-xs font-semibold text-ink-2 uppercase tracking-wide mb-2">Komponen</h3>
+      <h3 className="text-xs font-semibold text-ink-2 uppercase tracking-wide mb-2">
+        Komponen
+      </h3>
       <div className="grid gap-2">
         {items.map((item) => (
-          <PaletteItemDraggable key={item.tipe} item={item} onDragStart={onDragStart} disabled={disabled} />
+          <PaletteItemDraggable
+            key={item.tipe}
+            item={item}
+            onDragStart={onDragStart}
+            disabled={disabled}
+          />
         ))}
       </div>
 
@@ -45,17 +63,25 @@ export function BlockPalette({ items, onDragStart, disabled }: { items: PaletteI
         </>
       )}
     </div>
-  );
+  )
 }
 
-function PaletteItemDraggable({ item, onDragStart, disabled }: { item: PaletteItem; onDragStart?: () => void; disabled?: boolean }) {
-  const Icon = ikonUntuk(item.icon);
+function PaletteItemDraggable({
+  item,
+  onDragStart,
+  disabled,
+}: {
+  item: PaletteItem
+  onDragStart?: () => void
+  disabled?: boolean
+}) {
+  const Icon = ikonUntuk(item.icon)
   const { ref, isDragging } = useDraggable({
     id: `palette-${item.tipe}`,
-    type: "palette",
-    data: { kind: "palette", fieldType: item.tipe },
+    type: 'palette',
+    data: { kind: 'palette', fieldType: item.tipe },
     disabled,
-  });
+  })
 
   return (
     <div
@@ -67,9 +93,11 @@ function PaletteItemDraggable({ item, onDragStart, disabled }: { item: PaletteIt
       <div className="w-8 h-8 flex items-center justify-center rounded border border-line bg-accent-light">
         <Icon className="w-4 h-4 text-accent" strokeWidth={2} />
       </div>
-      <span className="flex-1 text-sm font-medium text-ink truncate">{item.label}</span>
+      <span className="flex-1 text-sm font-medium text-ink truncate">
+        {item.label}
+      </span>
     </div>
-  );
+  )
 }
 
 /**
@@ -79,18 +107,22 @@ function PaletteItemDraggable({ item, onDragStart, disabled }: { item: PaletteIt
  * `radio` (mis. agama dan pendidikan) butuh ikon berbeda supaya mudah dibedakan
  * saat memilih.
  */
-function TemplateDraggable({ template, onDragStart, disabled }: {
-  template: TemplateField;
-  onDragStart?: () => void;
-  disabled?: boolean;
+function TemplateDraggable({
+  template,
+  onDragStart,
+  disabled,
+}: {
+  template: TemplateField
+  onDragStart?: () => void
+  disabled?: boolean
 }) {
-  const Icon = ikonUntuk(template.ikon);
+  const Icon = ikonUntuk(template.ikon)
   const { ref, isDragging } = useDraggable({
     id: idDragTemplate(template.id),
-    type: "template",
-    data: { kind: "template", templateId: template.id },
+    type: 'template',
+    data: { kind: 'template', templateId: template.id },
     disabled,
-  });
+  })
 
   return (
     <div
@@ -104,9 +136,13 @@ function TemplateDraggable({ template, onDragStart, disabled }: {
         <Icon className="w-3.5 h-3.5 text-accent" strokeWidth={2} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-xs font-medium text-ink truncate">{template.label}</div>
-        <div className="text-[10px] text-muted font-mono truncate">{template.nama}</div>
+        <div className="text-xs font-medium text-ink truncate">
+          {template.label}
+        </div>
+        <div className="text-[10px] text-muted font-mono truncate">
+          {template.nama}
+        </div>
       </div>
     </div>
-  );
+  )
 }

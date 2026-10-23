@@ -111,10 +111,18 @@ describe('tipeBolehPakaiSumber', () => {
     }
     // Field dengan kolom bukan teks: input tanggal/number tidak punya dropdown.
     expect(
-      tipeBolehPakaiSumber({ tipe: 'number', type: SUMBER_CARI_WARGA, key: 'nik' }),
+      tipeBolehPakaiSumber({
+        tipe: 'number',
+        type: SUMBER_CARI_WARGA,
+        key: 'nik',
+      }),
     ).toBe(false)
     expect(
-      tipeBolehPakaiSumber({ tipe: 'date', type: SUMBER_CARI_WARGA, key: 'nama_art' }),
+      tipeBolehPakaiSumber({
+        tipe: 'date',
+        type: SUMBER_CARI_WARGA,
+        key: 'nama_art',
+      }),
     ).toBe(false)
   })
 
@@ -132,7 +140,11 @@ describe('tipeBolehPakaiSumber', () => {
     // Key menentukan kolom mana yang mengisi field, jadi key yang tidak dikenal
     // berarti form tidak punya cara tahu apa yang harus diisi.
     expect(
-      tipeBolehPakaiSumber({ tipe: 'text', type: SUMBER_CARI_WARGA, key: 'entah' }),
+      tipeBolehPakaiSumber({
+        tipe: 'text',
+        type: SUMBER_CARI_WARGA,
+        key: 'entah',
+      }),
     ).toBe(false)
   })
 

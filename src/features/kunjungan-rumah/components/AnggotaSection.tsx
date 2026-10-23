@@ -7,8 +7,11 @@ import { Input } from '@/components/atoms/Input'
 import { Select } from '@/components/atoms/Select'
 import { ChipGroup } from '@/components/molecules/ChipGroup'
 import { FormField } from '@/components/molecules/FormField'
-import type { KunjunganRumahAction, KunjunganRumahState } from "@/features/kunjungan-rumah/store/kunjunganRumahReducer"
-import { normalkanNik } from "@/lib/utils"
+import type {
+  KunjunganRumahAction,
+  KunjunganRumahState,
+} from '@/features/kunjungan-rumah/store/kunjunganRumahReducer'
+import { normalkanNik } from '@/lib/utils'
 
 interface Props {
   state: KunjunganRumahState
@@ -60,7 +63,7 @@ export function AnggotaSection({ state, templates, dispatch }: Props) {
           return (
             <div
               key={m.id}
-              className="rounded-[10px] border border-line bg-surface p-3"
+              className="rounded-[10px] border border-accent bg-surface p-3"
             >
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="text-xs font-bold text-ink">

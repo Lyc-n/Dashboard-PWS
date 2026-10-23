@@ -16,21 +16,21 @@
  * seperti itu tidak boleh dipanggil dari dalam `dalamTransaksiUji()`; pakai SQL
  * langsung atau fungsi yang menerima `tx`.
  */
-import { db } from "@/lib/db.server";
+import { db } from '@/lib/db.server'
 
-type Db = typeof db;
-type DbTx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+type Db = typeof db
+type DbTx = Parameters<Parameters<Db['transaction']>[0]>[0]
 
 /** Dilempar ke dalam transaksi supaya PostgreSQL membatalkannya. */
 class SelesaiTransaksiUji extends Error {
   constructor() {
-    super("transaksi uji selesai, harus dibatalkan");
-    this.name = "SelesaiTransaksiUji";
+    super('transaksi uji selesai, harus dibatalkan')
+    this.name = 'SelesaiTransaksiUji'
   }
 }
 
 /** Bentuk transaction runner, supaya rollback-nya bisa diuji tanpa database. */
-export type TransactionRunner = Db["transaction"];
+export type TransactionRunner = Db['transaction']
 
 /**
  * Jalankan `fn` di dalam transaksi yang **selalu** dibatalkan.
@@ -44,28 +44,30 @@ export type TransactionRunner = Db["transaction"];
  * melakukan itu.
  */
 /** Penanda "callback tidak pernah menghasilkan nilai". */
-const BELUM_ADA = Symbol("belum-ada");
+const BELUM_ADA = Symbol('belum-ada')
 
 export async function dalamTransaksiUji<T>(
   fn: (tx: DbTx) => Promise<T>,
   transaction: TransactionRunner = db.transaction,
 ): Promise<T> {
-  let hasil: T | typeof BELUM_ADA = BELUM_ADA;
+  let hasil: T | typeof BELUM_ADA = BELUM_ADA
 
   try {
     await transaction(async (tx) => {
-      hasil = await fn(tx);
+      hasil = await fn(tx)
       // Melempar apa pun yang bukan sentinel juga menggagalkan transaksi. Itu
       // disengaja: AssertionError di dalam `fn` tidak boleh berubah jadi commit
       // kalau pemanggil lupa menangkap errornya.
-      throw new SelesaiTransaksiUji();
-    });
+      throw new SelesaiTransaksiUji()
+    })
   } catch (err) {
-    if (!(err instanceof SelesaiTransaksiUji)) throw err;
+    if (!(err instanceof SelesaiTransaksiUji)) throw err
   }
 
   if (hasil === BELUM_ADA) {
-    throw new Error("dalamTransaksiUji: transaksi selesai tanpa menjalankan callback.");
+    throw new Error(
+      'dalamTransaksiUji: transaksi selesai tanpa menjalankan callback.',
+    )
   }
-  return hasil;
+  return hasil
 }

@@ -1,151 +1,169 @@
-import { useMemo, useState } from "react";
-import { useToast } from "@/providers/toast";
-import { DataTable } from "@/components/organisms/DataTable";
-import { SectionCard } from "@/components/molecules/SectionCard";
-import { FormField } from "@/components/molecules/FormField";
-import { Toolbar } from "@/components/molecules/Toolbar";
-import { Input } from "@/components/atoms/Input";
-import { Select } from "@/components/atoms/Select";
-import { Button } from "@/components/atoms/Button";
-import { StatusBadge } from "@/components/atoms/StatusBadge";
-import { AdminModal } from "@/features/kelola/components/AdminModal";
-import { OPSI_PERAN } from "@/lib/user-registry";
-import type { BarisPengguna, OpsiFasilitas } from "@/lib/user-registry";
-import type { DraftPengguna } from "@/hooks/use-user-registry";
+import { useMemo, useState } from 'react'
+import { useToast } from '@/providers/toast'
+import { DataTable } from '@/components/organisms/DataTable'
+import { SectionCard } from '@/components/molecules/SectionCard'
+import { FormField } from '@/components/molecules/FormField'
+import { Toolbar } from '@/components/molecules/Toolbar'
+import { Input } from '@/components/atoms/Input'
+import { Select } from '@/components/atoms/Select'
+import { Button } from '@/components/atoms/Button'
+import { StatusBadge } from '@/components/atoms/StatusBadge'
+import { AdminModal } from '@/features/kelola/components/AdminModal'
+import type { BarisPengguna, OpsiFasilitas } from '@/lib/user-registry'
+import type { DraftPengguna } from '@/hooks/use-user-registry'
 
 interface Props {
-  pengguna: BarisPengguna[];
-  fasilitas: OpsiFasilitas[];
-  /** `namaLama` = nama lama (null kalau akun baru). */
-  save: (namaLama: string | null, draft: DraftPengguna) => Promise<void>;
-  setAktif: (nama: string, aktif: boolean) => Promise<void>;
+  pengguna: BarisPengguna[]
+  fasilitas: OpsiFasilitas[]
+  /** `namaLama` = nama lama (null kalau kader baru). */
+  save: (namaLama: string | null, draft: DraftPengguna) => Promise<void>
+  setAktif: (nama: string, aktif: boolean) => Promise<void>
 }
 
 interface FormDlg {
-  title: string;
+  title: string
   /** Nama lama kalau sedang mengubah, supaya server tahu baris mana. */
-  lama: string | null;
-  form: { nama: string; peran: string; fasKesId: string; phone: string; on: boolean };
-  errs: Record<string, string>;
+  lama: string | null
+  form: {
+    nama: string
+    fasKesId: string
+    phone: string
+    on: boolean
+  }
+  errs: Record<string, string>
 }
 
 /**
- * Tab "Staff & kader" di /kelola.
+ * Tab "Kader" di /kelola.
  *
- * Menulis ke tabel `users`. `role` menentukan hak akses: `admin` mengelola
- * aplikasi, `kader` mencatat kunjungan. Kader dipakai sebagai petugas pencatat
- * di Form Kunjungan Rumah dan Form Kegiatan, dan sebagai daftar kader di Rekap.
+ * Menulis ke tabel `users`, yang isinya murni daftar kader: satu baris = satu
+ * orang yang boleh dipilih sebagai petugas pencatat di Form Kunjungan Rumah dan
+ * Form Kegiatan, dan sebagai daftar kader di Rekap.
  *
- * Field username tidak ada lagi. Login memakai satu PIN global dari environment,
- * jadi username per-akun tidak pernah dipakai untuk masuk; menambahkannya hanya
- * akan memberi ilusi keamanan yang tidak ada.
+ * Tidak ada kolom hak akses di sini. Kolom `users.role` sudah dihapus dari
+ * skema karena tidak pernah membatasi apa pun — semua sesi valid setara. Field
+ * username juga tidak pernah ada: login memakai satu PIN global dari
+ * environment, jadi username per-akun tidak pernah dipakai untuk masuk.
  */
 export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
-  const toast = useToast();
-  const [q, setQ] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [dlg, setDlg] = useState<FormDlg | null>(null);
+  const toast = useToast()
+  const [q, setQ] = useState('')
+  const [filter, setFilter] = useState('all')
+  const [dlg, setDlg] = useState<FormDlg | null>(null)
 
   const terfilter = useMemo(
     () =>
       pengguna.filter(
         (p) =>
-          (filter === "all" || (filter === "on" ? p.aktif : !p.aktif)) &&
+          (filter === 'all' || (filter === 'on' ? p.aktif : !p.aktif)) &&
           (!q ||
             p.nama.toLowerCase().includes(q.toLowerCase()) ||
             p.fasKes.toLowerCase().includes(q.toLowerCase())),
       ),
     [pengguna, filter, q],
-  );
+  )
 
-  const setForm = (key: keyof FormDlg["form"], value: string) =>
+  const setForm = (key: keyof FormDlg['form'], value: string) =>
     setDlg((d) =>
-      d ? { ...d, form: { ...d.form, [key]: value }, errs: { ...d.errs, [key]: "" } } : d,
-    );
+      d
+        ? {
+            ...d,
+            form: { ...d.form, [key]: value },
+            errs: { ...d.errs, [key]: '' },
+          }
+        : d,
+    )
 
   const bukaDlg = (edit?: BarisPengguna) => {
-    const defaultFas = fasilitas[0] ? String(fasilitas[0].id) : "";
+    const defaultFas = fasilitas[0] ? String(fasilitas[0].id) : ''
     setDlg({
-      title: edit ? "Ubah akun" : "Tambah akun",
+      title: edit ? 'Ubah kader' : 'Tambah kader',
       lama: edit?.nama ?? null,
       form: {
-        nama: edit?.nama ?? "",
-        peran: edit?.role === "admin" ? "Admin" : "Kader",
+        nama: edit?.nama ?? '',
         fasKesId: edit ? String(edit.fasKesId) : defaultFas,
-        phone: edit?.phone ?? "",
+        phone: edit?.phone ?? '',
         on: edit?.aktif ?? true,
       },
       errs: {},
-    });
-  };
+    })
+  }
 
   const simpanDlg = () => {
-    if (!dlg) return;
-    const nama = dlg.form.nama.trim();
-    const fasKesId = Number(dlg.form.fasKesId);
+    if (!dlg) return
+    const nama = dlg.form.nama.trim()
+    const fasKesId = Number(dlg.form.fasKesId)
 
     if (!nama) {
-      setDlg((d) => (d ? { ...d, errs: { ...d.errs, nama: "Wajib isi nama." } } : d));
-      return;
+      setDlg((d) =>
+        d ? { ...d, errs: { ...d.errs, nama: 'Wajib isi nama.' } } : d,
+      )
+      return
     }
     if (!dlg.form.fasKesId || !Number.isInteger(fasKesId)) {
       setDlg((d) =>
-        d ? { ...d, errs: { ...d.errs, fasKesId: "Wajib pilih fasilitas kesehatan." } } : d,
-      );
-      return;
+        d
+          ? {
+              ...d,
+              errs: { ...d.errs, fasKesId: 'Wajib pilih fasilitas kesehatan.' },
+            }
+          : d,
+      )
+      return
     }
 
     void save(dlg.lama, {
       nama,
-      peran: dlg.form.peran,
       fasKesId,
       phone: dlg.form.phone.trim(),
       on: dlg.form.on,
     })
       .then(() => {
-        toast("Akun tersimpan.");
-        setDlg(null);
+        toast('Kader tersimpan.')
+        setDlg(null)
       })
-      .catch((e: unknown) => toast(e instanceof Error ? e.message : "Gagal menyimpan akun."));
-  };
+      .catch((e: unknown) =>
+        toast(e instanceof Error ? e.message : 'Gagal menyimpan kader.'),
+      )
+  }
 
   const toggle = (p: BarisPengguna) => {
-    const next = !p.aktif;
+    const next = !p.aktif
     if (
-      next &&
+      !next &&
       !window.confirm(
-        `Nonaktifkan "${p.nama}"? Akun ini tidak akan muncul lagi sebagai pilihan petugas, tapi riwayat pencatatan tetap ada.`,
+        `Nonaktifkan "${p.nama}"? Kader ini tidak akan muncul lagi sebagai pilihan petugas, tapi riwayat pencatatan tetap ada.`,
       )
     )
-      return;
+      return
     void setAktif(p.nama, next)
-      .then(() => toast(`${p.nama} ${next ? "diaktifkan" : "dinonaktifkan"}.`))
+      .then(() => toast(`${p.nama} ${next ? 'diaktifkan' : 'dinonaktifkan'}.`))
       .catch((e: unknown) =>
-        toast(e instanceof Error ? e.message : "Gagal mengubah status akun."),
-      );
-  };
+        toast(e instanceof Error ? e.message : 'Gagal mengubah status kader.'),
+      )
+  }
 
   return (
     <>
       <SectionCard
         title="Kader"
-        sub="Akun di sini yang bisa dipilih sebagai petugas pencatat. Menonaktifkan tidak menghapus riwayat pencatatan."
+        sub="Kader di sini yang bisa dipilih sebagai petugas pencatat. Menonaktifkan tidak menghapus riwayat pencatatan."
       >
         <Toolbar>
           <Button size="sm" variant="primary" onClick={() => bukaDlg()}>
-            + Tambah akun
+            + Tambah kader
           </Button>
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Cari nama atau fasilitas…"
-            aria-label="Cari akun"
+            aria-label="Cari kader"
             className="max-w-55 max-md:max-w-none"
           />
           <Select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            aria-label="Filter status akun"
+            aria-label="Filter status kader"
             className="max-w-45 max-md:max-w-none"
           >
             <option value="all">Semua status</option>
@@ -153,48 +171,55 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
             <option value="off">Nonaktif</option>
           </Select>
           <span className="ml-auto text-xs text-muted">
-            {terfilter.length} dari {pengguna.length} akun
+            {terfilter.length} dari {pengguna.length} kader
           </span>
         </Toolbar>
 
         <DataTable
           columns={[
-            { key: "nama", label: "Nama" },
-            { key: "role", label: "Hak akses" },
-            { key: "wilayah", label: "Wilayah tugas" },
-            { key: "kontak", label: "Kontak" },
-            { key: "status", label: "Status" },
-            { key: "aksi", label: "" },
+            { key: 'nama', label: 'Nama' },
+            { key: 'wilayah', label: 'Wilayah tugas' },
+            { key: 'kontak', label: 'Kontak' },
+            { key: 'status', label: 'Status' },
+            { key: 'aksi', label: '' },
           ]}
           rows={terfilter}
-          emptyMessage="Tidak ada akun cocok."
+          emptyMessage="Tidak ada kader cocok."
           renderRow={(p) => (
-            <tr key={p.id} className="border-b border-surface-2 last:border-none hover:bg-surface-2">
+            <tr
+              key={p.id}
+              className="border-b border-surface-2 last:border-none hover:bg-surface-2"
+            >
               <td className="px-3 py-2.5">
                 <div className="font-semibold text-ink">{p.nama}</div>
               </td>
               <td className="px-3 py-2.5">
-                <StatusBadge variant={p.role === "admin" ? "on" : "off"} value={p.role} />
-              </td>
-              <td className="px-3 py-2.5">
                 Kel. {p.kel} · {p.fasKes}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5">{p.phone ?? "—"}</td>
+              <td className="whitespace-nowrap px-3 py-2.5">
+                {p.phone ?? '—'}
+              </td>
               <td className="px-3 py-2.5">
-                <StatusBadge variant={p.aktif ? "on" : "off"} value={p.aktif ? "Aktif" : "Nonaktif"} />
+                <StatusBadge
+                  variant={p.aktif ? 'on' : 'off'}
+                  value={p.aktif ? 'Aktif' : 'Nonaktif'}
+                />
               </td>
               <td className="whitespace-nowrap px-3 py-2.5">
                 <Button size="sm" onClick={() => bukaDlg(p)}>
                   Ubah
-                </Button>{" "}
+                </Button>{' '}
                 <Button size="sm" onClick={() => toggle(p)}>
-                  {p.aktif ? "Nonaktifkan" : "Aktifkan"}
+                  {p.aktif ? 'Nonaktifkan' : 'Aktifkan'}
                 </Button>
               </td>
             </tr>
           )}
           renderMobileRow={(p) => (
-            <div key={p.id} className="border-b border-surface-2 last:border-none px-3.5 py-3">
+            <div
+              key={p.id}
+              className="border-b border-surface-2 last:border-none px-3.5 py-3"
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="font-semibold text-ink">{p.nama}</div>
@@ -202,13 +227,20 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
                     Kel. {p.kel} · {p.fasKes}
                   </div>
                 </div>
-                <StatusBadge variant={p.aktif ? "on" : "off"} value={p.aktif ? "Aktif" : "Nonaktif"} />
+                <StatusBadge
+                  variant={p.aktif ? 'on' : 'off'}
+                  value={p.aktif ? 'Aktif' : 'Nonaktif'}
+                />
               </div>
-              <div className="mt-1 text-[11px] text-muted">{p.phone ?? "—"}</div>
+              <div className="mt-1 text-[11px] text-muted">
+                {p.phone ?? '—'}
+              </div>
               <div className="mt-2 flex gap-2">
-                <Button size="sm" onClick={() => bukaDlg(p)}>Ubah</Button>
+                <Button size="sm" onClick={() => bukaDlg(p)}>
+                  Ubah
+                </Button>
                 <Button size="sm" onClick={() => toggle(p)}>
-                  {p.aktif ? "Nonaktifkan" : "Aktifkan"}
+                  {p.aktif ? 'Nonaktifkan' : 'Aktifkan'}
                 </Button>
               </div>
             </div>
@@ -217,28 +249,28 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
       </SectionCard>
 
       {dlg ? (
-        <AdminModal title={dlg.title} onClose={() => setDlg(null)} onSave={simpanDlg}>
+        <AdminModal
+          title={dlg.title}
+          onClose={() => setDlg(null)}
+          onSave={simpanDlg}
+        >
           <FormField
             label="Nama lengkap"
             required
             error={dlg.errs.nama}
             invalid={!!dlg.errs.nama}
-            hint={dlg.lama ? undefined : "Nama ini jadi kunci pencocokan saat diubah, dan dipakai untuk mencocokkan kader di rekap."}
+            hint={
+              dlg.lama
+                ? undefined
+                : 'Nama ini jadi kunci pencocokan saat diubah, dan dipakai untuk mencocokkan kader di rekap.'
+            }
           >
             <Input
               value={dlg.form.nama}
-              onChange={(e) => setForm("nama", e.target.value)}
+              onChange={(e) => setForm('nama', e.target.value)}
               invalid={!!dlg.errs.nama}
               placeholder="cth. Ibu Warsini"
             />
-          </FormField>
-
-          <FormField label="Peran" hint="Admin mengelola aplikasi; kader mencatat kunjungan.">
-            <Select value={dlg.form.peran} onChange={(e) => setForm("peran", e.target.value)}>
-              {OPSI_PERAN.map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </Select>
           </FormField>
 
           <FormField
@@ -250,10 +282,12 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
           >
             <Select
               value={dlg.form.fasKesId}
-              onChange={(e) => setForm("fasKesId", e.target.value)}
+              onChange={(e) => setForm('fasKesId', e.target.value)}
               invalid={!!dlg.errs.fasKesId}
             >
-              {fasilitas.length === 0 ? <option value="">Belum ada fasilitas</option> : null}
+              {fasilitas.length === 0 ? (
+                <option value="">Belum ada fasilitas</option>
+              ) : null}
               {fasilitas.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.nama} — Kel. {f.kel}
@@ -265,7 +299,7 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
           <FormField label="No. HP">
             <Input
               value={dlg.form.phone}
-              onChange={(e) => setForm("phone", e.target.value)}
+              onChange={(e) => setForm('phone', e.target.value)}
               placeholder="cth. 0812xxxx"
               type="tel"
             />
@@ -273,5 +307,5 @@ export function UserSection({ pengguna, fasilitas, save, setAktif }: Props) {
         </AdminModal>
       ) : null}
     </>
-  );
+  )
 }

@@ -337,27 +337,3 @@ pre code {
 .animate-slide-down {
   animation: slide-down 0.2s ease-out;
 }
-
-/* Toast notifikasi muncul dari bawah, cermin dari slide-down lonceng. */
-@keyframes slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-slide-up {
-  animation: slide-up 0.25s ease-out;
-}
-
-/* Transisi gerak boleh dilepas oleh pengguna; toast isi dan kemampuan tetap ada. */
-@media (prefers-reduced-motion: reduce) {
-  .animate-slide-up {
-    animation: none;
-  }
-}
-

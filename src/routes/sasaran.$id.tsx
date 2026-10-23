@@ -1,74 +1,93 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { getSasaranDetail } from "@/lib/utils.functions";
-import { requireAuth } from "@/lib/auth";
-import { fmtDate } from "@/lib/utils";
-import { DetailHeader, InfoPanel, Timeline } from "@/components/organisms";
-import { PageHeader, SectionCard } from "@/components/molecules";
-import { Button, StatusBadge } from "@/components/atoms";
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { getSasaranDetail } from '@/lib/utils.functions'
+import { requireAuth } from '@/lib/auth'
+import { fmtDate } from '@/lib/utils'
+import { DetailHeader, InfoPanel, Timeline } from '@/components/organisms'
+import { PageHeader, SectionCard } from '@/components/molecules'
+import { Button, StatusBadge } from '@/components/atoms'
 
-export const Route = createFileRoute("/sasaran/$id")({
+export const Route = createFileRoute('/sasaran/$id')({
   beforeLoad: requireAuth,
-  loader: async ({ params }) => await getSasaranDetail({ data: { nik: params.id } }),
-  pendingComponent: () => <p className="p-4 text-sm text-muted">Memuat detail sasaran…</p>,
+  loader: async ({ params }) =>
+    await getSasaranDetail({ data: { nik: params.id } }),
+  pendingComponent: () => (
+    <p className="p-4 text-sm text-muted">Memuat detail sasaran…</p>
+  ),
   component: SasaranDetail,
 })
 
 function SasaranDetail() {
-  const { id } = Route.useParams();
-  const navigate = useNavigate();
-  const { warga: row, surveys } = Route.useLoaderData();
+  const { id } = Route.useParams()
+  const navigate = useNavigate()
+  const { warga: row, surveys } = Route.useLoaderData()
 
   if (!row) {
     return (
       <>
-        <PageHeader title="Sasaran tidak ditemukan" description={`NIK "${id}" tidak ada di database.`} />
+        <PageHeader
+          title="Sasaran tidak ditemukan"
+          description={`NIK "${id}" tidak ada di database.`}
+        />
         <div className="mt-3.5 rounded-[10px] border border-line bg-surface p-6 text-center">
           <p className="text-sm font-bold text-ink">Data sasaran tidak ada.</p>
-          <p className="mt-1 text-xs text-muted">NIK mungkin salah ketik atau data sudah dihapus.</p>
-          <Button variant="primary" onClick={() => navigate({ to: "/sasaran" })} >
+          <p className="mt-1 text-xs text-muted">
+            NIK mungkin salah ketik atau data sudah dihapus.
+          </p>
+          <Button
+            variant="primary"
+            onClick={() => navigate({ to: '/sasaran' })}
+          >
             Kembali ke Data Sasaran
           </Button>
         </div>
       </>
-    );
+    )
   }
 
-  const status = surveys.length > 0 ? "Sudah" : "Belum";
+  const status = surveys.length > 0 ? 'Sudah' : 'Belum'
 
   const note =
-    status === "Belum" ? {
-      cls: "border-[var(--color-status-belum-border)] bg-[var(--color-status-belum-bg)] text-[var(--color-status-belum-text)]",
-      title: "Belum melakukan pemeriksaan.",
-      desc: "Sasaran ini belum punya isian form. Jadwalkan kunjungan rumah atau input lewat form kunjungan rumah.",
-    } : {
-      cls: "border-[var(--color-status-done-border)] bg-[var(--color-status-done-bg)] text-[var(--color-status-done-text)]",
-      title: "Sudah diperiksa.",
-      desc: `${surveys.length}× isian form tercatat di database.`,
-    };
+    status === 'Belum'
+      ? {
+          cls: 'border-[var(--color-status-belum-border)] bg-[var(--color-status-belum-bg)] text-[var(--color-status-belum-text)]',
+          title: 'Belum melakukan pemeriksaan.',
+          desc: 'Sasaran ini belum punya isian form. Jadwalkan kunjungan rumah atau input lewat form kunjungan rumah.',
+        }
+      : {
+          cls: 'border-[var(--color-status-done-border)] bg-[var(--color-status-done-bg)] text-[var(--color-status-done-text)]',
+          title: 'Sudah diperiksa.',
+          desc: `${surveys.length}× isian form tercatat di database.`,
+        }
 
   return (
     <>
-      <PageHeader title={`Detail Sasaran`} description={`${row.nama_art} — NIK ${row.nik}`} />
+      <PageHeader
+        title={`Detail Sasaran`}
+        description={`${row.nama_art} — NIK ${row.nik}`}
+      />
 
       <DetailHeader
         breadcrumb={[
-          { label: "Dashboard", href: "/" },
-          { label: "Data Sasaran", href: "/sasaran" },
+          { label: 'Dashboard', href: '/' },
+          { label: 'Data Sasaran', href: '/sasaran' },
           { label: row.nama_art },
         ]}
-        onBack={() => navigate({ to: "/sasaran" })}
+        onBack={() => navigate({ to: '/sasaran' })}
         title={row.nama_art}
         meta={`NIK ${row.nik} · Kel. ${row.kelurahan} · ${row.jenis_kelamin}`}
       />
 
       {row.needsUpdate ? (
         <div className="mt-3.5 rounded-[10px] border border-warn/40 bg-warn/10 px-3.5 py-2.5 text-xs font-semibold text-warn">
-          NIK sementara (bukan NIK asli) — data dari impor belum punya NIK valid.
-          Perbarui NIK sebelum menyimpan kunjungan rumah untuk sasaran ini.
+          NIK sementara (bukan NIK asli) — data dari impor belum punya NIK
+          valid. Perbarui NIK sebelum menyimpan kunjungan rumah untuk sasaran
+          ini.
         </div>
       ) : null}
 
-      <div className={`no-print mt-3.5 rounded-[10px] border p-3.5 text-xs ${note.cls}`}>
+      <div
+        className={`no-print mt-3.5 rounded-[10px] border p-3.5 text-xs ${note.cls}`}
+      >
         <b>{note.title}</b>
         <span> {note.desc}</span>
       </div>
@@ -78,26 +97,35 @@ function SasaranDetail() {
           <InfoPanel
             columns={1}
             fields={[
-              { label: "Nama", value: row.nama_art },
-              { label: "NIK", value: row.nik },
-              { label: "Nama KK", value: row.nama_kk },
-              { label: "Kelurahan", value: `Kel. ${row.kelurahan}` },
-              { label: "Kecamatan", value: row.kecamatan },
-              { label: "Alamat", value: `${row.alamat} · RT ${row.rt}/RW ${row.rw}` },
-              { label: "Tanggal lahir", value: fmtDate(row.tgl_lahir) },
+              { label: 'Nama', value: row.nama_art },
+              { label: 'NIK', value: row.nik },
+              { label: 'Nama KK', value: row.nama_kk },
+              { label: 'Kelurahan', value: `Kel. ${row.kelurahan}` },
+              { label: 'Kecamatan', value: row.kecamatan },
+              {
+                label: 'Alamat',
+                value: `${row.alamat} · RT ${row.rt}/RW ${row.rw}`,
+              },
+              { label: 'Tanggal lahir', value: fmtDate(row.tgl_lahir) },
             ]}
           />
         </SectionCard>
 
-        <SectionCard title="Ringkasan Pemeriksaan" sub="Status isian form dari database.">
+        <SectionCard
+          title="Ringkasan Pemeriksaan"
+          sub="Status isian form dari database."
+        >
           <InfoPanel
             columns={1}
             fields={[
-              { label: "Status terakhir", value: <StatusBadge value={status} /> },
-              { label: "Total isian form", value: `${surveys.length}×` },
               {
-                label: "Terakhir dikunjungi",
-                value: surveys[0] ? fmtDate(surveys[0].tanggal) : "—",
+                label: 'Status terakhir',
+                value: <StatusBadge value={status} />,
+              },
+              { label: 'Total isian form', value: `${surveys.length}×` },
+              {
+                label: 'Terakhir dikunjungi',
+                value: surveys[0] ? fmtDate(surveys[0].tanggal) : '—',
               },
             ]}
           />
@@ -117,13 +145,15 @@ function SasaranDetail() {
         }
       >
         {surveys.length === 0 ? (
-          <p className="px-1 py-6 text-center text-sm text-muted">Belum ada isian form tercatat untuk sasaran ini.</p>
+          <p className="px-1 py-6 text-center text-sm text-muted">
+            Belum ada isian form tercatat untuk sasaran ini.
+          </p>
         ) : (
           <Timeline
             title="Riwayat Kunjungan Rumah"
             items={surveys.map((s) => ({
               date: fmtDate(s.tanggal),
-              title: "Kunjungan Rumah — Selesai",
+              title: 'Kunjungan Rumah — Selesai',
               description: `Petugas: ${s.petugas}.`,
               done: true,
             }))}

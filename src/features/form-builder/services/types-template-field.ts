@@ -7,7 +7,8 @@
  */
 import type { TipeField } from './validasi'
 
-export type KelompokTemplate = 'Data warga' | 'Kategori warga' | 'Petugas & fasilitas'
+export type KelompokTemplate =
+  'Data warga' | 'Kategori warga' | 'Petugas & fasilitas'
 
 export interface TemplateField {
   /**

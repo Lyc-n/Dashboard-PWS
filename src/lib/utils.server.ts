@@ -1,29 +1,51 @@
 import { db } from './db.server'
-import { dataWargaTable, formFieldOptions, formFields, formSections, formVersions, forms, surveyEntries, surveys, validSession } from './schema/schema'
+import {
+  dataWargaTable,
+  formFieldOptions,
+  formFields,
+  formSections,
+  formVersions,
+  forms,
+  pinAttempts,
+  surveyEntries,
+  surveys,
+  validSession,
+} from './schema/schema'
 import { listPetugasOpsi, pastikanPetugasValid } from './user-registry.server'
 import { jwtVerify, SignJWT } from 'jose'
-import { createHash, randomBytes } from 'node:crypto';
-import { setCookie } from '@tanstack/react-start/server';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import { setCookie } from '@tanstack/react-start/server'
+import { and, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
-import { KODE_FORM_BAWAAN, SESSION_IDLE_MS, SESSION_PROFILE, SESSION_TTL_MS } from './constants'
+import {
+  KODE_FORM_BAWAAN,
+  SESSION_IDLE_MS,
+  SESSION_PROFILE,
+  SESSION_TTL_MS,
+} from './constants'
+import { BATAS_GAGAL, hitungCooldown, normalkanPin } from './pin-attempt'
+import type { HasilPin, StatusLockout } from './pin-attempt'
 import { isValidNik } from './utils'
 import type { AuthUser } from './auth'
 import { PEMBATAS_NAMA_FIELD } from '@/features/kunjungan-rumah/lib/template-from-rows'
 import type { TemplateQuestionRow } from '@/features/kunjungan-rumah/lib/template-from-rows'
 import {
-    barisDataWargaDariForm,
-    keAgama,
-    keHubunganKeluarga,
-    keJenisKelamin,
-    kePendidikan,
-    kePekerjaan,
-    keStatusKawin,
+  barisDataWargaDariForm,
+  keAgama,
+  keHubunganKeluarga,
+  keJenisKelamin,
+  kePendidikan,
+  kePekerjaan,
+  keStatusKawin,
 } from '@/features/kunjungan-rumah/lib/warga-row'
-import type { BarisWarga, SasaranSuggestion } from '@/features/kunjungan-rumah/lib/warga-row'
-import type { AnggotaKeluarga, KeluargaInfo } from '@/features/kunjungan-rumah/models'
-
-
+import type {
+  BarisWarga,
+  SasaranSuggestion,
+} from '@/features/kunjungan-rumah/lib/warga-row'
+import type {
+  AnggotaKeluarga,
+  KeluargaInfo,
+} from '@/features/kunjungan-rumah/models'
 
 /* ALUR SESI (hasil merge)
 1. pinLogin → isValidPin → cookie httpOnly "session" (JWT, exp 12 jam) + row valid_session
@@ -32,62 +54,222 @@ import type { AnggotaKeluarga, KeluargaInfo } from '@/features/kunjungan-rumah/m
 */
 
 function getSecretKey(): Buffer {
-    const secret = process.env.SECRET_KEY // ganti agar tidak ada risiko secret ikut terbundel ke client
-    if (!secret) throw new Error('SECRET_KEY belum diisi di .env')
-    return Buffer.from(secret, 'base64')
+  const secret = process.env.SECRET_KEY // ganti agar tidak ada risiko secret ikut terbundel ke client
+  if (!secret) throw new Error('SECRET_KEY belum diisi di .env')
+  return Buffer.from(secret, 'base64')
 }
 
 function hashToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex') // generate token dengan hash SHA-256
+  return createHash('sha256').update(token).digest('hex') // generate token dengan hash SHA-256
 }
 
 // tambahkan jeda tetap 1 detik per percobaan PIN untuk menangani bruteforce
 function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms))
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Bandingkan PIN dengan waktu tetap.
+ *
+ * `===` keluar lebih awal begitu byte pertama beda. Untuk PIN pendek itu
+ * memberi oracle: penyerang bisa mengukur selisih waktu dan memperpendek
+ * tebakan. `timingSafeEqual` membandingkan seluruh isi tanpa jalur keluar
+ * dini, tapi hanya aman kalau panjang kedua buffer sama — makanya normalisasi
+ * dan pengecekan panjang dilakukan lebih dulu.
+ *
+ * Normalisasi dan politiknya ada di `src/lib/pin-attempt.ts` supaya bisa
+ * diuji tanpa database.
+ */
+function pinBenar(dariUser: string, dariEnv: string): boolean {
+  const a = normalkanPin(dariUser)
+  const b = normalkanPin(dariEnv)
+  // Fail closed, sama seperti versi di pin-attempt.ts: PIN kosong berarti
+  // `PIN` tidak terisi atau field dikosongkan, keduanya harus ditolak.
+  if (a.length === 0 || b.length === 0) return false
+  if (a.length !== b.length) return false
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b))
 }
 
 function isSecureCookie(): boolean {
   // Secure cookie hanya untuk HTTPS (production). Di development (HTTP localhost) harus false.
-  return process.env.NODE_ENV === 'production';
+  return process.env.NODE_ENV === 'production'
 }
 
-export async function isValidPin(pin: string) {
+/** Berapa lama baris IP dianggap basi dan boleh dihapus. */
+const USIA_BARIS_MS = 24 * 60 * 60_000
+
+/**
+ * IP pemohon untuk keperluan rate limit.
+ *
+ * `x-forwarded-for` berisi rantai proxy; yang pertama adalah klien asli. Kalau
+ * header tidak ada (mis. dev tanpa proxy), jatuh ke satu nilai tetap supaya
+ * semua permintaan lokal terhitung satu IP — untuk kiosk satu lokasi itu justru
+ * perilaku yang benar, bukan degrade yang berbahaya.
+ */
+async function ipPemohon(): Promise<string> {
+  try {
+    const { getRequestHeaders } = await import('@tanstack/react-start/server')
+    const header = getRequestHeaders() as unknown as Record<
+      string,
+      string | undefined
+    >
+    const rantai = header['x-forwarded-for']
+    const pertama = rantai?.split(',')[0]?.trim()
+    return pertama && pertama.length > 0 ? pertama.slice(0, 64) : 'lokal'
+  } catch {
+    return 'lokal'
+  }
+}
+
+/**
+ * Apakah IP ini sedang dalam masa lockout?
+ *
+ * Fail-OPEN dengan sengaja: kalau tabel `pin_attempts` tidak bisa dibaca, ini
+ * mengembalikan `false` sehingga login tetap dicoba. Untuk kios puskesmas,
+ * terkunci total karena Supabase DOWN jauh lebih buruk daripada tidak adanya
+ * rate limit sementara. Konsekuensinya jelas dan dicatat di sini: selama DB
+ * tidak terbaca, attacker mendapat laju 1 percobaan/detik tanpa lockout.
+ */
+async function sudahTerkunci(ip: string): Promise<StatusLockout> {
+  try {
+    const baris = await ambilPercobaan(ip)
+    if (!baris?.terkunciSampai) return { terkunci: false, sisaMs: 0 }
+    const sisa = baris.terkunciSampai.getTime() - Date.now()
+    return { terkunci: sisa > 0, sisaMs: Math.max(0, sisa) }
+  } catch (err) {
+    console.error(
+      '[pin] gagal cek status lockout, lanjut tanpa rate limit',
+      err,
+    )
+    return { terkunci: false, sisaMs: 0 }
+  }
+}
+
+type Percobaan = { gagalBerturut: number; terkunciSampai: Date | null } | null
+
+async function ambilPercobaan(ip: string): Promise<Percobaan> {
+  const [baris] = await db
+    .select()
+    .from(pinAttempts)
+    .where(eq(pinAttempts.ip, ip))
+    .limit(1)
+  return baris ?? null
+}
+
+async function catatGagal(ip: string): Promise<void> {
+  const lalu = await ambilPercobaan(ip)
+  const gagal = (lalu?.gagalBerturut ?? 0) + 1
+  const terkunci = gagal >= BATAS_GAGAL
+  const till = terkunci ? new Date(Date.now() + hitungCooldown(gagal)) : null
+  await db
+    .insert(pinAttempts)
+    .values({
+      ip,
+      gagalBerturut: gagal,
+      terkunciSampai: till,
+      terakhirGagal: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: pinAttempts.ip,
+      set: {
+        gagalBerturut: gagal,
+        terkunciSampai: till,
+        terakhirGagal: new Date(),
+      },
+    })
+}
+
+async function resetPercobaan(ip: string): Promise<void> {
+  await db.delete(pinAttempts).where(eq(pinAttempts.ip, ip))
+}
+
+/**
+ * Hapus baris basi supaya tabel tidak tumbuh tanpa batas.
+ *
+ * Dipanggil sesekali, bukan tiap percobaan (1 dari 20), supaya tidak
+ * menambah query di jalur login. Baris yang dihapus
+ * hanya yang `terkunciSampai`-nya sudah lewat DAN lebih lama dari sehari, jadi
+ * sedang terkunci tidak pernah terhapus di tengah masa jeda.
+ */
+async function bersihkanKedaluwarsa(): Promise<void> {
+  const batas = new Date(Date.now() - USIA_BARIS_MS)
+  await db
+    .delete(pinAttempts)
+    .where(
+      and(
+        lt(pinAttempts.terakhirGagal, batas),
+        or(
+          isNull(pinAttempts.terkunciSampai),
+          lt(pinAttempts.terkunciSampai, new Date()),
+        ),
+      ),
+    )
+}
+
+export async function isValidPin(pin: string): Promise<HasilPin> {
   await sleep(1000)
-  const expected = process.env.PIN
-  // Tanpa PIN di .env semua percobaan akan gagal diam-diam jadi "PIN salah."
-  // Error eksplisit lebih berguna: ini masalah konfigurasi, bukan input pengguna.
-  if (!expected) throw new Error('PIN belum diisi di .env')
-  if (pin.trim() !== expected) return false
-  await db.delete(validSession)
-  cacheSesi.clear()
+  const ip = await ipPemohon()
+
+  // Pembersian bersifat sesekali dan tidak boleh menunda login: sengaja tidak
+  // di-await, cukup dijadwalkan supaya error-nya tidak menimpa jawaban.
+  void bersihkanKedaluwarsa().catch((err) =>
+    console.error('[pin] gagal bersihkan baris basi', err),
+  )
+
+  const { terkunci, sisaMs } = await sudahTerkunci(ip)
+  // Dikembalikan apa adanya supaya halaman login bisa memberi tahu sisa
+  // waktunya. Tidak membocorkan apa pun soal PIN: pengguna bisa mengamatinya
+  // sendiri dengan cara mencoba, dan dijawabnya hanya "belum terkunci" atau
+  // "sudah terkunci" — bukan apakah PIN-nya benar.
+  if (terkunci) return { ok: false, sisaLockoutMs: sisaMs }
+
+  if (!pinBenar(pin, process.env.PIN ?? '')) {
+    void catatGagal(ip).catch((err) =>
+      console.error('[pin] gagal mencatat percobaan gagal', err),
+    )
+    return { ok: false, sisaLockoutMs: 0 }
+  }
+  await resetPercobaan(ip).catch((err) =>
+    console.error('[pin] gagal reset percobaan', err),
+  )
   setCookie('session', await createSessionHelper(), {
     httpOnly: true,
     secure: isSecureCookie(),
     path: '/',
     maxAge: SESSION_TTL_MS / 1000,
   })
-  return true
+  return { ok: true }
 }
 
 async function createSessionHelper() {
-    const tokenPayload = {
-        clientUUID: randomBytes(32).toString("base64url"), // mastiin sessionnya unique per client
-        loggedInAt: new Date().toISOString(),
-        profile: SESSION_PROFILE,
-    };
+  const tokenPayload = {
+    clientUUID: randomBytes(32).toString('base64url'), // mastiin sessionnya unique per client
+    loggedInAt: new Date().toISOString(),
+    profile: SESSION_PROFILE,
+  }
 
-    const secretKey = getSecretKey()
-    const token = await new SignJWT(tokenPayload)
-        .setProtectedHeader({ alg: 'HS256' })
-        .setExpirationTime(Math.floor(Date.now() / 1000) + SESSION_TTL_MS / 1000)
-        .sign(secretKey);
+  const secretKey = getSecretKey()
+  const token = await new SignJWT(tokenPayload)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setExpirationTime(Math.floor(Date.now() / 1000) + SESSION_TTL_MS / 1000)
+    .sign(secretKey)
 
-
-    await db.insert(validSession).values({
-        token: hashToken(token), // token session
-        expiresAt: new Date(Date.now() + SESSION_IDLE_MS), // pastikan session hanya 1 jam
+  // Penulisan sesi tidak dibungkus catch: tanpa baris ini, cookie tidak
+  // pernah terpasang dan login selalu gagal. Kegagalan di sini sering berarti
+  // database tidak bisa ditulis, jadi dicatat agar penyebabnya terlihat di
+  // log — `pin.tsx` hanya menampilkan "Gagal masuk. Coba lagi." dan tidak
+  // boleh menyebut apa pun soal infrastruktur.
+  await db
+    .insert(validSession)
+    .values({
+      token: hashToken(token), // token session
+      expiresAt: new Date(Date.now() + SESSION_IDLE_MS), // pastikan session hanya 1 jam
     })
-    return token;
+    .catch((err) => {
+      console.error('[auth] gagal menulis baris sesi', err)
+      throw err
+    })
+  return token
 }
 
 const EXTEND_BEFORE_MS = 5 * 60 * 1000 // hanya extend session sebelum 5 menit session habis
@@ -107,36 +289,40 @@ const CACHE_SESI_TTL_MS = 30_000 // sesi idle 1 jam, jadi 30 detik masih aman
 const CACHE_SESI_MAKS = 500 // token dari login lama tidak boleh menumpuk tanpa batas
 
 function cacheSesiAmbil(tokenHash: string): CacheSesi | null {
-    const e = cacheSesi.get(tokenHash)
-    if (!e) return null
-    if (Date.now() - e.diisiPukul > CACHE_SESI_TTL_MS) {
-        cacheSesi.delete(tokenHash)
-        return null
-    }
-    if (e.expiresAtMs - Date.now() < EXTEND_BEFORE_MS) return null // biarkan query extend jalan
-    return e
+  const e = cacheSesi.get(tokenHash)
+  if (!e) return null
+  if (Date.now() - e.diisiPukul > CACHE_SESI_TTL_MS) {
+    cacheSesi.delete(tokenHash)
+    return null
+  }
+  if (e.expiresAtMs - Date.now() < EXTEND_BEFORE_MS) return null // biarkan query extend jalan
+  return e
 }
 
 function cacheSesiSimpan(tokenHash: string, expiresAtMs: number) {
-    if (cacheSesi.size >= CACHE_SESI_MAKS) {
-        const palingLama = cacheSesi.keys().next().value
-        if (palingLama !== undefined) cacheSesi.delete(palingLama)
-    }
-    cacheSesi.set(tokenHash, { expiresAtMs, diisiPukul: Date.now() })
+  if (cacheSesi.size >= CACHE_SESI_MAKS) {
+    const palingLama = cacheSesi.keys().next().value
+    if (palingLama !== undefined) cacheSesi.delete(palingLama)
+  }
+  cacheSesi.set(tokenHash, { expiresAtMs, diisiPukul: Date.now() })
 }
 
 // session hanya 1 jam. token palsu/kedaluwarsa/sudah dihapus = logout
-export async function touchSession(sessionToken: string): Promise<{ profile: AuthUser; expiresAt: Date }> {
-    try {
-        const { payload } = await jwtVerify(sessionToken, getSecretKey(), { algorithms: ["HS256"] })
-        const profile = payload.profile as AuthUser | undefined
-        if (!profile) throw new Error('Unauthorized')
+export async function touchSession(
+  sessionToken: string,
+): Promise<{ profile: AuthUser; expiresAt: Date }> {
+  try {
+    const { payload } = await jwtVerify(sessionToken, getSecretKey(), {
+      algorithms: ['HS256'],
+    })
+    const profile = payload.profile as AuthUser | undefined
+    if (!profile) throw new Error('Unauthorized')
 
-        const tokenHash = hashToken(sessionToken)
-        const cached = cacheSesiAmbil(tokenHash)
-        if (cached) return { profile, expiresAt: new Date(cached.expiresAtMs) }
+    const tokenHash = hashToken(sessionToken)
+    const cached = cacheSesiAmbil(tokenHash)
+    if (cached) return { profile, expiresAt: new Date(cached.expiresAtMs) }
 
-        const rows = await db.execute(sql`
+    const rows = await db.execute(sql`
             WITH extend AS (
                 UPDATE valid_session
                 SET "expiresAt" = now() + ${SESSION_IDLE_MS / 1000} * interval '1 second'
@@ -151,40 +337,51 @@ export async function touchSession(sessionToken: string): Promise<{ profile: Aut
                  WHERE token = ${tokenHash} AND "expiresAt" > now())
             ) AS exp
         `)
-        const exp = (rows as unknown as Array<{ exp: number | null }>)[0]?.exp
-        if (!exp) {
-            cacheSesi.delete(tokenHash) // jangan biarkan token yang ditolak tetap di cache
-            await db.delete(validSession).where(eq(validSession.token, tokenHash)) // buang baris kedaluwarsa saat token ditolak
-            throw new Error('Unauthorized')
-        }
-        const expiresAtMs = Number(exp) * 1000
-        cacheSesiSimpan(tokenHash, expiresAtMs)
-        return { profile, expiresAt: new Date(expiresAtMs) }
-    } catch {
-        throw new Error('Unauthorized')
+    const exp = (rows as unknown as Array<{ exp: number | null }>)[0]?.exp
+    if (!exp) {
+      cacheSesi.delete(tokenHash) // jangan biarkan token yang ditolak tetap di cache
+      await db.delete(validSession).where(eq(validSession.token, tokenHash)) // buang baris kedaluwarsa saat token ditolak
+      throw new Error('Unauthorized')
     }
+    const expiresAtMs = Number(exp) * 1000
+    cacheSesiSimpan(tokenHash, expiresAtMs)
+    return { profile, expiresAt: new Date(expiresAtMs) }
+  } catch (err) {
+    // Tanpa ini, outage database terlihat sama dengan PIN salah: pengguna
+    // mencoba login berulang sepanjang DB belum pulih, dan tidak ada jejak
+    // di server untuk membedakan keduanya. Detail tetap TIDAK dikirim ke
+    // client — fail-closed, `Unauthorized` seperti biasa.
+    console.error('[auth] gagal verifikasi sesi', err)
+    throw new Error('Unauthorized')
+  }
 }
 
 // logout server-side: hapus row, kosongkan cookie
 export async function destroySession(sessionToken?: string) {
-    if (sessionToken) {
-        const tokenHash = hashToken(sessionToken)
-        cacheSesi.delete(tokenHash)
-        await db.delete(validSession).where(eq(validSession.token, tokenHash))
-    }
-    setCookie('session', '', { httpOnly: true, secure: isSecureCookie(), path: '/', maxAge: 0 })
+  if (sessionToken) {
+    const tokenHash = hashToken(sessionToken)
+    cacheSesi.delete(tokenHash)
+    await db.delete(validSession).where(eq(validSession.token, tokenHash))
+  }
+  setCookie('session', '', {
+    httpOnly: true,
+    secure: isSecureCookie(),
+    path: '/',
+    maxAge: 0,
+  })
 }
 
 export async function querySurveyors() {
-    return listPetugasOpsi(null)
+  return listPetugasOpsi(null)
 }
 
 // ---- kunjungan rumah langsung ke DB — pengganti localStorage `pws-kunjungan-rumah` ----
-type JsonRecord = Record<string, unknown>;
+type JsonRecord = Record<string, unknown>
 
 function asJsonRecord(v: unknown): JsonRecord {
-    if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error("Payload tidak valid");
-    return v as JsonRecord;
+  if (!v || typeof v !== 'object' || Array.isArray(v))
+    throw new Error('Payload tidak valid')
+  return v as JsonRecord
 }
 
 /** Foto untuk DB: teruskan id/name/fileUrl/dataUrl/caption/takenAt.
@@ -194,19 +391,20 @@ function asJsonRecord(v: unknown): JsonRecord {
  *  di proyek yang sama dengan VITE_SUPABASE_URL (saat ini DB dan API beda proyek).
  */
 function cleanFotos(fotos: unknown): Array<Record<string, unknown>> {
-    if (!Array.isArray(fotos)) return [];
-    return fotos.map((f) => {
-        const o = (f ?? {}) as Record<string, unknown>;
-        const out: Record<string, unknown> = {
-            id: typeof o.id === "string" ? o.id : "",
-            name: typeof o.name === "string" ? o.name : "foto.jpg",
-            caption: typeof o.caption === "string" ? o.caption : "",
-            takenAt: typeof o.takenAt === "string" ? o.takenAt : new Date().toISOString(),
-        };
-        if (typeof o.fileUrl === "string" && o.fileUrl) out.fileUrl = o.fileUrl;
-        if (typeof o.dataUrl === "string" && o.dataUrl) out.dataUrl = o.dataUrl;
-        return out;
-    });
+  if (!Array.isArray(fotos)) return []
+  return fotos.map((f) => {
+    const o = (f ?? {}) as Record<string, unknown>
+    const out: Record<string, unknown> = {
+      id: typeof o.id === 'string' ? o.id : '',
+      name: typeof o.name === 'string' ? o.name : 'foto.jpg',
+      caption: typeof o.caption === 'string' ? o.caption : '',
+      takenAt:
+        typeof o.takenAt === 'string' ? o.takenAt : new Date().toISOString(),
+    }
+    if (typeof o.fileUrl === 'string' && o.fileUrl) out.fileUrl = o.fileUrl
+    if (typeof o.dataUrl === 'string' && o.dataUrl) out.dataUrl = o.dataUrl
+    return out
+  })
 }
 
 // ---- definisi form kunjungan rumah dari DB ----
@@ -223,14 +421,24 @@ function cleanFotos(fotos: unknown): Array<Record<string, unknown>> {
  * yang jelas. Lihat `KODE_FORM_BAWAAN` di src/lib/constants.ts.
  */
 async function getKunjunganRumahForm() {
-    const [row] = await db
-        .select({ id: forms.id, nama: forms.nama, formVersionId: formVersions.id, version: formVersions.version })
-        .from(forms)
-        .innerJoin(formVersions, eq(formVersions.formId, forms.id))
-        .where(and(eq(forms.kode, KODE_FORM_BAWAAN.kunjunganRumah), eq(formVersions.status, "published")))
-        .orderBy(desc(formVersions.version))
-        .limit(1)
-    return row ?? null
+  const [row] = await db
+    .select({
+      id: forms.id,
+      nama: forms.nama,
+      formVersionId: formVersions.id,
+      version: formVersions.version,
+    })
+    .from(forms)
+    .innerJoin(formVersions, eq(formVersions.formId, forms.id))
+    .where(
+      and(
+        eq(forms.kode, KODE_FORM_BAWAAN.kunjunganRumah),
+        eq(formVersions.status, 'published'),
+      ),
+    )
+    .orderBy(desc(formVersions.version))
+    .limit(1)
+  return row ?? null
 }
 
 /**
@@ -247,92 +455,103 @@ async function getKunjunganRumahForm() {
  * karena `getKunjunganRumahRecord()` mencari lewat `surveys.id`.
  */
 async function semuaVersiKunjunganRumah(): Promise<string[] | null> {
-    const rows = await db
-        .select({ id: formVersions.id })
-        .from(forms)
-        .innerJoin(formVersions, eq(formVersions.formId, forms.id))
-        .where(eq(forms.kode, KODE_FORM_BAWAAN.kunjunganRumah))
-    if (rows.length === 0) return null
-    return rows.map((r) => r.id)
+  const rows = await db
+    .select({ id: formVersions.id })
+    .from(forms)
+    .innerJoin(formVersions, eq(formVersions.formId, forms.id))
+    .where(eq(forms.kode, KODE_FORM_BAWAAN.kunjunganRumah))
+  if (rows.length === 0) return null
+  return rows.map((r) => r.id)
 }
 
 export async function getKunjunganRumahTemplateRows() {
-    const form = await getKunjunganRumahForm()
-    if (!form) return null
+  const form = await getKunjunganRumahForm()
+  if (!form) return null
 
-    const sectionRows = await db
-        .select({ id: formSections.id, nama: formSections.nama })
-        .from(formSections)
-        .where(eq(formSections.formVersionId, form.formVersionId))
-        .orderBy(formSections.urutan)
+  const sectionRows = await db
+    .select({ id: formSections.id, nama: formSections.nama })
+    .from(formSections)
+    .where(eq(formSections.formVersionId, form.formVersionId))
+    .orderBy(formSections.urutan)
 
-    if (sectionRows.length === 0) return { versiDefinisi: form.version, questions: {} }
+  if (sectionRows.length === 0)
+    return { versiDefinisi: form.version, questions: {} }
 
-    const sectionIds = sectionRows.map((row) => row.id)
-    const namaById = new Map(sectionRows.map((row) => [row.id, row.nama]))
+  const sectionIds = sectionRows.map((row) => row.id)
+  const namaById = new Map(sectionRows.map((row) => [row.id, row.nama]))
 
-    const fieldRows = await db
-        .select({
-            id: formFields.id,
-            sectionId: formFields.sectionId,
-            nama: formFields.nama,
-            label: formFields.label,
-            tipe: formFields.tipe,
-            // Bucket layout panel sasaran disimpan di `optionSourceKey`prefix `bucket=`.
-            // `form_fields` tidak punya kolom `bucket` sendiri; prefixed key dipakai supaya
-            // satu kolom varchar tetap bisa menyimpan dua hal tanpa menambah kolom.
-            optionSourceKey: formFields.optionSourceKey,
-            deskripsi: formFields.deskripsi,
-            wajib: formFields.wajib,
-            urutan: formFields.urutan,
-            aktif: formFields.aktif,
-        })
-        .from(formFields)
-        .where(inArray(formFields.sectionId, sectionIds))
-        .orderBy(formFields.urutan)
+  const fieldRows = await db
+    .select({
+      id: formFields.id,
+      sectionId: formFields.sectionId,
+      nama: formFields.nama,
+      label: formFields.label,
+      tipe: formFields.tipe,
+      // Bucket layout panel sasaran disimpan di `optionSourceKey`prefix `bucket=`.
+      // `form_fields` tidak punya kolom `bucket` sendiri; prefixed key dipakai supaya
+      // satu kolom varchar tetap bisa menyimpan dua hal tanpa menambah kolom.
+      optionSourceKey: formFields.optionSourceKey,
+      deskripsi: formFields.deskripsi,
+      wajib: formFields.wajib,
+      urutan: formFields.urutan,
+      aktif: formFields.aktif,
+    })
+    .from(formFields)
+    .where(inArray(formFields.sectionId, sectionIds))
+    .orderBy(formFields.urutan)
 
-    // Opsi = baris `form_field_options` milik field. Satu query untuk semua field
-    // lalu di-group di memory supaya tidak jadi N+1. Baris nonaktif ikut diambil
-    // supaya urutan opsi tidak berubah kalau admin menonaktifkan lalu
-    // mengaktifkan lagi lewat Form Builder; penyingkirannya dilakukan di bawah.
-    const optionRows = fieldRows.length === 0
-        ? []
-        : await db
-            .select({ fieldId: formFieldOptions.fieldId, value: formFieldOptions.value, aktif: formFieldOptions.aktif })
-            .from(formFieldOptions)
-            .where(inArray(formFieldOptions.fieldId, fieldRows.map((row) => row.id)))
-            .orderBy(formFieldOptions.urutan)
+  // Opsi = baris `form_field_options` milik field. Satu query untuk semua field
+  // lalu di-group di memory supaya tidak jadi N+1. Baris nonaktif ikut diambil
+  // supaya urutan opsi tidak berubah kalau admin menonaktifkan lalu
+  // mengaktifkan lagi lewat Form Builder; penyingkirannya dilakukan di bawah.
+  const optionRows =
+    fieldRows.length === 0
+      ? []
+      : await db
+          .select({
+            fieldId: formFieldOptions.fieldId,
+            value: formFieldOptions.value,
+            aktif: formFieldOptions.aktif,
+          })
+          .from(formFieldOptions)
+          .where(
+            inArray(
+              formFieldOptions.fieldId,
+              fieldRows.map((row) => row.id),
+            ),
+          )
+          .orderBy(formFieldOptions.urutan)
 
-    const opsiByField = new Map<string, string[]>()
-    for (const row of optionRows) {
-        if (!row.aktif) continue
-        if (typeof row.value !== "string") continue
-        const list = opsiByField.get(row.fieldId)
-        if (list) list.push(row.value)
-        else opsiByField.set(row.fieldId, [row.value])
+  const opsiByField = new Map<string, string[]>()
+  for (const row of optionRows) {
+    if (!row.aktif) continue
+    if (typeof row.value !== 'string') continue
+    const list = opsiByField.get(row.fieldId)
+    if (list) list.push(row.value)
+    else opsiByField.set(row.fieldId, [row.value])
+  }
+
+  const bySection: Record<string, TemplateQuestionRow[]> = {}
+  for (const row of fieldRows) {
+    const sectionNama = namaById.get(row.sectionId)
+    if (!sectionNama) continue
+    const entry: TemplateQuestionRow = {
+      kode: namaFieldTanpaPrefix(row.nama),
+      pertanyaan: row.label,
+      tipe: row.tipe,
+      bucket: parseBucket(row.optionSourceKey),
+      hint: row.deskripsi,
+      wajib: row.wajib,
+      urutan: row.urutan,
+      aktif: row.aktif,
+      opsi: opsiByField.get(row.id) ?? [],
     }
+    const list = bySection[sectionNama]
+    if (list) list.push(entry)
+    else bySection[sectionNama] = [entry]
+  }
 
-    const bySection: Record<string, TemplateQuestionRow[]> = {}
-    for (const row of fieldRows) {
-        const sectionNama = namaById.get(row.sectionId)
-        if (!sectionNama) continue
-        const entry: TemplateQuestionRow = {
-            kode: namaFieldTanpaPrefix(row.nama),
-            pertanyaan: row.label,
-            tipe: row.tipe,
-            bucket: parseBucket(row.optionSourceKey),
-            hint: row.deskripsi,
-            wajib: row.wajib,
-            urutan: row.urutan,
-            aktif: row.aktif,
-            opsi: opsiByField.get(row.id) ?? [],
-        }
-        const list = bySection[sectionNama]
-        if (list) list.push(entry)
-        else bySection[sectionNama] = [entry]
-    }
-
-    return { versiDefinisi: form.version, questions: bySection }
+  return { versiDefinisi: form.version, questions: bySection }
 }
 
 /**
@@ -347,15 +566,15 @@ export async function getKunjunganRumahTemplateRows() {
  * manual di Form Builder (yang tidak lewat seeder) tetap terbaca.
  */
 function namaFieldTanpaPrefix(nama: string): string {
-    const found = nama.indexOf(PEMBATAS_NAMA_FIELD)
-    return found === -1 ? nama : nama.slice(found + PEMBATAS_NAMA_FIELD.length)
+  const found = nama.indexOf(PEMBATAS_NAMA_FIELD)
+  return found === -1 ? nama : nama.slice(found + PEMBATAS_NAMA_FIELD.length)
 }
 
 /** Baca bucket dari prefix `bucket=` pada `form_fields.optionSourceKey`. */
 function parseBucket(key: string | null): string | null {
-    if (!key) return null
-    const found = key.split(";").find((part) => part.trim().startsWith("bucket="))
-    return found ? found.trim().slice("bucket=".length) || null : null
+  if (!key) return null
+  const found = key.split(';').find((part) => part.trim().startsWith('bucket='))
+  return found ? found.trim().slice('bucket='.length) || null : null
 }
 
 // ---- record kunjungan rumah di atas tabel v2 ----
@@ -374,7 +593,7 @@ function parseBucket(key: string | null): string | null {
 // memecah payload legacy ke level field adalah pekerjaan tersendiri.
 
 /** Field tempat seluruh payload legacy disimpan. Wajib ada di seed form kunjungan. */
-const FIELD_RECORD_LEGACY = "record_legacy";
+const FIELD_RECORD_LEGACY = 'record_legacy'
 
 /**
  * Nama field di database untuk field di atas.
@@ -384,29 +603,43 @@ const FIELD_RECORD_LEGACY = "record_legacy";
  * hanya dibuat oleh seeder; lihat `namaFieldUnik()` di scripts/seed-form-defaults.ts.
  * Kedua sisi harus diubah bersamaan — `pnpm db:check-parity` adalah penjaganya.
  */
-const NAMA_FIELD_RECORD_LEGACY = "penyimpanan::" + FIELD_RECORD_LEGACY;
+const NAMA_FIELD_RECORD_LEGACY = 'penyimpanan::' + FIELD_RECORD_LEGACY
 
-async function fieldIdRecordLegacy(formVersionId: string): Promise<string | null> {
-    const [row] = await db
-        .select({ id: formFields.id })
-        .from(formFields)
-        .where(and(eq(formFields.formVersionId, formVersionId), eq(formFields.nama, NAMA_FIELD_RECORD_LEGACY)))
-        .limit(1)
-    return row?.id ?? null
+async function fieldIdRecordLegacy(
+  formVersionId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ id: formFields.id })
+    .from(formFields)
+    .where(
+      and(
+        eq(formFields.formVersionId, formVersionId),
+        eq(formFields.nama, NAMA_FIELD_RECORD_LEGACY),
+      ),
+    )
+    .limit(1)
+  return row?.id ?? null
 }
 
 /** Baca metadata header dari `info` di payload legacy. */
-function headerDariPayload(rec: JsonRecord): { wargaNik: string; petugasId: string; tanggal: string } {
-    const info = rec.info && typeof rec.info === "object" ? (rec.info as JsonRecord) : {}
-    const nik = typeof info.nik === "string" ? info.nik.trim() : ""
-    const petugasId = typeof info.petugasId === "string" ? info.petugasId.trim() : ""
-    const tgl = typeof info.tglPengumpulan === "string" ? info.tglPengumpulan.trim() : ""
-    const waktuSimpan = typeof rec.waktuSimpan === "string" ? rec.waktuSimpan : ""
-    return {
-        wargaNik: nik,
-        petugasId,
-        tanggal: tgl || waktuSimpan.slice(0, 10),
-    }
+function headerDariPayload(rec: JsonRecord): {
+  wargaNik: string
+  petugasId: string
+  tanggal: string
+} {
+  const info =
+    rec.info && typeof rec.info === 'object' ? (rec.info as JsonRecord) : {}
+  const nik = typeof info.nik === 'string' ? info.nik.trim() : ''
+  const petugasId =
+    typeof info.petugasId === 'string' ? info.petugasId.trim() : ''
+  const tgl =
+    typeof info.tglPengumpulan === 'string' ? info.tglPengumpulan.trim() : ''
+  const waktuSimpan = typeof rec.waktuSimpan === 'string' ? rec.waktuSimpan : ''
+  return {
+    wargaNik: nik,
+    petugasId,
+    tanggal: tgl || waktuSimpan.slice(0, 10),
+  }
 }
 
 // ---- pencarian warga sasaran di data_warga + data import ----
@@ -428,6 +661,7 @@ function headerDariPayload(rec: JsonRecord): { wargaNik: string; petugasId: stri
 /** Kolom yang dibaca dari `data_warga_import`, dengan nama kolom aslinya. */
 const SELECT_SASARAN = sql`
     raw_id                       AS "rawId",
+    jumlah_art                   AS "jumlahArt",
     nik                          AS "nik",
     nama_art                     AS "namaArt",
     nama_kk                      AS "namaKk",
@@ -473,36 +707,64 @@ const SELECT_SASARAN_WARGA = sql`
 `
 
 type BarisImportSasaran = {
-    rawId?: unknown; nik?: unknown; namaArt?: unknown; namaKk?: unknown
-    hubunganKeluarga?: unknown; tglLahir?: unknown; jenisKelamin?: unknown
-    statusKawin?: unknown; agama?: unknown; pendidikan?: unknown; pekerjaan?: unknown
-    alamat?: unknown; rt?: unknown; rw?: unknown; kecamatan?: unknown
-    kelurahan?: unknown; kabKota?: unknown; provinsi?: unknown
+  rawId?: unknown
+  /** Hanya ada di `data_warga_import`; dipakai sebagai batas jumlah anggota. */
+  jumlahArt?: unknown
+  nik?: unknown
+  namaArt?: unknown
+  namaKk?: unknown
+  hubunganKeluarga?: unknown
+  tglLahir?: unknown
+  jenisKelamin?: unknown
+  statusKawin?: unknown
+  agama?: unknown
+  pendidikan?: unknown
+  pekerjaan?: unknown
+  alamat?: unknown
+  rt?: unknown
+  rw?: unknown
+  kecamatan?: unknown
+  kelurahan?: unknown
+  kabKota?: unknown
+  provinsi?: unknown
 }
 
 /** Terjemahkan baris import ke label enum `data_warga`; yang tak cocok jadi `null`. */
 function normalkanSasaran(row: BarisImportSasaran): SasaranSuggestion {
-    const s = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null)
-    return {
-        rawId: s(row.rawId) ?? "",
-        nik: s(row.nik) ?? "",
-        namaArt: s(row.namaArt) ?? "",
-        namaKk: s(row.namaKk) ?? "",
-        hubunganKeluarga: keHubunganKeluarga(s(row.hubunganKeluarga)),
-        tglLahir: s(row.tglLahir),
-        jenisKelamin: keJenisKelamin(s(row.jenisKelamin)),
-        statusKawin: keStatusKawin(s(row.statusKawin)),
-        agama: keAgama(s(row.agama)),
-        pendidikan: kePendidikan(s(row.pendidikan)),
-        pekerjaan: kePekerjaan(s(row.pekerjaan)),
-        alamat: s(row.alamat),
-        rt: s(row.rt),
-        rw: s(row.rw),
-        kecamatan: s(row.kecamatan),
-        kelurahan: s(row.kelurahan),
-        kabKota: s(row.kabKota),
-        provinsi: s(row.provinsi),
-    }
+  const s = (v: unknown) =>
+    typeof v === 'string' && v.trim() ? v.trim() : null
+  const jumlahArt =
+    typeof row.jumlahArt === 'number' && Number.isFinite(row.jumlahArt)
+      ? row.jumlahArt
+      : // Driver PostgreSQL kadang mengirim smallint sebagai teks, jadi dua bentuk
+        // ini harus diterima.
+        typeof row.jumlahArt === 'string' && row.jumlahArt.trim()
+        ? Number(row.jumlahArt)
+        : null
+  return {
+    rawId: s(row.rawId) ?? '',
+    jumlahArt:
+      jumlahArt !== null && Number.isFinite(jumlahArt) && jumlahArt > 0
+        ? jumlahArt
+        : null,
+    nik: s(row.nik) ?? '',
+    namaArt: s(row.namaArt) ?? '',
+    namaKk: s(row.namaKk) ?? '',
+    hubunganKeluarga: keHubunganKeluarga(s(row.hubunganKeluarga)),
+    tglLahir: s(row.tglLahir),
+    jenisKelamin: keJenisKelamin(s(row.jenisKelamin)),
+    statusKawin: keStatusKawin(s(row.statusKawin)),
+    agama: keAgama(s(row.agama)),
+    pendidikan: kePendidikan(s(row.pendidikan)),
+    pekerjaan: kePekerjaan(s(row.pekerjaan)),
+    alamat: s(row.alamat),
+    rt: s(row.rt),
+    rw: s(row.rw),
+    kecamatan: s(row.kecamatan),
+    kelurahan: s(row.kelurahan),
+    kabKota: s(row.kabKota),
+    provinsi: s(row.provinsi),
+  }
 }
 
 // Kolom enum `data_warga_import` dideklarasikan di `src/lib/schema/data-import.ts`
@@ -519,65 +781,204 @@ function normalkanSasaran(row: BarisImportSasaran): SasaranSuggestion {
  * NIK yang sama dibuang supaya tidak duplikat. `q` dicocokkan ke NIK,
  * nama.artikel, dan nama KK. Urutan: NIK yang persis dulu, lalu sisanya.
  */
-export async function querySasaranWarga(q: string): Promise<SasaranSuggestion[]> {
-    const cari = q.trim()
-    if (cari.length < 3) return []
-    const pola = `%${cari}%`
-    const where = sql`WHERE nik ILIKE ${pola} OR nama_art ILIKE ${pola} OR nama_kk ILIKE ${pola}`
-    const [barisWarga, barisImport] = await Promise.all([
-        db.execute(sql`SELECT ${SELECT_SASARAN_WARGA} FROM data_warga ${where} ORDER BY nik LIMIT 30`),
-        db.execute(sql`SELECT ${SELECT_SASARAN} FROM data_warga_import ${where} ORDER BY raw_id LIMIT 30`),
-    ])
-    const warga = (barisWarga as unknown as BarisImportSasaran[]).map(normalkanSasaran)
+export async function querySasaranWarga(
+  q: string,
+): Promise<SasaranSuggestion[]> {
+  const cari = q.trim()
+  if (cari.length < 3) return []
+  const pola = `%${cari}%`
+  const where = sql`WHERE nik ILIKE ${pola} OR nama_art ILIKE ${pola} OR nama_kk ILIKE ${pola}`
+  const [barisWarga, barisImport] = await Promise.all([
+    db.execute(
+      sql`SELECT ${SELECT_SASARAN_WARGA} FROM data_warga ${where} ORDER BY nik LIMIT 30`,
+    ),
+    db.execute(
+      sql`SELECT ${SELECT_SASARAN} FROM data_warga_import ${where} ORDER BY raw_id LIMIT 30`,
+    ),
+  ])
+  const warga = (barisWarga as unknown as BarisImportSasaran[]).map(
+    normalkanSasaran,
+  )
 
-    // Buang baris import yang NIK-nya sudah tersimpan di `data_warga`. Baris
-    // import tanpa NIK tetap dipertahankan: tidak bisa dicocokkan, dan user
-    // tetap bisa mengambil nama/alamatnya.
-    const nikWarga = new Set(warga.map((r) => r.nik).filter((n) => n.length === 16))
-    const importSisa = (barisImport as unknown as BarisImportSasaran[])
-        .map(normalkanSasaran)
-        .filter((r) => !r.nik || r.nik.length !== 16 || !nikWarga.has(r.nik))
+  // Buang baris import yang NIK-nya sudah tersimpan di `data_warga`. Baris
+  // import tanpa NIK tetap dipertahankan: tidak bisa dicocokkan, dan user
+  // tetap bisa mengambil nama/alamatnya.
+  const nikWarga = new Set(
+    warga.map((r) => r.nik).filter((n) => n.length === 16),
+  )
+  const importSisa = (barisImport as unknown as BarisImportSasaran[])
+    .map(normalkanSasaran)
+    .filter((r) => !r.nik || r.nik.length !== 16 || !nikWarga.has(r.nik))
 
-    const hasil = [...warga, ...importSisa].slice(0, 30)
-    // NIK persis naik ke atas supaya suggestion yang paling mungkin benar lebih dulu.
-    return hasil.sort((a, b) => {
-        const aTepat = a.nik === cari ? 0 : 1
-        const bTepat = b.nik === cari ? 0 : 1
-        return aTepat - bTepat || a.rawId.localeCompare(b.rawId)
-    })
+  const hasil = [...warga, ...importSisa].slice(0, 30)
+  // NIK persis naik ke atas supaya suggestion yang paling mungkin benar lebih dulu.
+  return hasil.sort((a, b) => {
+    const aTepat = a.nik === cari ? 0 : 1
+    const bTepat = b.nik === cari ? 0 : 1
+    return aTepat - bTepat || a.rawId.localeCompare(b.rawId)
+  })
+}
+
+/**
+ * Semua warga dalam satu keluarga, untuk mengisi tabel anggota otomatis.
+ *
+ * `nama_kk` sendirinya bukan kunci: satu nama dipakai banyak keluarga, sehingga
+ * pencarian_longgar sekali bisa menarik puluhan baris. Dua lapis penyempit, dari
+ * yang paling membedakan:
+ *
+ * 1. **Alamat.** `nama_kk` + `kelurahan` + `kecamatan` + `rt` + `rw`. Alamat
+ *    adalah satu-satunya pembeda yang tersedia di tabel; tidak ada `nomor_kk`.
+ *    `rt`/`rw` dibandingkan sebagai teks setelah `NULLIF` supaya baris dengan
+ *    satu-duanya `NULL` (yang akan jadi sama dengan baris lain yang juga NULL)
+ *    tidak otomatis dianggap satu keluarga. Kalau alamat tidak bisa dipakai —
+ *    semua NULL — pencarian turun ke `nama_kk` saja, dan hasilnya tetap
+ *    berlebihan.
+ * 2. **`jumlah_art`.** Jumlah anggota yang tercatat per kepala keluarga pada
+ *    baris warga yang dipilih. Ini pembatas alami: ambil hanya N baris teratas
+ *    sesuai urutan. Tidak ada di tabel `data_warga`, jadi batas itu hanya
+ *    berlaku kalau `data_warga_import` menyumbang baris ke keluarga itu.
+ *
+ * Urutan baris penting karena pemotongan `jumlah_art` mengambil N teratas:
+ * kepala keluarga dulu (nama warga sama dengan nama KK), lalu nama warga.
+ * Baris import dengan NIK yang sudah tersimpan di `data_warga` dibuang supaya
+ * tidak dobel, sama seperti di {@link querySasaranWarga}.
+ *
+ * `alamat` sengaja tidak dipakai sebagai kunci: kolom itu teks bebas dan pasti
+ * beda ejaan antar baris ("gg. III" vs "Gg III"), sehingga menyamakannya akan
+ * memotong anggota yang sebenarnya satu keluarga.
+ */
+export async function queryAnggotaKeluarga(kunci: {
+  namaKk: string
+  nik: string
+  /** Alamat baris yang dipilih; menyempitkan pencarian agar satu KK saja. */
+  kelurahan?: string | null
+  kecamatan?: string | null
+  rt?: string | null
+  rw?: string | null
+  /** `jumlah_art` baris yang dipilih; batas anggota yang boleh masuk. */
+  jumlahArt?: number | null
+}): Promise<SasaranSuggestion[]> {
+  const namaKk = kunci.namaKk.trim()
+  const nik = kunci.nik.trim()
+  if (!namaKk && !nik) return []
+
+  // Alamat hanya menyempitkan kalau ada isinya. Tanpa alamat, memakai
+  // `NULLIF`-nya justru membuat semua baris tanpa rt/rw tampak satu keluarga.
+  const alamatPakai =
+    !!(kunci.kelurahan?.trim() || kunci.kecamatan?.trim()) ||
+    !!kunci.rt?.trim() ||
+    !!kunci.rw?.trim()
+
+  const syaratNama = sql`btrim(nama_kk) ILIKE ${namaKk}`
+  // `IS NOT DISTINCT FROM` dipakai supaya NULL di sisi database dianggap sama
+  // dengan NULL di sisi parameter: baris yang rt/rw-nya kosong tidak boleh
+  // tercampur dengan baris yang rt/rw-nya terisi. `NULLIF` di sisi kolom
+  // menormalkan string kosong jadi NULL supaya keduanya tidak berbeda.
+  const syaratAlamat = sql`
+    NULLIF(btrim(kelurahan::text), '') IS NOT DISTINCT FROM NULLIF(${kunci.kelurahan ?? null}, '')
+    AND NULLIF(btrim(kecamatan::text), '') IS NOT DISTINCT FROM NULLIF(${kunci.kecamatan ?? null}, '')
+    AND NULLIF(btrim(rt::text), '') IS NOT DISTINCT FROM NULLIF(${kunci.rt ?? null}, '')
+    AND NULLIF(btrim(rw::text), '') IS NOT DISTINCT FROM NULLIF(${kunci.rw ?? null}, '')
+  `
+  const syaratKeluarga = namaKk
+    ? alamatPakai
+      ? sql`(${syaratNama} AND ${syaratAlamat})`
+      : syaratNama
+    : nik
+    ? sql`btrim(nik) = ${nik}`
+    : sql`false`
+  const syaratFinal = nik
+    ? sql`(${syaratKeluarga} OR btrim(nik) = ${nik})`
+    : syaratKeluarga
+
+  // `data_warga` tidak punya `jumlah_art`, dan rt/rw-nya NOT NULL varchar —
+  // bukan smallint nullable seperti di import. Kedua perbedaan itu ditangani
+  // lewat `::text` di `syaratAlamat` dan batas jumlah yang hanya berlaku kalau
+  // ada baris import.
+  const [barisWarga, barisImport] = await Promise.all([
+    db.execute(
+      sql`SELECT ${SELECT_SASARAN_WARGA} FROM data_warga WHERE ${syaratFinal} LIMIT 60`,
+    ),
+    db.execute(
+      sql`SELECT ${SELECT_SASARAN} FROM data_warga_import WHERE ${syaratFinal} LIMIT 60`,
+    ),
+  ])
+  const warga = (barisWarga as unknown as BarisImportSasaran[]).map(
+    normalkanSasaran,
+  )
+  const nikWarga = new Set(
+    warga.map((r) => r.nik).filter((n) => n.length === 16),
+  )
+  const importSisa = (barisImport as unknown as BarisImportSasaran[])
+    .map(normalkanSasaran)
+    .filter((r) => !r.nik || r.nik.length !== 16 || !nikWarga.has(r.nik))
+
+  const semua = [...warga, ...importSisa]
+  // Baris tanpa NIK masih bisa sama persis (nama dan KK sama), jadi dedupe
+  // memakai nama kalau NIK tidak bisa jadi kunci.
+  const terlihat = new Set<string>()
+  const unik = semua.filter((r) => {
+    const kunciBaris = r.nik || `${r.namaArt}|${r.namaKk}`
+    if (terlihat.has(kunciBaris)) return false
+    terlihat.add(kunciBaris)
+    return true
+  })
+
+  const terurut = unik.sort((a, b) => {
+    const aKepala = a.namaKk && a.namaArt === a.namaKk ? 0 : 1
+    const bKepala = b.namaKk && b.namaArt === b.namaKk ? 0 : 1
+    return aKepala - bKepala || a.namaArt.localeCompare(b.namaArt)
+  })
+
+  // `jumlah_art` hanya dipakai kalau minimal ada baris import di keluarga ini;
+  // kalau seluruh anggota berasal dari `data_warga`, tidak ada angka yang bisa
+  // dipercaya sebagai batas dan memotong anggota akan lebih harmful daripada
+  // kelebihan.
+  const jumlah = kunci.jumlahArt
+  const adaBarisImport = importSisa.length > 0
+  if (
+    typeof jumlah === 'number' &&
+    Number.isFinite(jumlah) &&
+    jumlah > 0 &&
+    adaBarisImport &&
+    terurut.length > jumlah
+  )
+    return terurut.slice(0, jumlah)
+
+  return terurut
 }
 
 /** Baris import untuk satu NIK; dipakai server saat menyimpan agar kolom yang
  *  tidak ada di form (`rt`, `rw`, `agama`) tetap terisi tanpa kirim round-trip. */
 async function importUntukNik(nik: string): Promise<SasaranSuggestion | null> {
-    const rows = await db.execute(sql`
+  const rows = await db.execute(sql`
         SELECT ${SELECT_SASARAN}
         FROM data_warga_import
         WHERE nik = ${nik}
         LIMIT 1
     `)
-    const [row] = rows as unknown as BarisImportSasaran[]
-    return row ? normalkanSasaran(row) : null
+  const [row] = rows as unknown as BarisImportSasaran[]
+  return row ? normalkanSasaran(row) : null
 }
 
 /** Pesan error berbahasa petugas untuk kolom `data_warga` yang belum terisi. */
 const LABEL_KOLOM_WARGA: Record<string, string> = {
-    nama_art: "nama warga sasaran",
-    nama_kk: "nama kepala keluarga",
-    hubungan_keluarga: "hubungan dengan kepala keluarga",
-    alamat: "alamat",
-    tgl_lahir: "tanggal lahir warga sasaran",
-    rt: "RT",
-    rw: "RW",
-    kecamatan: "kecamatan",
-    kelurahan: "kelurahan",
-    kota: "kota/kabupaten",
-    status_kawin: "status perkawinan",
-    staff: "petugas",
-    jenis_kelamin: "jenis kelamin warga sasaran",
-    agama: "agama warga sasaran",
-    pendidikan: "pendidikan warga sasaran",
-    pekerjaan: "pekerjaan warga sasaran",
+  nama_art: 'nama warga sasaran',
+  nama_kk: 'nama kepala keluarga',
+  hubungan_keluarga: 'hubungan dengan kepala keluarga',
+  alamat: 'alamat',
+  tgl_lahir: 'tanggal lahir warga sasaran',
+  rt: 'RT',
+  rw: 'RW',
+  kecamatan: 'kecamatan',
+  kelurahan: 'kelurahan',
+  kota: 'kota/kabupaten',
+  status_kawin: 'status perkawinan',
+  staff: 'petugas',
+  jenis_kelamin: 'jenis kelamin warga sasaran',
+  agama: 'agama warga sasaran',
+  pendidikan: 'pendidikan warga sasaran',
+  pekerjaan: 'pekerjaan warga sasaran',
 }
 
 /**
@@ -588,190 +989,227 @@ const LABEL_KOLOM_WARGA: Record<string, string> = {
  * ditulis ulang — data master tidak ditimpa oleh form kunjungan.
  */
 async function simpanWargaSasaran(
-    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-    baris: BarisWarga,
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  baris: BarisWarga,
 ): Promise<void> {
-    await tx
-        .insert(dataWargaTable)
-        .values(baris)
-        .onConflictDoNothing({ target: dataWargaTable.nik })
+  await tx
+    .insert(dataWargaTable)
+    .values(baris)
+    .onConflictDoNothing({ target: dataWargaTable.nik })
 }
 
 /** Susun baris `data_warga` dari payload form, atau lempar error yang menyebut
  *  kolom yang kurang. Semua sumber sudah dinormalkan di `warga-row.ts`. */
 async function barisWargaDariPayload(rec: JsonRecord): Promise<BarisWarga> {
-    const info = (rec.info ?? {}) as JsonRecord
-    const anggota = Array.isArray(rec.anggota) ? (rec.anggota as AnggotaKeluarga[]) : []
-    const suggestion = (await importUntukNik((typeof info.nik === "string" ? info.nik : "").trim())) ?? null
-    const { nilai, hilang } = barisDataWargaDariForm({
-        info: info as unknown as KeluargaInfo,
-        anggota,
-        suggestion,
-    })
-    if (nilai) return nilai
-    if (hilang.includes("anggota")) {
-        throw new Error(
-            "Daftar anggota keluarga harus memuat NIK yang sama dengan NIK sasaran utama, agar data warga bisa disimpan."
-        )
-    }
+  const info = (rec.info ?? {}) as JsonRecord
+  const anggota = Array.isArray(rec.anggota)
+    ? (rec.anggota as AnggotaKeluarga[])
+    : []
+  const suggestion =
+    (await importUntukNik(
+      (typeof info.nik === 'string' ? info.nik : '').trim(),
+    )) ?? null
+  const { nilai, hilang } = barisDataWargaDariForm({
+    info: info as unknown as KeluargaInfo,
+    anggota,
+    suggestion,
+  })
+  if (nilai) return nilai
+  if (hilang.includes('anggota')) {
     throw new Error(
-        `Data warga sasaran belum lengkap. Isi dulu di form: ${hilang.map((k) => LABEL_KOLOM_WARGA[k] ?? k).join(", ")}.`
+      'Daftar anggota keluarga harus memuat NIK yang sama dengan NIK sasaran utama, agar data warga bisa disimpan.',
     )
+  }
+  throw new Error(
+    `Data warga sasaran belum lengkap. Isi dulu di form: ${hilang.map((k) => LABEL_KOLOM_WARGA[k] ?? k).join(', ')}.`,
+  )
 }
 
 export async function listKunjunganRumahRecords() {
-    // Semua versi ikut, bukan cuma published terbaru: lihat catatan
-    // `semuaVersiKunjunganRumah()`.
-    const versionIds = await semuaVersiKunjunganRumah()
-    if (!versionIds) return []
-    const rows = await db
-        .select({ id: surveys.id, tanggal: surveys.tanggal, createdAt: surveys.createdAt, value: surveyEntries.value })
-        .from(surveys)
-        .innerJoin(surveyEntries, eq(surveyEntries.surveyId, surveys.id))
-        .innerJoin(formFields, eq(formFields.id, surveyEntries.fieldId))
-        .where(and(
-            inArray(surveys.formVersionId, versionIds),
-            eq(formFields.nama, NAMA_FIELD_RECORD_LEGACY),
-        ))
-        .orderBy(desc(surveys.createdAt))
-    return rows
-        .map((r) => r.value)
-        .filter((v): v is JsonRecord => !!v && typeof v === "object" && !Array.isArray(v))
-        .map((payload) => ({ id: String(payload.id ?? ""), ...payload }))
+  // Semua versi ikut, bukan cuma published terbaru: lihat catatan
+  // `semuaVersiKunjunganRumah()`.
+  const versionIds = await semuaVersiKunjunganRumah()
+  if (!versionIds) return []
+  const rows = await db
+    .select({
+      id: surveys.id,
+      tanggal: surveys.tanggal,
+      createdAt: surveys.createdAt,
+      value: surveyEntries.value,
+    })
+    .from(surveys)
+    .innerJoin(surveyEntries, eq(surveyEntries.surveyId, surveys.id))
+    .innerJoin(formFields, eq(formFields.id, surveyEntries.fieldId))
+    .where(
+      and(
+        inArray(surveys.formVersionId, versionIds),
+        eq(formFields.nama, NAMA_FIELD_RECORD_LEGACY),
+      ),
+    )
+    .orderBy(desc(surveys.createdAt))
+  return rows
+    .map((r) => r.value)
+    .filter(
+      (v): v is JsonRecord => !!v && typeof v === 'object' && !Array.isArray(v),
+    )
+    .map((payload) => ({ id: String(payload.id ?? ''), ...payload }))
 }
 
 export async function getKunjunganRumahRecord(id: string) {
-    const [row] = await db
-        .select({ value: surveyEntries.value })
-        .from(surveyEntries)
-        .innerJoin(formFields, eq(formFields.id, surveyEntries.fieldId))
-        .where(and(eq(surveyEntries.surveyId, id), eq(formFields.nama, NAMA_FIELD_RECORD_LEGACY)))
-        .limit(1)
-    const payload = row?.value
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null
-    const rec = payload as JsonRecord
-    return { id, ...rec }
+  const [row] = await db
+    .select({ value: surveyEntries.value })
+    .from(surveyEntries)
+    .innerJoin(formFields, eq(formFields.id, surveyEntries.fieldId))
+    .where(
+      and(
+        eq(surveyEntries.surveyId, id),
+        eq(formFields.nama, NAMA_FIELD_RECORD_LEGACY),
+      ),
+    )
+    .limit(1)
+  const payload = row?.value
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload))
+    return null
+  const rec = payload as JsonRecord
+  return { id, ...rec }
 }
 
 export async function saveKunjunganRumahRecord(payload: unknown) {
-    const rec = asJsonRecord(payload)
-    if (typeof rec.waktuSimpan !== "string" || !rec.waktuSimpan) throw new Error("waktuSimpan wajib diisi")
-    if (!rec.info || typeof rec.info !== "object") throw new Error("info keluarga wajib diisi")
+  const rec = asJsonRecord(payload)
+  if (typeof rec.waktuSimpan !== 'string' || !rec.waktuSimpan)
+    throw new Error('waktuSimpan wajib diisi')
+  if (!rec.info || typeof rec.info !== 'object')
+    throw new Error('info keluarga wajib diisi')
 
-    const form = await getKunjunganRumahForm()
-    if (!form) throw new Error("Form kunjungan rumah belum ada di database. Jalankan `pnpm db:seed`.")
-    const fieldId = await fieldIdRecordLegacy(form.formVersionId)
-    if (!fieldId) {
-        throw new Error(
-            `Field "${FIELD_RECORD_LEGACY}" belum ada di form kunjungan rumah. Jalankan \`pnpm db:seed\` untuk membuat definisi form yang cocok dengan kode.`
-        )
-    }
+  const form = await getKunjunganRumahForm()
+  if (!form)
+    throw new Error(
+      'Form kunjungan rumah belum ada di database. Jalankan `pnpm db:seed`.',
+    )
+  const fieldId = await fieldIdRecordLegacy(form.formVersionId)
+  if (!fieldId) {
+    throw new Error(
+      `Field "${FIELD_RECORD_LEGACY}" belum ada di form kunjungan rumah. Jalankan \`pnpm db:seed\` untuk membuat definisi form yang cocok dengan kode.`,
+    )
+  }
 
-    const head = headerDariPayload(rec)
-    if (!head.tanggal) throw new Error("Tanggal kunjungan wajib diisi")
-    if (!isValidNik(head.wargaNik)) {
-        throw new Error("NIK sasaran utama wajib 16 digit.")
-    }
-    const petugas = await pastikanPetugasValid(head.petugasId)
+  const head = headerDariPayload(rec)
+  if (!head.tanggal) throw new Error('Tanggal kunjungan wajib diisi')
+  if (!isValidNik(head.wargaNik)) {
+    throw new Error('NIK sasaran utama wajib 16 digit.')
+  }
+  const petugas = await pastikanPetugasValid(head.petugasId)
 
-    const id = typeof rec.id === "string" && rec.id ? rec.id : crypto.randomUUID()
-    const clean: JsonRecord = { ...rec, id, fotos: cleanFotos(rec.fotos) }
-    const barisWarga = await barisWargaDariPayload(rec)
+  const id = typeof rec.id === 'string' && rec.id ? rec.id : crypto.randomUUID()
+  const clean: JsonRecord = { ...rec, id, fotos: cleanFotos(rec.fotos) }
+  const barisWarga = await barisWargaDariPayload(rec)
 
-    await db.transaction(async (tx) => {
-        // `surveys.wargaNik` punya FK ke `data_warga.nik`, jadi warga sasaran
-        // ditulis lebih dulu. NIK yang sudah terdaftar tidak ditimpa.
-        await simpanWargaSasaran(tx, barisWarga)
-        await tx.insert(surveys).values({
-            id,
-            formVersionId: form.formVersionId,
-            wargaNik: barisWarga.nik,
-            petugasId: petugas.id,
-            tanggal: head.tanggal,
-        })
-        await tx.insert(surveyEntries).values({
-            surveyId: id,
-            fieldId,
-            value: clean,
-        })
+  await db.transaction(async (tx) => {
+    // `surveys.wargaNik` punya FK ke `data_warga.nik`, jadi warga sasaran
+    // ditulis lebih dulu. NIK yang sudah terdaftar tidak ditimpa.
+    await simpanWargaSasaran(tx, barisWarga)
+    await tx.insert(surveys).values({
+      id,
+      formVersionId: form.formVersionId,
+      wargaNik: barisWarga.nik,
+      petugasId: petugas.id,
+      tanggal: head.tanggal,
     })
-    return { id, ...clean }
+    await tx.insert(surveyEntries).values({
+      surveyId: id,
+      fieldId,
+      value: clean,
+    })
+  })
+  return { id, ...clean }
 }
 
 export async function updateKunjunganRumahRecord(id: string, payload: unknown) {
-    const rec = asJsonRecord(payload)
-    const clean: JsonRecord = { ...rec, id, fotos: cleanFotos(rec.fotos) }
+  const rec = asJsonRecord(payload)
+  const clean: JsonRecord = { ...rec, id, fotos: cleanFotos(rec.fotos) }
 
-    const [header] = await db
-        .select({ formVersionId: surveys.formVersionId })
-        .from(surveys)
-        .where(eq(surveys.id, id))
-        .limit(1)
-    if (!header) throw new Error("Kunjungan rumah tidak ditemukan")
+  const [header] = await db
+    .select({ formVersionId: surveys.formVersionId })
+    .from(surveys)
+    .where(eq(surveys.id, id))
+    .limit(1)
+  if (!header) throw new Error('Kunjungan rumah tidak ditemukan')
 
-    const fieldId = await fieldIdRecordLegacy(header.formVersionId)
-    if (!fieldId) throw new Error(`Field "${FIELD_RECORD_LEGACY}" tidak ada di form versi ini`)
+  const fieldId = await fieldIdRecordLegacy(header.formVersionId)
+  if (!fieldId)
+    throw new Error(
+      `Field "${FIELD_RECORD_LEGACY}" tidak ada di form versi ini`,
+    )
 
-    const head = headerDariPayload(clean)
-    if (head.wargaNik && head.petugasId) {
-        // Sama seperti saat menyimpan: warga sasaran ditulis dulu kalau belum
-        // terdaftar, supaya `surveys.wargaNik` tidak menggagalkan update.
-        if (!head.tanggal) throw new Error("Tanggal kunjungan wajib diisi")
-        if (!isValidNik(head.wargaNik)) {
-            throw new Error("NIK sasaran utama wajib 16 digit.")
-        }
-        const petugas = await pastikanPetugasValid(head.petugasId)
-        const barisWarga = await barisWargaDariPayload(clean)
-        await db.transaction(async (tx) => {
-            await simpanWargaSasaran(tx, barisWarga)
-            await tx
-                .update(surveys)
-                .set({
-                    wargaNik: barisWarga.nik,
-                    petugasId: petugas.id,
-                    tanggal: head.tanggal,
-                })
-                .where(eq(surveys.id, id))
-            await tx
-                .delete(surveyEntries)
-                .where(and(eq(surveyEntries.surveyId, id), eq(surveyEntries.fieldId, fieldId)))
-            await tx.insert(surveyEntries).values({ surveyId: id, fieldId, value: clean })
-        })
-        return { id, ...clean }
+  const head = headerDariPayload(clean)
+  if (head.wargaNik && head.petugasId) {
+    // Sama seperti saat menyimpan: warga sasaran ditulis dulu kalau belum
+    // terdaftar, supaya `surveys.wargaNik` tidak menggagalkan update.
+    if (!head.tanggal) throw new Error('Tanggal kunjungan wajib diisi')
+    if (!isValidNik(head.wargaNik)) {
+      throw new Error('NIK sasaran utama wajib 16 digit.')
     }
-
-    // Entry lama ditimpa: `survey_entries` punya UNIQUE (surveyId, fieldId) dan tidak
-    // punya kolom untuk patch sebagian, jadi delete-then-insert satu baris.
-    await db
+    const petugas = await pastikanPetugasValid(head.petugasId)
+    const barisWarga = await barisWargaDariPayload(clean)
+    await db.transaction(async (tx) => {
+      await simpanWargaSasaran(tx, barisWarga)
+      await tx
+        .update(surveys)
+        .set({
+          wargaNik: barisWarga.nik,
+          petugasId: petugas.id,
+          tanggal: head.tanggal,
+        })
+        .where(eq(surveys.id, id))
+      await tx
         .delete(surveyEntries)
-        .where(and(eq(surveyEntries.surveyId, id), eq(surveyEntries.fieldId, fieldId)))
-    await db.insert(surveyEntries).values({ surveyId: id, fieldId, value: clean })
+        .where(
+          and(
+            eq(surveyEntries.surveyId, id),
+            eq(surveyEntries.fieldId, fieldId),
+          ),
+        )
+      await tx
+        .insert(surveyEntries)
+        .values({ surveyId: id, fieldId, value: clean })
+    })
     return { id, ...clean }
+  }
+
+  // Entry lama ditimpa: `survey_entries` punya UNIQUE (surveyId, fieldId) dan tidak
+  // punya kolom untuk patch sebagian, jadi delete-then-insert satu baris.
+  await db
+    .delete(surveyEntries)
+    .where(
+      and(eq(surveyEntries.surveyId, id), eq(surveyEntries.fieldId, fieldId)),
+    )
+  await db.insert(surveyEntries).values({ surveyId: id, fieldId, value: clean })
+  return { id, ...clean }
 }
 
 export async function removeKunjunganRumahRecord(id: string) {
-    // `survey_entries` cascade dari `surveys`, jadi cukup hapus header.
-    await db.delete(surveys).where(eq(surveys.id, id))
+  // `survey_entries` cascade dari `surveys`, jadi cukup hapus header.
+  await db.delete(surveys).where(eq(surveys.id, id))
 }
 
 // ---- read model DB (sumber tunggal UI; tanpa data dummy) ----
 export async function queryWargaList() {
-    return await db.query.dataWargaTable.findMany({
-        columns: {
-            nik: true,
-            nama_art: true,
-            nama_kk: true,
-            kelurahan: true,
-            kecamatan: true,
-            kota: true,
-            rt: true,
-            rw: true,
-            alamat: true,
-            tgl_lahir: true,
-            jenis_kelamin: true,
-        },
-        orderBy: (t, { asc }) => [asc(t.nama_art)],
-    })
+  return await db.query.dataWargaTable.findMany({
+    columns: {
+      nik: true,
+      nama_art: true,
+      nama_kk: true,
+      kelurahan: true,
+      kecamatan: true,
+      kota: true,
+      rt: true,
+      rw: true,
+      alamat: true,
+      tgl_lahir: true,
+      jenis_kelamin: true,
+    },
+    orderBy: (t, { asc }) => [asc(t.nama_art)],
+  })
 }
 
 /**
@@ -827,20 +1265,20 @@ export async function queryKelurahanStats(): Promise<KelurahanStat[]> {
  * (`provinsi`, `iks_besar`) tidak diproyeksikan, dan tidak ada yang ditebak.
  */
 export type BarisWargaGabungan = {
-    rawId: string
-    nik: string
-    nikValid: boolean
-    needsUpdate: boolean
-    nama_art: string
-    nama_kk: string
-    kelurahan: string
-    kecamatan: string
-    kota: string
-    rt: string
-    rw: string
-    alamat: string
-    tgl_lahir: string
-    jenis_kelamin: string
+  rawId: string
+  nik: string
+  nikValid: boolean
+  needsUpdate: boolean
+  nama_art: string
+  nama_kk: string
+  kelurahan: string
+  kecamatan: string
+  kota: string
+  rt: string
+  rw: string
+  alamat: string
+  tgl_lahir: string
+  jenis_kelamin: string
 }
 
 /** Proyeksi `data_warga` untuk sumber gabungan. Semua kolomnya `NOT NULL` dan
@@ -900,12 +1338,12 @@ export type RiwayatSasaran = Record<string, boolean | number | string | null>
 /** Parameter pencarian daftar sasaran. Semua opsional; `all` mengabaikan
  *  `page`/`pageSize` (dipakai ekspor seluruh data). */
 export interface QuerySasaranParams {
-    q: string
-    status: "all" | "Sudah" | "Belum"
-    kel: string
-    page: number
-    pageSize: number
-    all: boolean
+  q: string
+  status: 'all' | 'Sudah' | 'Belum'
+  kel: string
+  page: number
+  pageSize: number
+  all: boolean
 }
 
 /** Daftar warga sasaran satu halaman, lengkap dengan total (semua filter) dan
@@ -916,27 +1354,37 @@ export interface QuerySasaranParams {
  *  hanya baris satu halaman (maks 10) yang dikirim, bukan 20 ribu baris import.
  *  `COUNT(*) OVER ()` sekaligus menghitung total setelah filter tanpa query kedua.
  */
-export async function querySasaranListPaged(p: QuerySasaranParams): Promise<{ rows: BarisWargaGabungan[]; total: number }> {
-    const q = p.q.trim()
-    const where: SQL[] = []
+export async function querySasaranListPaged(
+  p: QuerySasaranParams,
+): Promise<{ rows: BarisWargaGabungan[]; total: number }> {
+  const q = p.q.trim()
+  const where: SQL[] = []
 
-    if (q) {
-        const pola = `%${q}%`
-        where.push(sql`(g."nama_art" ILIKE ${pola} OR g."nama_kk" ILIKE ${pola} OR g."nik_tampil" ILIKE ${pola})`)
-    }
-    if (p.kel && p.kel !== "all") {
-        where.push(sql`g."kelurahan" = ${p.kel}`)
-    }
-    if (p.status === "Sudah" || p.status === "Belum") {
-        const ada = sql`EXISTS (SELECT 1 FROM surveys s WHERE s."wargaNik" = g."nik_tampil")`
-        where.push(p.status === "Sudah" ? ada : sql`NOT ${ada}`)
-    }
+  if (q) {
+    const pola = `%${q}%`
+    where.push(
+      sql`(g."nama_art" ILIKE ${pola} OR g."nama_kk" ILIKE ${pola} OR g."nik_tampil" ILIKE ${pola})`,
+    )
+  }
+  if (p.kel && p.kel !== 'all') {
+    where.push(sql`g."kelurahan" = ${p.kel}`)
+  }
+  if (p.status === 'Sudah' || p.status === 'Belum') {
+    const ada = sql`EXISTS (SELECT 1 FROM surveys s WHERE s."wargaNik" = g."nik_tampil")`
+    where.push(p.status === 'Sudah' ? ada : sql`NOT ${ada}`)
+  }
 
-    const whereSql = where.length ? sql`WHERE ${sql.join(where, sql` AND `)}` : sql``
-    const limit = p.all ? null : p.pageSize
-    const offset = p.all ? null : (p.page - 1) * p.pageSize
+  const whereSql = where.length
+    ? sql`WHERE ${sql.join(where, sql` AND `)}`
+    : sql``
+  const limit = p.all ? null : p.pageSize
+  const offset = p.all ? null : (p.page - 1) * p.pageSize
+  // LIMIT/OFFSET sebagai bind parameter, bukan `sql.raw`. `sql.raw` menerima
+  // teks SQL mentah, jadi nilainya jadi bagian dari query — aman hanya
+  // selama tipe `number` yang menahan, dan tipe itu tidak ditegakkan runtime.
+  const batas = limit !== null ? sql`LIMIT ${limit} OFFSET ${offset}` : sql``
 
-    const rows = await db.execute(sql`
+  const rows = await db.execute(sql`
         WITH gabungan AS (
             SELECT DISTINCT ON (u."nik_tampil")
                 u."raw_id", u."nik_tampil", u."nik_valid", u."needs_update",
@@ -955,36 +1403,42 @@ export async function querySasaranListPaged(p: QuerySasaranParams): Promise<{ ro
         FROM gabungan g
         ${whereSql}
         ORDER BY g."nama_art" ASC, g."nik_tampil"
-        ${limit !== null ? sql.raw(`LIMIT ${limit} OFFSET ${offset}`) : sql``}
+        ${batas}
     `)
-    const rowsOut = (rows as unknown as Array<Record<string, unknown>>).map((r) => ({
-        rawId: String(r.raw_id ?? ""),
-        nik: String(r.nik_tampil ?? ""),
-        nikValid: Boolean(r.nik_valid),
-        needsUpdate: Boolean(r.needs_update),
-        nama_art: String(r.nama_art ?? ""),
-        nama_kk: String(r.nama_kk ?? ""),
-        kelurahan: String(r.kelurahan ?? ""),
-        kecamatan: String(r.kecamatan ?? ""),
-        kota: String(r.kota ?? ""),
-        rt: String(r.rt ?? ""),
-        rw: String(r.rw ?? ""),
-        alamat: String(r.alamat ?? ""),
-        tgl_lahir: String(r.tgl_lahir ?? ""),
-        jenis_kelamin: String(r.jenis_kelamin ?? ""),
-    }))
-    const total = rowsOut.length ? Number((rows[0] as { total?: unknown }).total ?? rowsOut.length) : rowsOut.length
-    return { rows: rowsOut, total }
+  const rowsOut = (rows as unknown as Array<Record<string, unknown>>).map(
+    (r) => ({
+      rawId: String(r.raw_id ?? ''),
+      nik: String(r.nik_tampil ?? ''),
+      nikValid: Boolean(r.nik_valid),
+      needsUpdate: Boolean(r.needs_update),
+      nama_art: String(r.nama_art ?? ''),
+      nama_kk: String(r.nama_kk ?? ''),
+      kelurahan: String(r.kelurahan ?? ''),
+      kecamatan: String(r.kecamatan ?? ''),
+      kota: String(r.kota ?? ''),
+      rt: String(r.rt ?? ''),
+      rw: String(r.rw ?? ''),
+      alamat: String(r.alamat ?? ''),
+      tgl_lahir: String(r.tgl_lahir ?? ''),
+      jenis_kelamin: String(r.jenis_kelamin ?? ''),
+    }),
+  )
+  const total = rowsOut.length
+    ? Number((rows[0] as { total?: unknown }).total ?? rowsOut.length)
+    : rowsOut.length
+  return { rows: rowsOut, total }
 }
 
 /** Ambil satu baris sasaran gabungan berdasarkan NIK tampil (NIK asli 16 digit
  *  atau NIK sementara hasil derive). Baris `data_warga` diutamakan kalau NIK-nya
  *  juga ada di import — sama seperti daftar. Dipakai halaman detail (ejaan
  *  `querySasaranDetail`), bukan scan daftar penuh. */
-export async function querySasaranByNik(nik: string): Promise<BarisWargaGabungan | null> {
-    const cari = nik.trim()
-    if (!cari) return null
-    const rows = await db.execute(sql`
+export async function querySasaranByNik(
+  nik: string,
+): Promise<BarisWargaGabungan | null> {
+  const cari = nik.trim()
+  if (!cari) return null
+  const rows = await db.execute(sql`
         SELECT ${SELECT_GABUNGAN_WARGA}
         FROM data_warga
         WHERE nik = ${cari}
@@ -995,24 +1449,24 @@ export async function querySasaranByNik(nik: string): Promise<BarisWargaGabungan
         ORDER BY "prioritas"
         LIMIT 1
     `)
-    const [row] = rows as unknown as Array<Record<string, unknown>>
-    if (!row) return null
-    return {
-        rawId: String(row.raw_id ?? ""),
-        nik: String(row.nik_tampil ?? ""),
-        nikValid: Boolean(row.nik_valid),
-        needsUpdate: Boolean(row.needs_update),
-        nama_art: String(row.nama_art ?? ""),
-        nama_kk: String(row.nama_kk ?? ""),
-        kelurahan: String(row.kelurahan ?? ""),
-        kecamatan: String(row.kecamatan ?? ""),
-        kota: String(row.kota ?? ""),
-        rt: String(row.rt ?? ""),
-        rw: String(row.rw ?? ""),
-        alamat: String(row.alamat ?? ""),
-        tgl_lahir: String(row.tgl_lahir ?? ""),
-        jenis_kelamin: String(row.jenis_kelamin ?? ""),
-    }
+  const [row] = rows as unknown as Array<Record<string, unknown>>
+  if (!row) return null
+  return {
+    rawId: String(row.raw_id ?? ''),
+    nik: String(row.nik_tampil ?? ''),
+    nikValid: Boolean(row.nik_valid),
+    needsUpdate: Boolean(row.needs_update),
+    nama_art: String(row.nama_art ?? ''),
+    nama_kk: String(row.nama_kk ?? ''),
+    kelurahan: String(row.kelurahan ?? ''),
+    kecamatan: String(row.kecamatan ?? ''),
+    kota: String(row.kota ?? ''),
+    rt: String(row.rt ?? ''),
+    rw: String(row.rw ?? ''),
+    alamat: String(row.alamat ?? ''),
+    tgl_lahir: String(row.tgl_lahir ?? ''),
+    jenis_kelamin: String(row.jenis_kelamin ?? ''),
+  }
 }
 
 const SELECT_RIWAYAT_KS = sql`
@@ -1050,8 +1504,49 @@ const SELECT_RIWAYAT_KS = sql`
  * tapi tidak punya baris riwayat, kolomnya `null` karena `LEFT JOIN`. Tidak
  * ditebak dari kolom lain.
  */
-export async function queryRiwayatKsUntukNik(nik: string): Promise<RiwayatSasaran> {
-    const rows = await db.execute(sql`
+/**
+ * Riwayat kesehatan keluarga untuk satu warga, dicari lewat `raw_id`.
+ *
+ * Berbeda dari {@link queryRiwayatKsUntukNik} yang memakai NIK, versi ini memakai
+ * kunci yang sebenarnya: `raw_id` di `riwayat_ks_import` adalah foreign key ke
+ * `data_warga_import.raw_id` (`src/lib/schema/data-import.ts:66-71`), relasinya
+ * 1:1. NIK hanya dipakai sebagai cadangan ketika warga tidak punya `raw_id`
+ * (warga hasil kunjungan sebelumnya tidak pernah menyimpan kunci itu).
+ *
+ * `ada` membedakan "tidak punya baris riwayat" dari "punya baris tapi semua
+ * kolomnya `null"`. Tanpa itu, pemanggil tidak bisa tahu apakah kosong berarti
+ * tidak ada data atau memang tidak diperiksa, dan dua kasus itu butuh perlakuan
+ * berbeda.
+ */
+export async function queryRiwayatKsUntukWarga(kunci: {
+  rawId: string
+  nik: string
+}): Promise<{ ada: boolean; nilai: RiwayatSasaran }> {
+  const rawId = kunci.rawId.trim()
+  const nik = kunci.nik.trim()
+  if (!rawId && !nik) return { ada: false, nilai: {} }
+
+  const syarat = rawId
+    ? sql`riwayat_ks_import.raw_id = ${rawId}`
+    : sql`data_warga_import.nik = ${nik} OR data_warga_import.raw_id = ${nik}`
+
+  const rows = await db.execute(sql`
+        SELECT true AS "ada", ${SELECT_RIWAYAT_KS}
+        FROM riwayat_ks_import
+        LEFT JOIN data_warga_import ON data_warga_import.raw_id = riwayat_ks_import.raw_id
+        WHERE ${syarat}
+        LIMIT 1
+    `)
+  const [row] = rows as unknown as Array<{ ada: boolean } & RiwayatSasaran>
+  if (!row) return { ada: false, nilai: {} }
+  const { ada, ...nilai } = row
+  return { ada: true, nilai }
+}
+
+export async function queryRiwayatKsUntukNik(
+  nik: string,
+): Promise<RiwayatSasaran> {
+  const rows = await db.execute(sql`
         SELECT ${SELECT_RIWAYAT_KS}
         FROM data_warga_import
         LEFT JOIN riwayat_ks_import ON riwayat_ks_import.raw_id = data_warga_import.raw_id
@@ -1061,37 +1556,43 @@ export async function queryRiwayatKsUntukNik(nik: string): Promise<RiwayatSasara
         ORDER BY data_warga_import.raw_id
         LIMIT 1
     `)
-    const [row] = rows as unknown as RiwayatSasaran[]
-    return row ?? {}
+  const [row] = rows as unknown as RiwayatSasaran[]
+  return row ?? {}
 }
 
-export async function querySurveyStatsByNik(): Promise<Array<{ nik: string; total: number; terakhir: string | null }>> {
-    // Kolom NIK di `surveys` bernama `wargaNik` (dulu `nik`, sudah di-rename saat
-    // tabel dibuat ulang ke schema v2). Nama lama di sini bikin query gagal runtime
-    // dengan "column nik does not exist", bukan error TypeScript.
-    const rows = await db.execute(sql`
+export async function querySurveyStatsByNik(): Promise<
+  Array<{ nik: string; total: number; terakhir: string | null }>
+> {
+  // Kolom NIK di `surveys` bernama `wargaNik` (dulu `nik`, sudah di-rename saat
+  // tabel dibuat ulang ke schema v2). Nama lama di sini bikin query gagal runtime
+  // dengan "column nik does not exist", bukan error TypeScript.
+  const rows = await db.execute(sql`
         SELECT "wargaNik" AS "nik", COUNT(*)::int AS "total", MAX("tanggal")::text AS "terakhir"
         FROM surveys
         WHERE "wargaNik" IS NOT NULL
         GROUP BY "wargaNik"
     `)
-    return rows as unknown as Array<{ nik: string; total: number; terakhir: string | null }>
+  return rows as unknown as Array<{
+    nik: string
+    total: number
+    terakhir: string | null
+  }>
 }
 
 /** Baris isian form yang dipakai dashboard, laporan, dan detail sasaran. */
 export interface BarisIsianForm {
-    id: string
-    tanggal: string
-    /** NULL kalau form-nya tidak menunjuk warga per-submission (mis. kegiatan). */
-    nik: string | null
-    nama: string
-    kelurahan: string
-    petugas: string
-    /** Nama form dari `forms`, bukan label hardcoded — ini yang membuat record
-     *  form buatan Form Builder tidak lagi tampil sebagai "kunjungan rumah". */
-    formNama: string
-    formKode: string | null
-    formVersion: number
+  id: string
+  tanggal: string
+  /** NULL kalau form-nya tidak menunjuk warga per-submission (mis. kegiatan). */
+  nik: string | null
+  nama: string
+  kelurahan: string
+  petugas: string
+  /** Nama form dari `forms`, bukan label hardcoded — ini yang membuat record
+   *  form buatan Form Builder tidak lagi tampil sebagai "kunjungan rumah". */
+  formNama: string
+  formKode: string | null
+  formVersion: number
 }
 
 /**
@@ -1119,8 +1620,10 @@ export interface BarisIsianForm {
  * dilabelikan sesuai form asalnya. `nik` karena itu jadi nullable: form yang tidak
  * mewajibkan warga (kegiatan, form generic) tetap tampil, hanya tanpa kolom warga.
  */
-export async function querySurveysWithWarga(limit = 500): Promise<BarisIsianForm[]> {
-    const rows = await db.execute(sql`
+export async function querySurveysWithWarga(
+  limit = 500,
+): Promise<BarisIsianForm[]> {
+  const rows = await db.execute(sql`
         SELECT
             s.id                                   AS "id",
             to_char(s."tanggal", 'YYYY-MM-DD')     AS "tanggal",
@@ -1139,22 +1642,22 @@ export async function querySurveysWithWarga(limit = 500): Promise<BarisIsianForm
         ORDER BY s."tanggal" DESC
         LIMIT ${limit}
     `)
-    return rows as unknown as BarisIsianForm[]
+  return rows as unknown as BarisIsianForm[]
 }
 
 /** Satu baris riwayat submit untuk tab "Riwayat Submit Form". */
 export interface BarisRiwayatSubmit {
-    id: string
-    tanggal: string
-    dibuat: string
-    formNama: string
-    formKode: string | null
-    formVersion: number
-    petugas: string
-    nik: string | null
-    nama: string
-    kelurahan: string
-    jumlahJawaban: number
+  id: string
+  tanggal: string
+  dibuat: string
+  formNama: string
+  formKode: string | null
+  formVersion: number
+  petugas: string
+  nik: string | null
+  nama: string
+  kelurahan: string
+  jumlahJawaban: number
 }
 
 /**
@@ -1165,19 +1668,20 @@ export interface BarisRiwayatSubmit {
  * (tanpa `undefined`/fungsi/siklus), jadi nilai apa pun yang ada di database bisa
  * di-cast ke sini tanpa menebak-nebak.
  */
-export type JsonNilai = string | number | boolean | null | JsonNilai[] | { [key: string]: JsonNilai }
+export type JsonNilai =
+  string | number | boolean | null | JsonNilai[] | { [key: string]: JsonNilai }
 
 /** Satu jawaban beserta label field-nya, untuk panel detail riwayat. */
 export interface BarisJawabanSubmit {
-    fieldId: string
-    nama: string
-    label: string
-    tipe: string
-    urutan: number
-    /** Bentuk jsonb apa adanya; diformat di klien lewat `formatNilaiJawapan`. */
-    value: JsonNilai
-    /** Baris `form_field_options`, untuk memetakan value ke label. */
-    opsi: Array<{ value: string; label: string | null }>
+  fieldId: string
+  nama: string
+  label: string
+  tipe: string
+  urutan: number
+  /** Bentuk jsonb apa adanya; diformat di klien lewat `formatNilaiJawapan`. */
+  value: JsonNilai
+  /** Baris `form_field_options`, untuk memetakan value ke label. */
+  opsi: Array<{ value: string; label: string | null }>
 }
 
 /**
@@ -1190,13 +1694,13 @@ export interface BarisJawabanSubmit {
  * karena halamannya sudah mengambil 200 baris.
  */
 export async function queryRiwayatSubmit(params: {
-    limit?: number
-    formId?: number | null
+  limit?: number
+  formId?: number | null
 }): Promise<BarisRiwayatSubmit[]> {
-    const limit = params.limit ?? 200
-    const filterForm = params.formId ? sql`AND f.id = ${params.formId}` : sql``
+  const limit = params.limit ?? 200
+  const filterForm = params.formId ? sql`AND f.id = ${params.formId}` : sql``
 
-    const rows = await db.execute(sql`
+  const rows = await db.execute(sql`
         SELECT
             s.id                                   AS "id",
             to_char(s."tanggal", 'YYYY-MM-DD')     AS "tanggal",
@@ -1219,7 +1723,7 @@ export async function queryRiwayatSubmit(params: {
         ORDER BY s."createdAt" DESC
         LIMIT ${limit}
     `)
-    return rows as unknown as BarisRiwayatSubmit[]
+  return rows as unknown as BarisRiwayatSubmit[]
 }
 
 /**
@@ -1229,50 +1733,57 @@ export async function queryRiwayatSubmit(params: {
  * puluhan baris opsi; join langsung ke `survey_entries` akan mengalikan baris
  * jawaban dan membuat jumlah jawaban tidak jujur.
  */
-export async function queryJawabanSubmit(surveyId: string): Promise<BarisJawabanSubmit[]> {
-    const jawaban = await db
-        .select({
-            fieldId: surveyEntries.fieldId,
-            nama: formFields.nama,
-            label: formFields.label,
-            tipe: formFields.tipe,
-            urutan: formFields.urutan,
-            value: surveyEntries.value,
-        })
-        .from(surveyEntries)
-        .innerJoin(formFields, eq(formFields.id, surveyEntries.fieldId))
-        .where(eq(surveyEntries.surveyId, surveyId))
+export async function queryJawabanSubmit(
+  surveyId: string,
+): Promise<BarisJawabanSubmit[]> {
+  const jawaban = await db
+    .select({
+      fieldId: surveyEntries.fieldId,
+      nama: formFields.nama,
+      label: formFields.label,
+      tipe: formFields.tipe,
+      urutan: formFields.urutan,
+      value: surveyEntries.value,
+    })
+    .from(surveyEntries)
+    .innerJoin(formFields, eq(formFields.id, surveyEntries.fieldId))
+    .where(eq(surveyEntries.surveyId, surveyId))
 
-    if (jawaban.length === 0) return []
+  if (jawaban.length === 0) return []
 
-    const opsi = await db
-        .select({
-            fieldId: formFieldOptions.fieldId,
-            value: formFieldOptions.value,
-            label: formFieldOptions.label,
-        })
-        .from(formFieldOptions)
-        .where(inArray(
-            formFieldOptions.fieldId,
-            jawaban.map((j) => j.fieldId),
-        ))
+  const opsi = await db
+    .select({
+      fieldId: formFieldOptions.fieldId,
+      value: formFieldOptions.value,
+      label: formFieldOptions.label,
+    })
+    .from(formFieldOptions)
+    .where(
+      inArray(
+        formFieldOptions.fieldId,
+        jawaban.map((j) => j.fieldId),
+      ),
+    )
 
-    const opsiByField = new Map<string, Array<{ value: string; label: string | null }>>()
-    for (const o of opsi) {
-        const list = opsiByField.get(o.fieldId) ?? []
-        list.push({ value: o.value, label: o.label })
-        opsiByField.set(o.fieldId, list)
-    }
+  const opsiByField = new Map<
+    string,
+    Array<{ value: string; label: string | null }>
+  >()
+  for (const o of opsi) {
+    const list = opsiByField.get(o.fieldId) ?? []
+    list.push({ value: o.value, label: o.label })
+    opsiByField.set(o.fieldId, list)
+  }
 
-    return jawaban.map((j) => ({
-        fieldId: j.fieldId,
-        nama: j.nama,
-        label: j.label,
-        tipe: j.tipe,
-        urutan: j.urutan,
-        value: j.value as JsonNilai,
-        opsi: opsiByField.get(j.fieldId) ?? [],
-    }))
+  return jawaban.map((j) => ({
+    fieldId: j.fieldId,
+    nama: j.nama,
+    label: j.label,
+    tipe: j.tipe,
+    urutan: j.urutan,
+    value: j.value as JsonNilai,
+    opsi: opsiByField.get(j.fieldId) ?? [],
+  }))
 }
 
 /**
@@ -1281,8 +1792,10 @@ export async function queryJawabanSubmit(surveyId: string): Promise<BarisJawaban
  * Query terpisah, bukan mencari di hasil `querySurveysWithWarga`: daftar itu
  * dibatasi 500 baris terbaru, jadi submit lama tidak akan ketemu di sana.
  */
-export async function queryRingkasanSubmit(surveyId: string): Promise<BarisIsianForm | null> {
-    const rows = await db.execute(sql`
+export async function queryRingkasanSubmit(
+  surveyId: string,
+): Promise<BarisIsianForm | null> {
+  const rows = await db.execute(sql`
         SELECT
             s.id                                   AS "id",
             to_char(s."tanggal", 'YYYY-MM-DD')     AS "tanggal",
@@ -1301,15 +1814,15 @@ export async function queryRingkasanSubmit(surveyId: string): Promise<BarisIsian
         WHERE s.id = ${surveyId}
         LIMIT 1
     `)
-    const baris = rows as unknown as BarisIsianForm[]
-    return baris[0] ?? null
+  const baris = rows as unknown as BarisIsianForm[]
+  return baris[0] ?? null
 }
 
 /** Form yang punya submission, untuk dropdown filter tab riwayat. */
 export async function queryFormAdaSubmit(): Promise<
-    Array<{ formId: number; nama: string; jumlahSubmit: number }>
+  Array<{ formId: number; nama: string; jumlahSubmit: number }>
 > {
-    const rows = await db.execute(sql`
+  const rows = await db.execute(sql`
         SELECT f.id AS "formId", f.nama AS "nama", COUNT(s.id)::int AS "jumlahSubmit"
         FROM surveys s
         INNER JOIN form_versions fv ON fv.id = s."formVersionId"
@@ -1317,6 +1830,9 @@ export async function queryFormAdaSubmit(): Promise<
         GROUP BY f.id, f.nama
         ORDER BY f.nama
     `)
-    return rows as unknown as Array<{ formId: number; nama: string; jumlahSubmit: number }>
+  return rows as unknown as Array<{
+    formId: number
+    nama: string
+    jumlahSubmit: number
+  }>
 }
-

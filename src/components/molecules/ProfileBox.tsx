@@ -1,49 +1,42 @@
-import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
-import { Avatar } from "@/components/atoms/Avatar";
-import { LogOut } from "lucide-react";
+import { useEffect, useRef, useState } from 'react'
+import { Avatar } from '@/components/atoms/Avatar'
+import { LogOut } from 'lucide-react'
+import { useIsMobile } from '@/hooks/use-media-query'
 
 export interface ProfileBoxProps {
-  name?: string;
-  avatarSrc?: string;
-  onLogout?: () => void;
+  name?: string
+  avatarSrc?: string
+  onLogout?: () => void
 }
 
-function useIsMobile(breakpoint = 768): boolean {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    setIsMobile(mql.matches);
-    mql.addEventListener("change", handler);
-    return () => mql.removeEventListener("change", handler);
-  }, [breakpoint]);
-  return isMobile;
-}
-
-export function ProfileBox({ name = "A. Jubaidi", avatarSrc = "https://i.pravatar.cc/100?img=12", onLogout }: ProfileBoxProps) {
-  const isMobile = useIsMobile();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+export function ProfileBox({
+  name = 'A. Jubaidi',
+  avatarSrc = 'https://i.pravatar.cc/100?img=12',
+  onLogout,
+}: ProfileBoxProps) {
+  const isMobile = useIsMobile()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return
     const handle = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
+        setOpen(false)
       }
-    };
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, [open]);
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
 
+  // Desktop: logout diurus Sidebar, jadi tidak perlu dropdown di sini.
   if (!isMobile) {
     return (
       <div className="flex items-center gap-2.5">
         <span className="text-[13px] font-semibold text-ink">{name}</span>
         <Avatar src={avatarSrc} size="sm" />
       </div>
-    );
+    )
   }
 
   return (
@@ -72,5 +65,5 @@ export function ProfileBox({ name = "A. Jubaidi", avatarSrc = "https://i.pravata
         </div>
       )}
     </div>
-  );
+  )
 }

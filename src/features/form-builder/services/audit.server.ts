@@ -14,7 +14,8 @@ import { maskNik } from './masking'
  * `sebelum` dan `sesudah` juga tidak boleh berisi nilai mentah dari kolom
  * sensitif, karena kedua kolom itu ikut tersalin ke backup.
  */
-export type AksiAudit = 'create' | 'read' | 'update' | 'delete' | 'publish' | 'login' | 'logout'
+export type AksiAudit =
+  'create' | 'read' | 'update' | 'delete' | 'publish' | 'login' | 'logout'
 
 export interface CatatanAudit {
   userId?: string | null

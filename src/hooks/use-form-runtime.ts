@@ -23,35 +23,35 @@
  * masuk ke satu input, bukan ke input yang diklik. `0` dan `false` TIDAK pernah
  * dianggap kosong: keduanya jawaban yang sah untuk field `number`.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { simpanFormulir, cariSasaranWarga } from "@/lib/utils.functions";
-import { hariIni, pesanError } from "@/lib/utils";
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { simpanFormulir, cariSasaranWarga } from '@/lib/utils.functions'
+import { hariIni, pesanError } from '@/lib/utils'
 import type {
   DefinisiRuntime,
   FieldRuntime,
   HasilSimpanFormulir,
   SectionRuntime,
-} from "@/features/survey/services/form-runtime.server";
-import type { SasaranSuggestion } from "@/features/kunjungan-rumah/lib/warga-row";
-import { usePetugasOpsi } from "@/hooks/use-petugas-opsi";
+} from '@/features/survey/services/form-runtime.server'
+import type { SasaranSuggestion } from '@/features/kunjungan-rumah/lib/warga-row'
+import { usePetugasOpsi } from '@/hooks/use-petugas-opsi'
 
 /** Panjang ketikan minimum sebelum server mencari warga; 3 sudah cukup unik. */
-const MIN_KETIK_WARGA = 3;
+const MIN_KETIK_WARGA = 3
 /** Tunda pencarian warga supaya satu ketikan tidak jadi satu round-trip. */
-const DEBOUNCE_WARGA_MS = 300;
+const DEBOUNCE_WARGA_MS = 300
 
 /**
  * Nilai bawaan dibuat di module scope, bukan di dalam hook: objek dan array ini
  * dibaca banyak render dan tidak pernah dimutasi, jadi satu instance cukup.
  * `reset` memakai kembali konstanta yang sama, bukan membuat objek baru.
  */
-const PETUGAS_KOSONG = "";
-const WARGA_KOSONG = "";
-const CARI_KOSONG = "";
-const TANGGAL_AWAL = hariIni();
-const SARAN_KOSONG: SasaranSuggestion[] = [];
-const ANSWER_KOSONG: Record<string, unknown> = {};
-const SECTION_KOSONG: SectionRuntime[] = [];
+const PETUGAS_KOSONG = ''
+const WARGA_KOSONG = ''
+const CARI_KOSONG = ''
+const TANGGAL_AWAL = hariIni()
+const SARAN_KOSONG: SasaranSuggestion[] = []
+const ANSWER_KOSONG: Record<string, unknown> = {}
+const SECTION_KOSONG: SectionRuntime[] = []
 
 /**
  * `''`, `null`, `undefined`, dan daftar kosong dianggap belum mengisi.
@@ -60,14 +60,17 @@ const SECTION_KOSONG: SectionRuntime[] = [];
  * membuangnya berarti isian yang benar hilang dari payload.
  */
 export function nilaiKosong(value: unknown): boolean {
-  if (value === null || value === undefined) return true;
-  if (typeof value === "string") return value.trim() === "";
-  if (Array.isArray(value)) return value.length === 0;
-  return false;
+  if (value === null || value === undefined) return true
+  if (typeof value === 'string') return value.trim() === ''
+  if (Array.isArray(value)) return value.length === 0
+  return false
 }
 
 /** Berapa field wajib yang masih kosong. `0` dan `false` dihitung terisi. */
-function hitungKosong(fields: readonly FieldRuntime[], answers: Record<string, unknown>): number {
+function hitungKosong(
+  fields: readonly FieldRuntime[],
+  answers: Record<string, unknown>,
+): number {
   let kosong = 0
   for (const field of fields) {
     if (nilaiKosong(answers[field.id])) kosong += 1
@@ -79,10 +82,14 @@ export interface UseFormRuntimeParams {
   formVersionId: string
   definisi: DefinisiRuntime
   /** Dipanggil sekali setelah isian benar-benar tersimpan di server. */
-  onSaved?: (hasil: HasilSimpanFormulir) => void;
+  onSaved?: (hasil: HasilSimpanFormulir) => void
 }
 
-export function useFormRuntime({ formVersionId, definisi, onSaved }: UseFormRuntimeParams) {
+export function useFormRuntime({
+  formVersionId,
+  definisi,
+  onSaved,
+}: UseFormRuntimeParams) {
   const { form, sections, version } = definisi
   const subjekWargaWajib = form.subjekWargaWajib
 
@@ -92,7 +99,8 @@ export function useFormRuntime({ formVersionId, definisi, onSaved }: UseFormRunt
   const [warga, setWarga] = useState<SasaranSuggestion | null>(null)
   const [tanggal, setTanggal] = useState<string>(TANGGAL_AWAL)
   const [cariWarga, setCariWarga] = useState<string>(CARI_KOSONG)
-  const [saranWarga, setSaranWarga] = useState<SasaranSuggestion[]>(SARAN_KOSONG)
+  const [saranWarga, setSaranWarga] =
+    useState<SasaranSuggestion[]>(SARAN_KOSONG)
   const [mencariWarga, setMencariWarga] = useState(false)
   const [saranError, setSaranError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -109,7 +117,10 @@ export function useFormRuntime({ formVersionId, definisi, onSaved }: UseFormRunt
 
   const petugas = usePetugasOpsi()
 
-  const allFields = useMemo(() => sections.flatMap((section) => section.fields), [sections])
+  const allFields = useMemo(
+    () => sections.flatMap((section) => section.fields),
+    [sections],
+  )
 
   /** Jawaban yang benar-benar dikirim: nilai kosong dibuang, sisanya utuh. */
   const terkirim = useMemo(() => {
@@ -137,9 +148,15 @@ export function useFormRuntime({ formVersionId, definisi, onSaved }: UseFormRunt
   }, [sections])
 
   /** Field wajib yang sedang terlihat. */
-  const fieldsWajib = useMemo(() => allFields.filter((f) => f.wajib), [allFields])
+  const fieldsWajib = useMemo(
+    () => allFields.filter((f) => f.wajib),
+    [allFields],
+  )
 
-  const kosongWajib = useMemo(() => hitungKosong(fieldsWajib, answers), [fieldsWajib, answers])
+  const kosongWajib = useMemo(
+    () => hitungKosong(fieldsWajib, answers),
+    [fieldsWajib, answers],
+  )
 
   /** Field wajib pertama yang masih kosong; scene memakainya untuk menggulir ke sana. */
   const firstMissingRequiredId = useMemo(() => {
@@ -150,7 +167,11 @@ export function useFormRuntime({ formVersionId, definisi, onSaved }: UseFormRunt
   }, [fieldsWajib, answers])
 
   const fillPercent =
-    fieldsWajib.length === 0 ? 100 : Math.round(((fieldsWajib.length - kosongWajib) / fieldsWajib.length) * 100)
+    fieldsWajib.length === 0
+      ? 100
+      : Math.round(
+          ((fieldsWajib.length - kosongWajib) / fieldsWajib.length) * 100,
+        )
 
   const setAnswer = useCallback((fieldId: string, value: unknown) => {
     setAnswers((prev) => ({ ...prev, [fieldId]: value }))
@@ -178,7 +199,7 @@ export function useFormRuntime({ formVersionId, definisi, onSaved }: UseFormRunt
         .catch((err: unknown) => {
           if (!hidup) return
           setSaranWarga(SARAN_KOSONG)
-          setSaranError(pesanError(err, "Gagal mencari warga di Data Sasaran."))
+          setSaranError(pesanError(err, 'Gagal mencari warga di Data Sasaran.'))
         })
         .finally(() => {
           if (hidup) setMencariWarga(false)
@@ -206,7 +227,6 @@ export function useFormRuntime({ formVersionId, definisi, onSaved }: UseFormRunt
     setWarga(null)
   }, [])
 
-
   // --- kirim ---------------------------------------------------------------
   const jawaban = useMemo(
     () =>
@@ -225,11 +245,15 @@ export function useFormRuntime({ formVersionId, definisi, onSaved }: UseFormRunt
   const submit = useCallback(async (): Promise<HasilSimpanFormulir | null> => {
     setPercobaanKirim(true)
     if (petugasId.trim() === '') {
-      setError('Pilih petugas pencatat dulu. Nama petugas ikut tersimpan di database.')
+      setError(
+        'Pilih petugas pencatat dulu. Nama petugas ikut tersimpan di database.',
+      )
       return null
     }
     if (subjekWargaWajib && wargaNik.trim() === '') {
-      setError('Form ini wajib menunjuk satu warga. Pilih warga dari Data Sasaran dulu.')
+      setError(
+        'Form ini wajib menunjuk satu warga. Pilih warga dari Data Sasaran dulu.',
+      )
       return null
     }
     if (nilaiKosong(tanggal)) {
@@ -260,7 +284,15 @@ export function useFormRuntime({ formVersionId, definisi, onSaved }: UseFormRunt
     } finally {
       setSaving(false)
     }
-  }, [formVersionId, petugasId, subjekWargaWajib, wargaNik, tanggal, jawaban, onSaved])
+  }, [
+    formVersionId,
+    petugasId,
+    subjekWargaWajib,
+    wargaNik,
+    tanggal,
+    jawaban,
+    onSaved,
+  ])
 
   /** Kembali ke isian kosong untuk form yang sama, tanpa memuat ulang definisi. */
   const reset = useCallback(() => {

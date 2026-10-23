@@ -23,12 +23,13 @@ import type {
   OpsiRuntime,
   SectionRuntime,
 } from '@/features/survey/services/form-runtime.server'
-import type {
-  DraftField,
-  DraftFormDocument,
-  DraftOpsi,
-} from '../types'
-import { SUMBER_CARI_WARGA, SUMBER_SUGGEST, cariSumber, nilaiEnum } from '@/features/form-builder/services/sumber-opsi'
+import type { DraftField, DraftFormDocument, DraftOpsi } from '../types'
+import {
+  SUMBER_CARI_WARGA,
+  SUMBER_SUGGEST,
+  cariSumber,
+  nilaiEnum,
+} from '@/features/form-builder/services/sumber-opsi'
 
 export interface DefinisiPratinjau {
   sections: SectionRuntime[]
@@ -100,14 +101,16 @@ export function fieldKeRuntime(
     // Sumber yang butuh query tidak boleh ditandai "tidak dikenali": daftarnya
     // memang belum diambil, bukan salah konfigurasi.
     sumberOpsiTidakDikenali: false,
-    sumberOpsiLabel: cariSumber(field.optionSourceType, field.optionSourceKey)?.label ?? null,
+    sumberOpsiLabel:
+      cariSumber(field.optionSourceType, field.optionSourceKey)?.label ?? null,
     saran:
       field.optionSourceType === SUMBER_SUGGEST
         ? opsiKeRuntime(field.opsi).map((o) => o.label ?? o.value)
         : [],
     cariWarga:
       field.optionSourceType === SUMBER_CARI_WARGA
-        ? (cariSumber(field.optionSourceType, field.optionSourceKey)?.kolom ?? null)
+        ? (cariSumber(field.optionSourceType, field.optionSourceKey)?.kolom ??
+          null)
         : null,
   }
 }
