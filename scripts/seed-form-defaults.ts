@@ -10,6 +10,17 @@
  * mencetak laporan. Admin yang mengedit field lewat Form Builder tidak boleh
  * kehilangan-editannya hanya karena `pnpm db:seed` dijalankan ulang.
  *
+ * SATU-SATUNYA PENGECUALIAN: FORM KOSONG TOTAL
+ * --------------------------------------------
+ * Form yang tidak punya satu pun section atau field di versi mana pun justru
+ * DIISI definisi bawaannya. Keadaan itu bukan hasil edit admin — tidak ada yang
+ * bisa diedit di form tanpa field — melainkan sisa database yang tabel
+ * definisinya dibangun ulang dalam keadaan kosong oleh migrasi manual (lihat
+ * drizzle/manual/20261008_lengkapi-form-builder.sql). Tanpa pengecualian ini,
+ * pesan "Jalankan `pnpm db:seed`" yang dikirim aplikasi ketika definisi hilang
+ * justru tidak bisa dipenuhi seeder-nya sendiri: `forms` masih ada, seeder
+ * berhenti, dan Laporan/Kegiatan/Form Builder tetap rusak.
+ *
  * Definisi field Form Kunjungan Rumah tidak diketik tangan di sini. Ia
  * diturunkan dari `createDefaultKunjunganRumahTemplates()`, konstanta lokal
  * yang sama dengan fallback dipakai `useKunjunganRumahTemplateDb`. Sebalik
@@ -17,7 +28,7 @@
  * daftar field ke sini secara manual pasti akan menyimpang dari template
  * lokal setelah salah satu sisipan berubah.
  */
-import { eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/server/db.server'
 import {
   formFieldOptions,
@@ -264,15 +275,52 @@ function sectionsKegiatan(): BarisSection[] {
 
 export interface LaporanSeed {
   kode: string
-  dibuat: boolean
+  /**
+   * `diperbaiki` berarti formnya sudah ada dan yang hilang hanya definisinya,
+   * jadi baris `forms` (nama, deskripsi) tidak disentuh. Dipisah dari `dibuat`
+   * supaya laporan `pnpm db:seed` tidak menimbulkan kesan editan admin ikut
+   * tertimpa.
+   */
+  status: 'dibuat' | 'diperbaiki' | 'dilewati'
+  /** Nomor versi yang diisi definisinya; `null` kalau tidak ada yang ditulis. */
   versi: number | null
 }
 
 /**
- * Buat satu form beserta versi published pertama.
+ * Apakah form ini sudah punya definisi (section atau field) di salah satu
+ * versinya?
  *
- * Kalau `forms.kode` sudah ada, fungsi ini mengembalikan `dibuat: false` tanpa
- * menyentuh satu baris pun. Itu yang menjaga editan admin tetap utuh.
+ * Ini pemisah antara "belum pernah di-seed" dan "sudah ada isinya". Selama ada
+ * satu pun section atau field, definisi dianggap milik admin dan seeder tidak
+ * boleh menyentuhnya — walau isinya tidak lengkap sekalipun, mungkin memang
+ * sedang disunting di Form Builder.
+ */
+async function adaDefinisiForm(formId: number): Promise<boolean> {
+  const [section] = await db
+    .select({ id: formSections.id })
+    .from(formSections)
+    .innerJoin(formVersions, eq(formSections.formVersionId, formVersions.id))
+    .where(eq(formVersions.formId, formId))
+    .limit(1)
+  if (section) return true
+
+  const [field] = await db
+    .select({ id: formFields.id })
+    .from(formFields)
+    .innerJoin(formVersions, eq(formFields.formVersionId, formVersions.id))
+    .where(eq(formVersions.formId, formId))
+    .limit(1)
+  return field !== undefined
+}
+
+/**
+ * Buat satu form beserta versi published pertama, atau isi ulang definisi yang
+ * hilang.
+ *
+ * Kalau `forms.kode` sudah ada DAN formnya sudah punya definisi, fungsi ini
+ * mengembalikan `status: 'dilewati'` tanpa menyentuh satu baris pun. Itu yang
+ * menjaga editan admin tetap utuh. Form yang sudah ada tapi kosong total justru
+ * diperbaiki; lihat catatan "SATU-SATUNYA PENGECUALIAN" di atas file ini.
  */
 async function seedForm(params: {
   kode: string
@@ -282,13 +330,15 @@ async function seedForm(params: {
   /** Angka di kolom `form_versions.version`; lihat catatan di dalam fungsi. */
   nomorVersi: number
   sections: BarisSection[]
-}): Promise<boolean> {
-  const existing = await db
+}): Promise<LaporanSeed> {
+  const [existing] = await db
     .select({ id: forms.id })
     .from(forms)
     .where(eq(forms.kode, params.kode))
     .limit(1)
-  if (existing.length > 0) return false
+  if (existing && (await adaDefinisiForm(existing.id))) {
+    return { kode: params.kode, status: 'dilewati', versi: null }
+  }
 
   // Semua penulisan satu form ditulis dalam satu transaksi. Insert per baris di luar
   // transaksi berarti satu round trip ke server Postgres per field, dan Form
@@ -297,16 +347,25 @@ async function seedForm(params: {
   // hitungan detik. Kalau ada field yang gagal, tidak ada form setengah jadi.
   return db.transaction(async (tx) => {
     const now = new Date()
-    const [form] = await tx
-      .insert(forms)
-      .values({
-        nama: params.nama,
-        kode: params.kode,
-        deskripsi: params.deskripsi,
-        subjekWargaWajib: params.subjekWargaWajib,
-      })
-      .returning()
-    if (!form) throw new Error(`Gagal membuat form "${params.nama}"`)
+
+    let formId: number
+    if (existing) {
+      // Jalur perbaikan: baris `forms` sudah ada dan dipakai ulang apa adanya,
+      // jadi `nama`/`deskripsi` yang mungkin sudah diedit admin tidak tertimpa.
+      formId = existing.id
+    } else {
+      const [form] = await tx
+        .insert(forms)
+        .values({
+          nama: params.nama,
+          kode: params.kode,
+          deskripsi: params.deskripsi,
+          subjekWargaWajib: params.subjekWargaWajib,
+        })
+        .returning()
+      if (!form) throw new Error(`Gagal membuat form "${params.nama}"`)
+      formId = form.id
+    }
 
     // Nomor versi BUKAN selalu 1. `form_versions.version` dibaca
     // `templateFromRows()` sebagai penanda "definisi di DB milik template yang
@@ -314,20 +373,73 @@ async function seedForm(params: {
     // KUNJUNGAN_RUMAH_TEMPLATE_VERSION. Kalau di-seed dengan angka 1, seluruh
     // form kunjungan rumah gagal dibuka dengan error versi tidak cocok.
     //
-    // Status tetap langsung `published`, bukan `draft`: form bawaan harus bisa
-    // dipakai petugas tanpa langkah publish manual. `publishedAt` wajib terisi
-    // karena check `form_versions_published_at_check` menagihnya.
-    const [versi] = await tx
-      .insert(formVersions)
-      .values({
-        formId: form.id,
-        version: params.nomorVersi,
-        status: 'published',
-        publishedAt: now,
+    // Yang diisi definisinya adalah versi yang dibaca runtime, yaitu yang
+    // berstatus `published`. Saat memperbaiki, versi itu biasanya sudah ada dan
+    // tinggal diisi; membuat versi kedua yang tayang justru membuat runtime
+    // menebak-nebak.
+    let [versi] = await tx
+      .select({
+        id: formVersions.id,
+        version: formVersions.version,
+        status: formVersions.status,
       })
-      .returning()
-    if (!versi)
-      throw new Error(`Gagal membuat versi untuk form "${params.nama}"`)
+      .from(formVersions)
+      .where(
+        and(
+          eq(formVersions.formId, formId),
+          eq(formVersions.status, 'published'),
+        ),
+      )
+      .orderBy(desc(formVersions.version))
+      .limit(1)
+
+    if (!versi) {
+      // Tidak ada versi yang tayang. Pakai dulu versi bernomor `nomorVersi`
+      // kalau sudah ada — nomor itu yang dipakai seeder pertama kali, jadi
+      // memakainya lagi tidak menabrak unique (formId, version) — baru terbitkan.
+      const [terpakai] = await tx
+        .select({
+          id: formVersions.id,
+          version: formVersions.version,
+          status: formVersions.status,
+        })
+        .from(formVersions)
+        .where(
+          and(
+            eq(formVersions.formId, formId),
+            eq(formVersions.version, params.nomorVersi),
+          ),
+        )
+        .limit(1)
+      versi = terpakai
+    }
+
+    if (versi) {
+      // Status diangkat ke `published` hanya bila tidak ada satupun yang tayang,
+      // jadi tidak mungkin terjadi dua versi published sekaligus.
+      if (versi.status !== 'published') {
+        await tx
+          .update(formVersions)
+          .set({ status: 'published', publishedAt: now })
+          .where(eq(formVersions.id, versi.id))
+      }
+    } else {
+      // Status tetap langsung `published`, bukan `draft`: form bawaan harus bisa
+      // dipakai petugas tanpa langkah publish manual. `publishedAt` wajib terisi
+      // karena check `form_versions_published_at_check` menagihnya.
+      const [baru] = await tx
+        .insert(formVersions)
+        .values({
+          formId,
+          version: params.nomorVersi,
+          status: 'published',
+          publishedAt: now,
+        })
+        .returning()
+      if (!baru)
+        throw new Error(`Gagal membuat versi untuk form "${params.nama}"`)
+      versi = baru
+    }
 
     for (const s of params.sections) {
       const [section] = await tx
@@ -388,42 +500,35 @@ async function seedForm(params: {
         await tx.insert(formFieldOptions).values(opsiRows)
     }
 
-    return true
+    return {
+      kode: params.kode,
+      status: existing ? 'diperbaiki' : 'dibuat',
+      versi: versi.version,
+    }
   })
 }
 
 export async function seedFormDefaults(): Promise<LaporanSeed[]> {
-  const laporan: LaporanSeed[] = []
-
-  const kegiatan = await seedForm({
-    kode: KODE_FORM.kegiatan,
-    nama: NAMA_FORM.kegiatan,
-    deskripsi:
-      'Catatan kegiatan pemberdayaan. Tidak menunjuk warga per-submission; daftar peserta disimpan di field peserta.',
-    subjekWargaWajib: false,
-    nomorVersi: 1,
-    sections: sectionsKegiatan(),
-  })
-  laporan.push({
-    kode: KODE_FORM.kegiatan,
-    dibuat: kegiatan,
-    versi: kegiatan ? 1 : null,
-  })
-
-  const kunjungan = await seedForm({
-    kode: KODE_FORM.kunjunganRumah,
-    nama: NAMA_FORM.kunjunganRumah,
-    deskripsi:
-      'Checklist kunjungan rumah. Setiap submission wajib menunjuk satu warga.',
-    subjekWargaWajib: true,
-    nomorVersi: KUNJUNGAN_RUMAH_TEMPLATE_VERSION,
-    sections: sectionsKunjunganRumah(),
-  })
-  laporan.push({
-    kode: KODE_FORM.kunjunganRumah,
-    dibuat: kunjungan,
-    versi: kunjungan ? KUNJUNGAN_RUMAH_TEMPLATE_VERSION : null,
-  })
-
-  return laporan
+  // Berurutan, bukan paralel: masing-masing adalah satu transaksi ratusan
+  // baris yang memakai pool koneksi yang sama.
+  return [
+    await seedForm({
+      kode: KODE_FORM.kegiatan,
+      nama: NAMA_FORM.kegiatan,
+      deskripsi:
+        'Catatan kegiatan pemberdayaan. Tidak menunjuk warga per-submission; daftar peserta disimpan di field peserta.',
+      subjekWargaWajib: false,
+      nomorVersi: 1,
+      sections: sectionsKegiatan(),
+    }),
+    await seedForm({
+      kode: KODE_FORM.kunjunganRumah,
+      nama: NAMA_FORM.kunjunganRumah,
+      deskripsi:
+        'Checklist kunjungan rumah. Setiap submission wajib menunjuk satu warga.',
+      subjekWargaWajib: true,
+      nomorVersi: KUNJUNGAN_RUMAH_TEMPLATE_VERSION,
+      sections: sectionsKunjunganRumah(),
+    }),
+  ]
 }
