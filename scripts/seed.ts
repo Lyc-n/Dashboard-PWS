@@ -5,7 +5,9 @@
  *   1. `seedReferenceData()` - wilayah kerja, fasilitas kesehatan, pengguna
  *      awal. Isi kalau belum ada, tidak pernah menimpa data yang sudah ada.
  *   2. `seedFormDefaults()` - dua form bawaan. Berhenti kalau `forms.kode`
- *      sudah ada, supaya edit admin di Form Builder tidak hilang.
+ *      sudah ada dan formnya punya definisi, supaya edit admin di Form Builder
+ *      tidak hilang. Form yang kosong total justru diisi definisi bawaannya;
+ *      lihat catatan di `scripts/seed-form-defaults.ts`.
  *
  * Urutannya penting: `users.fasKesId` menunjuk `fasilitas_kesehatan`, jadi
  * langkah 1 harus selesai sebelum ada yang bisa membuat akun.
@@ -34,8 +36,12 @@ async function main(): Promise<void> {
   const laporan = await seedFormDefaults()
   console.log('Form bawaan:')
   for (const baris of laporan) {
-    if (baris.dibuat) {
+    if (baris.status === 'dibuat') {
       console.log(`  ✅ "${baris.kode}" dibuat pada versi ${baris.versi}.`)
+    } else if (baris.status === 'diperbaiki') {
+      console.log(
+        `  🔧 "${baris.kode}" sudah ada tanpa satu pun definisi; definisi bawaan diisi ke versi ${baris.versi}.`,
+      )
     } else {
       console.log(
         `  ℹ️  "${baris.kode}" sudah ada. Definisi tidak disentuh, jadi perubahan admin di Form Builder tetap utuh.`,
