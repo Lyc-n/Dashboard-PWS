@@ -420,3 +420,13 @@ export const pinAttempts = pgTable('pin_attempts', {
   terkunciSampai: timestamp({ withTimezone: true }),
   terakhirGagal: timestamp({ withTimezone: true }).notNull().defaultNow(),
 })
+
+export const pushSubscriptions = pgTable('push_subscriptions', {
+  id: uuid().primaryKey().defaultRandom(),
+  endpoint: text().notNull().unique(),
+  p256dh: text().notNull(),
+  auth: text().notNull(),
+  userAgent: text(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  lastUsedAt: timestamp({ withTimezone: true }),
+})

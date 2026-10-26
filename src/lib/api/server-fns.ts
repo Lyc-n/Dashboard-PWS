@@ -54,6 +54,11 @@ import {
   deriveJadwal,
   deriveTindakLanjutDari,
 } from '@/lib/notifikasi/sumber-warning'
+import {
+  simpanPushSubscription,
+  hapusPushSubscription,
+  kirimPushKeSemua,
+} from '@/lib/server/notifikasi/push.server'
 import type { NotifikasiData } from '@/lib/notifikasi/types'
 import {
   kelurahanStatDari,
@@ -338,6 +343,64 @@ export const getNotifikasiData = createServerFn({ method: 'GET' })
       },
     }
   })
+
+export const simpanPushSubscriptionFn = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator(
+    (d: {
+      endpoint: string
+      keys: { p256dh: string; auth: string }
+      userAgent?: string
+    }) => d,
+  )
+  .handler(async ({ data }) => {
+    await simpanPushSubscription(data)
+    return { ok: true }
+  })
+
+export const hapusPushSubscriptionFn = createServerFn({ method: 'POST' })
+  .middleware([authSessionToken])
+  .validator((d: { endpoint: string }) => d)
+  .handler(async ({ data }) => {
+    await hapusPushSubscription(data.endpoint)
+    return { ok: true }
+  })
+
+export const jalankanPengirimanNotifikasiCron = createServerFn({
+  method: 'GET',
+}).handler(async () => {
+  const { getRequest } = await import('@tanstack/react-start/server')
+  const req = getRequest()
+  const url = new URL(req.url)
+  const secret = url.searchParams.get('secret') ?? ''
+  if (secret !== process.env.CRON_SECRET) {
+    throw new Error('secret tidak valid')
+  }
+  const [kelurahan, records] = await Promise.all([
+    queryKelurahanStats(),
+    listKunjunganRumahRecords().catch(() => [] as Record<string, unknown>[]),
+  ])
+  const visits = keVisitRecord(records)
+  const jadwal = deriveJadwal(visits)
+  const tindak = deriveTindakLanjutDari(visits)
+  const regions = kelurahan.map((k) => ({
+    name: k.name,
+    total: k.total,
+    dikunjungi: k.dikunjungi,
+  }))
+  const { buildWarnings } = await import('@/lib/dashboard/warning')
+  const warnings = buildWarnings(
+    { regions, jadwal, tindakLanjut: tindak },
+    { now: new Date() },
+  )
+  const kritis = warnings.filter((w) => w.severity === 'critical').length
+  const payload = {
+    title: 'Notifikasi Dashboard PWS',
+    body: `${warnings.length} peringatan (${kritis} kritis). Buka untuk detail.`,
+    url: '/',
+  }
+  return await kirimPushKeSemua(payload)
+})
 
 // ---- riwayat submit semua form ----
 // Dipisah dari laporan kunjungan: di sini yang penting form mana, bukan cakupan
