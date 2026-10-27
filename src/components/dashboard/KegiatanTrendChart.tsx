@@ -93,7 +93,7 @@ export function KegiatanTrendChart({ data, loading }: KegiatanTrendChartProps) {
             />
           ),
         }}
-        gridAxis="y"
+        gridAxis="x"
       />
     </Box>
   )

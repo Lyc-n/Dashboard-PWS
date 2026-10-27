@@ -38,10 +38,10 @@ html.theme-anim *::after {
   --color-accent-light: #e0f2f1;
   --color-accent-border: #99d5cf;
   --color-chart: #2563eb;
-  --color-danger: #b91c1c;
+  --color-danger: #e10f13;
   --color-danger-soft: #fef2f2;
   --color-danger-border: #fca5a5;
-  --color-warn: #92400e;
+  --color-warn: #ff6565;
 
   --color-chip-prio-odgj-text: #0f766e;
   --color-chip-prio-odgj-bg: #f0fdfa;

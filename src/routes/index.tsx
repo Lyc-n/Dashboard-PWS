@@ -108,7 +108,7 @@ function Dashboard() {
         {Math.round(period.progress * 100)}% berjalan
       </p>
 
-      <div className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-1">
+      <div className="mt-4 grid grid-cols-3 gap-3 max-md:grid-cols-2">
         <StatCard
           caption="Warga terdata"
           value={data.totals.warga}

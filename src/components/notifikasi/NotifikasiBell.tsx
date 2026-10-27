@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Bell } from 'lucide-react'
-import { Button, Select } from '@/components/ui'
+import { Select } from '@/components/ui'
 import { NotifikasiList } from './NotifikasiList'
 import { FILTER_SEMUA, untukLonceng } from '@/lib/notifikasi/ringkasan'
 import { useNotifikasi } from '@/hooks/notifikasi/use-notifikasi'
 import type { FilterNotifikasi } from '@/lib/notifikasi/types'
+import { ActionIcon, Indicator } from '@mantine/core'
 
 /**
  * Lonceng notifikasi di Topbar.
@@ -57,28 +58,30 @@ export function NotifikasiBell() {
 
   return (
     <div ref={ref} className="relative">
-      <Button
-        aria-label={total > 0 ? `Notifikasi, ${total} aktif` : 'Notifikasi'}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        onClick={() => setOpen((o) => !o)}
-        variant="ghost"
-        size="sm"
-        className="relative px-1.5"
+      <Indicator
+        disabled={total === 0} // Sembunyikan jika tidak ada notifikasi aktif
+        label={total > 99 ? '99+' : total}
+        color={kritis > 0 ? 'var(--color-danger)' : 'var(--color-warn)'} // Warna badge (kritis vs warning)
+        size={18}
+        offset={3}
+        inline
+        classNames={{
+            indicator: '!text-[10px] !font-semibold', // <-- Pakai '!' agar menimpa style bawaan
+          }}
       >
-        <Bell size={18} strokeWidth={1.8} />
-        {total > 0 ? (
-          <span
-            className={
-              'absolute -right-0.5 -top-0.5 min-w-4 rounded-full px-1 text-[10px] font-bold leading-4 ' +
-              (kritis > 0 ? 'bg-danger text-surface' : 'bg-warn text-surface')
-            }
-            aria-hidden="true"
-          >
-            {total > 99 ? '99+' : total}
-          </span>
-        ) : null}
-      </Button>
+        <ActionIcon
+          aria-label={total > 0 ? `Notifikasi, ${total} aktif` : 'Notifikasi'}
+          aria-expanded={open}
+          aria-haspopup="menu"
+          onClick={() => setOpen((o) => !o)}
+          color='var(--color-accent)'
+          variant="light"
+          size="lg"
+          radius="xl"
+        >
+          <Bell size={18} />
+        </ActionIcon>
+      </Indicator>
 
       {open ? (
         <div
