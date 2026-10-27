@@ -1,13 +1,5 @@
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Dot,
-} from 'recharts'
+import { LineChart } from '@mantine/charts'
+import { Box, Center, Loader, Text } from '@mantine/core'
 import { useNavigate } from '@tanstack/react-router'
 import { KegiatanTooltip } from './KegiatanTrendTooltip'
 import type { MonthlyKegiatanStat } from '@/hooks/dashboard/use-kegiatan-trend'
@@ -22,37 +14,22 @@ export function KegiatanTrendChart({ data, loading }: KegiatanTrendChartProps) {
 
   if (loading) {
     return (
-      <div className="h-[280px] flex items-center justify-center">
-        <div className="flex items-center gap-2 text-sm text-muted">
-          <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24">
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-              fill="none"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            />
-          </svg>
+      <Center h={280}>
+        <Loader size="sm" type="dots" />
+        <Text size="sm" c="dimmed" ml="xs">
           Memuat trend kegiatan…
-        </div>
-      </div>
+        </Text>
+      </Center>
     )
   }
 
   if (data.length === 0) {
     return (
-      <div className="h-[280px] flex items-center justify-center">
-        <p className="text-sm text-muted">
+      <Center h={280}>
+        <Text size="sm" c="dimmed">
           Belum ada data kegiatan untuk 12 bulan terakhir
-        </p>
-      </div>
+        </Text>
+      </Center>
     )
   }
 
@@ -63,8 +40,9 @@ export function KegiatanTrendChart({ data, loading }: KegiatanTrendChartProps) {
   const maxKegiatan = Math.max(...data.map((d) => d.totalKegiatan), 1)
 
   return (
-    <div
-      className="h-[280px]"
+    <Box
+      h={280}
+      style={{ cursor: 'pointer' }}
       onClick={(e) => {
         const rect = e.currentTarget.getBoundingClientRect()
         const x = e.clientX - rect.left
@@ -75,74 +53,48 @@ export function KegiatanTrendChart({ data, loading }: KegiatanTrendChartProps) {
         if (entry) handleClick(entry.month)
       }}
     >
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={data}
-          margin={{ top: 10, right: 30, left: 10, bottom: 0 }}
-        >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="var(--color-line)"
-            vertical={false}
-          />
-          <XAxis
-            dataKey="label"
-            tick={{ fontSize: 11, fill: 'var(--color-muted)' }}
-            axisLine={{ stroke: 'var(--color-line)' }}
-            tickLine={false}
-            interval={0}
-          />
-          <YAxis
-            tick={{ fontSize: 11, fill: 'var(--color-muted)' }}
-            axisLine={false}
-            tickLine={false}
-            tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v)}
-            domain={[0, maxKegiatan * 1.3]}
-          />
-          <Tooltip
-            content={(props) => (
-              // recharts mengoper seluruh props Tooltip; spreading
-              // semuanya membawa field yang tidak dikenal type tooltip ini.
-              <KegiatanTooltip
-                active={props.active}
-                payload={props.payload}
-                label={
-                  typeof props.label === 'string' ? props.label : undefined
-                }
-              />
-            )}
-            cursor={{ strokeDasharray: '3 3', stroke: 'var(--color-muted)' }}
-            formatter={(value) => [value ?? 0, 'Kegiatan']}
-          />
-          <Line
-            type="monotone"
-            dataKey="totalKegiatan"
-            stroke="var(--color-accent)"
-            strokeWidth={2.5}
-            dot={false}
-            activeDot={{
-              r: 6,
-              fill: 'var(--color-accent)',
-              stroke: 'var(--color-surface)',
-              strokeWidth: 2,
-            }}
-          />
-          {data.map((entry) => (
-            <Dot
-              key={entry.month}
-              cx={0}
-              cy={0}
-              r={10}
-              fill="transparent"
-              onClick={(_props, event) => {
-                event.stopPropagation()
-                handleClick(entry.month)
-              }}
-              className="cursor-pointer"
+      <LineChart
+        h={280}
+        data={data}
+        dataKey="label"
+        yAxisProps={{
+          domain: [0, maxKegiatan * 1.3],
+          tickFormatter: (v) =>
+            v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}`,
+        }}
+        series={[
+          {
+            name: 'totalKegiatan',
+            label: 'Kegiatan',
+            color: 'var(--color-accent)',
+          },
+        ]}
+        curveType="monotone"
+        strokeWidth={2.5}
+        withDots
+        dotProps={{
+          r: 4,
+          fill: 'var(--color-accent)',
+          stroke: 'var(--color-surface)',
+          strokeWidth: 2,
+        }}
+        activeDotProps={{
+          r: 6,
+          fill: 'var(--color-accent)',
+          stroke: 'var(--color-surface)',
+          strokeWidth: 2,
+        }}
+        tooltipProps={{
+          content: (props) => (
+            <KegiatanTooltip
+              active={props.active}
+              payload={props.payload}
+              label={typeof props.label === 'string' ? props.label : undefined}
             />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
+          ),
+        }}
+        gridAxis="y"
+      />
+    </Box>
   )
 }

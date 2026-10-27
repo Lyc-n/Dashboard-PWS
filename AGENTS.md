@@ -30,10 +30,10 @@ Perubahan yang kamu lakukan harus bersifat fokus, dan tidak mengubah sesuatu dil
 
 ### Glossary
 
- - **projek**: Dashboard PWS, codebase yang kamu kerjakan sekarang
- - **admin / user**: end user dari projek ini, biasanya kader yang tidak mahir teknologi
- - **aku/saya/me/i/developer**: orang yang mengerjakan projek ini. Mereka mengerjakan projek ini dengan bahasa yang berbeda, respon dengan bahasa yang digunakan untuk nge prompt
- - **client**: hardware yang akan menjalankan web ini, biasanya Handphone
+- **projek**: Dashboard PWS, codebase yang kamu kerjakan sekarang
+- **admin / user**: end user dari projek ini, biasanya kader yang tidak mahir teknologi
+- **aku/saya/me/i/developer**: orang yang mengerjakan projek ini. Mereka mengerjakan projek ini dengan bahasa yang berbeda, respon dengan bahasa yang digunakan untuk nge prompt
+- **client**: hardware yang akan menjalankan web ini, biasanya Handphone
 
 ## Gate sebelum commit
 

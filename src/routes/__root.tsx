@@ -2,8 +2,16 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
+// Mantine Imports
+import { ColorSchemeScript, MantineProvider } from '@mantine/core'
+import { Notifications } from '@mantine/notifications'
+
+// Mantine CSS Styles
+import '@mantine/core/styles.css'
+import '@mantine/notifications/styles.css'
+
 import appCss from '@/styles.css?url'
-import { ToastProvider } from '@/providers/toast'
+// import { ToastProvider } from '@/providers/toast'
 import { AuthProvider } from '@/providers/auth'
 import { THEME_INIT_SCRIPT } from '@/lib/theme'
 import icon from '@/assets/brandIcon.png'
@@ -11,16 +19,9 @@ import icon from '@/assets/brandIcon.png'
 export const Route = createRootRoute({
   head: () => ({
     meta: [
-      {
-        charSet: 'utf-8',
-      },
-      {
-        name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
-      },
-      {
-        title: 'Dashboard PWS — Dinas Kesehatan Kota Pasuruan',
-      },
+      { charSet: 'utf-8' },
+      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+      { title: 'Dashboard PWS — Dinas Kesehatan Kota Pasuruan' },
     ],
     links: [
       {
@@ -54,10 +55,14 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
+        <ColorSchemeScript />
       </head>
       <body className="font-sans antialiased wrap-anywhere">
         <AuthProvider>
-          <ToastProvider>{children}</ToastProvider>
+          <MantineProvider>
+            <Notifications position="top-right" zIndex={1000} />
+            {children}
+          </MantineProvider>
         </AuthProvider>
         {import.meta.env.DEV ? (
           <TanStackDevtools

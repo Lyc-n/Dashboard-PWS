@@ -5,10 +5,10 @@ import { pinLogin, getSessionToken } from '@/lib/api/server-fns'
 import { APP_BRAND } from '@/lib/constants'
 import { useToast } from '@/providers/toast'
 import brandIcon from '@/assets/brandIcon.png'
-import { Button, Input, FormField } from '@/components/ui'
 import ThemeToggle from '@/components/ui/ThemeToggle'
 import { normalkanPin } from '@/lib/utils'
 import { sisaMenit } from '@/lib/auth/pin-attempt'
+import { PasswordInput, Button } from '@mantine/core'
 
 /* ALUR LOGIN
 1. cek sessionToken pake beforeLoad di /laporan (form)
@@ -100,35 +100,30 @@ function RouteComponent() {
               </p>
             </div>
 
-            <FormField
+            <PasswordInput
+              autoFocus
               label="PIN"
               required
-              error={error ?? undefined}
-              invalid={!!error}
-            >
-              <Input
-                autoFocus
-                type="password"
-                inputMode="numeric"
-                value={pin}
-                onChange={(e) => {
-                  setPin(normalkanPin(e.target.value))
-                  setError(null)
-                }}
-                placeholder="••••••"
-                autoComplete="off"
-                maxLength={8}
-              />
-            </FormField>
+              inputMode="numeric"
+              value={pin}
+              onChange={(e) => {
+                setPin(normalkanPin(e.target.value))
+                setError(null)
+              }}
+              error={error}
+              placeholder="••••••"
+              autoComplete="off"
+              maxLength={8}
+            />
 
             <Button
               type="submit"
               variant="primary"
-              size="md"
-              className="mt-1 w-full"
-              disabled={busy}
+              fullWidth
+              loading={busy}
+              mt="xs"
             >
-              {busy ? 'Memeriksa…' : 'Masuk'}
+              Masuk
             </Button>
           </form>
         </div>

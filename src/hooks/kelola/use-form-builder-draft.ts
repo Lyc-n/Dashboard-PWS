@@ -6,7 +6,6 @@ import type {
   DraftSection,
   DraftField,
   DraftOpsi,
-  BuildFormVersionInput,
   SelectedItem,
   PaletteItem,
   TipeFieldEditor,
@@ -30,6 +29,12 @@ import {
 } from '@/lib/service/form-builder/template-field'
 import type { PresetField } from '@/lib/service/form-builder/template-field'
 import { useToast } from '@/providers/toast'
+import { normalisasiPayloadBuild } from '@/components/kelola/builder/payload-build'
+import { cariSectionTargetUntukPalette } from '@/components/kelola/builder/drag-target'
+import {
+  susunUlangFieldSetelahDrag,
+  susunUlangSectionSetelahDrag,
+} from '@/components/kelola/builder/drag-reorder'
 
 function generateClientId(): string {
   return crypto.randomUUID()
@@ -392,21 +397,12 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
 
       // Komponen palette atau template → buat field baru.
       if (sourceData.kind === 'palette' || sourceData.kind === 'template') {
-        // Target bisa jadi section atau field di dalamnya. Field dialihkan ke
-        // section induknya supaya komponen mendarat di section yang benar.
-        let targetSection: string | null = null
-        if (targetData.kind === 'section' && targetData.clientId) {
-          targetSection = targetData.clientId
-        } else if (targetData.kind === 'field' && targetData.clientId) {
-          targetSection =
-            document.fields.find((f) => f.clientId === targetData.clientId)
-              ?.sectionClientId ?? null
-        }
-        if (
-          !targetSection ||
-          !document.sections.some((s) => s.clientId === targetSection)
+        const targetSection = cariSectionTargetUntukPalette(
+          targetData,
+          document.sections,
+          document.fields,
         )
-          return
+        if (!targetSection) return
 
         const preset =
           sourceData.kind === 'template'
@@ -446,41 +442,22 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
           ;(groups[f.sectionClientId] ??= []).push(f.clientId)
         }
         const moved = move(groups, event)
-        const byId = new Map(document.fields.map((f) => [f.clientId, f]))
-        const seen = new Set<string>()
-        const newFields: DraftField[] = []
-        for (const s of document.sections) {
-          for (const fid of moved[s.clientId] ?? []) {
-            const f = byId.get(fid)
-            if (f && !seen.has(fid)) {
-              seen.add(fid)
-              newFields.push({ ...f, sectionClientId: s.clientId })
-            }
-          }
-        }
-        for (const f of document.fields) {
-          if (!seen.has(f.clientId)) newFields.push(f)
-        }
+        const newFields = susunUlangFieldSetelahDrag(
+          document.sections,
+          document.fields,
+          moved,
+        )
         setDocument({ ...document, fields: newFields })
         return
       }
 
       // Section → urutan datar di dalam satu versi form.
       const urutan = document.sections.map((s) => s.clientId)
-      const moved = move({ sections: urutan }, event).sections
-      const byId = new Map(document.sections.map((s) => [s.clientId, s]))
-      const seen = new Set<string>()
-      const newSections: DraftSection[] = []
-      for (const sid of moved) {
-        const s = byId.get(sid)
-        if (s && !seen.has(sid)) {
-          seen.add(sid)
-          newSections.push(s)
-        }
-      }
-      for (const s of document.sections) {
-        if (!seen.has(s.clientId)) newSections.push(s)
-      }
+      const movedSections = move({ sections: urutan }, event).sections
+      const newSections = susunUlangSectionSetelahDrag(
+        document.sections,
+        movedSections,
+      )
       setDocument({ ...document, sections: newSections })
     },
     [document, addField, setSelectedItem],
@@ -497,43 +474,7 @@ export function useFormBuilderDraft(): UseFormBuilderDraftReturn {
       setBuildError(null)
 
       try {
-        const sectionsPayload = document.sections.map((s) => ({
-          clientId: s.clientId,
-          id: s.id,
-          nama: s.nama.trim(),
-          deskripsi: s.deskripsi?.trim() ?? null,
-          aktif: s.aktif,
-        }))
-
-        const fieldsPayload = document.fields.map((f) => ({
-          clientId: f.clientId,
-          id: f.id,
-          sectionClientId: f.sectionClientId,
-          nama: f.nama.trim(),
-          label: f.label.trim(),
-          tipe: f.tipe,
-          wajib: f.wajib,
-          aktif: f.aktif,
-          placeholder: f.placeholder?.trim() ?? null,
-          deskripsi: f.deskripsi?.trim() ?? null,
-          jumlahKolom: f.jumlahKolom,
-          optionSourceType: f.optionSourceType,
-          optionSourceKey:
-            f.optionSourceType === SUMBER_SUGGEST ? null : f.optionSourceKey,
-          opsi: f.opsi.map((o, idx) => ({
-            value: o.value.trim(),
-            label: o.label.trim() || o.value.trim(),
-            urutan: idx,
-            aktif: o.aktif,
-          })),
-        }))
-
-        const payload: BuildFormVersionInput = {
-          formVersionId: document.formVersionId,
-          sections: sectionsPayload,
-          fields: fieldsPayload,
-          actorId: null,
-        }
+        const payload = normalisasiPayloadBuild(document)
 
         const result = await buildFormBuilder({ data: payload })
         toast(

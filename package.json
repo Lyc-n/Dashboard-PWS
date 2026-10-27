@@ -25,6 +25,10 @@
   "dependencies": {
     "@dnd-kit/helpers": "~0.5.0",
     "@dnd-kit/react": "~0.5.0",
+    "@mantine/charts": "^9.7.4",
+    "@mantine/core": "^9.7.4",
+    "@mantine/hooks": "^9.7.4",
+    "@mantine/notifications": "^9.7.4",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/history": "1.162.4",
     "@tanstack/react-devtools": "latest",

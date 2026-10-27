@@ -337,3 +337,46 @@ pre code {
 .animate-slide-down {
   animation: slide-down 0.2s ease-out;
 }
+
+.mantine-Notification-root::before {
+  display: none !important;
+}
+
+/* Custom Variants Button Mantine */
+.mantine-Button-root[data-variant='default'] {
+  border-color: var(--color-line);
+  background-color: var(--color-surface);
+  color: var(--color-ink-2);
+}
+.mantine-Button-root[data-variant='default']:hover {
+  border-color: var(--color-accent);
+}
+
+.mantine-Button-root[data-variant='primary'],
+.mantine-Button-root[data-variant='export'] {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.mantine-Button-root[data-variant='primary']:hover,
+.mantine-Button-root[data-variant='export']:hover {
+  background-color: var(--color-accent-hover);
+}
+
+.mantine-Button-root[data-variant='ghost'] {
+  border-color: var(--color-accent-border);
+  background-color: var(--color-surface);
+  color: var(--color-accent);
+}
+.mantine-Button-root[data-variant='ghost']:hover {
+  background-color: var(--color-accent-light);
+}
+
+.mantine-Button-root[data-variant='danger'] {
+  border-color: var(--color-danger-border);
+  background-color: var(--color-surface);
+  color: var(--color-danger);
+}
+.mantine-Button-root[data-variant='danger']:hover {
+  background-color: var(--color-danger-soft);
+}
