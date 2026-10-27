@@ -20,7 +20,7 @@ export function Topbar({ onToggleCollapse }: TopbarProps) {
       >
         <Menu size={18} strokeWidth={1.8} />
       </Button>
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-4">
         <NotifikasiBell />
         <NotifikasiToast />
         <ThemeToggle />

@@ -1,79 +1,75 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useLocation } from '@tanstack/react-router'
-import { useNotifikasi } from '@/hooks/notifikasi/use-notifikasi'
-import {
-  DURASI_TOAST,
-  bacaDitampilkan,
-  pilihKandidatToast,
-  tandaiDitampilkan,
-} from '@/lib/notifikasi/toast-dedup'
-import type { Warning } from '@/lib/dashboard/warning'
+// import { useEffect, createElement } from 'react' // Import createElement
+// import { useLocation, Link } from '@tanstack/react-router'
+// import { notifications } from '@mantine/notifications'
+// import { useNotifikasi } from '@/hooks/notifikasi/use-notifikasi'
+// import {
+//   bacaDitampilkan,
+//   pilihKandidatToast,
+//   tandaiDitampilkan,
+//   DURASI_TOAST,
+// } from '@/lib/notifikasi/toast-dedup'
+// import {
+//   SEVERITY_META,
+//   WARNING_TYPE_ICON,
+//   WARNING_TYPE_LABEL,
+// } from '@/components/dashboard/severity'
+// import { warningTarget } from '@/lib/dashboard/warning'
+// import { labelSingkat } from '@/lib/notifikasi/ringkasan'
+// import { Badge } from '@mantine/core'
 
-/**
- * Perekat antara data notifikasi dan toast (lihat `NotifikasiToast.tsx`).
- *
- * Komponen hanya menerima `aktif` + `tutup`; semua keputusan ("warning mana
- * yang dipilih", "sudah pernah tampil di mana") ada di
- * `lib/toast-dedup.ts` yang murni. Satu toast aktif pada satu waktu; selebihnya
- * mengantre sampai yang sekarang ditutup (tombol, Esc, klik, atau timer).
- *
- * Data dibaca lewat `useNotifikasi()` — cache modulnya sudah dedupe request
- * in-flight, jadi hook ini tidak menambah query berapa pun cuma karena ia
- * dipasang di Topbar bersama lonceng.
- */
-export function useToastNotifikasi(): {
-  aktif: Warning | null
-  jumlahAntrean: number
-  tutup: () => void
-} {
-  const location = useLocation()
-  const { warnings, loading, error } = useNotifikasi()
+// export function useToastNotifikasi() {
+//   const location = useLocation()
+//   const { warnings, loading, error } = useNotifikasi()
 
-  const [antrean, setAntrean] = useState<Warning[]>([])
-  const [aktif, setAktif] = useState<Warning | null>(null)
+//   useEffect(() => {
+//     if (loading || error) return
+//     if (location.pathname.startsWith('/notifikasi')) return
 
-  // Pilih kandidat setiap kali data berhasil dimuat di halaman mana pun
-  // KECUALI /notifikasi — di sana daftarnya sudah tampil sendiri, toast hanya
-  // menggandakan. ID ditandai saat masuk antrean (bukan saat ditutup) supaya
-  // invalidate berikutnya tidak memunculkan ulang toast yang sama.
-  useEffect(() => {
-    if (loading || error) return
-    if (location.pathname.startsWith('/notifikasi')) return
-    const kandidat = pilihKandidatToast(warnings, bacaDitampilkan())
-    if (kandidat.length === 0) return
-    tandaiDitampilkan(kandidat.map((w) => w.id))
-    setAntrean((sebelum) => [...sebelum, ...kandidat])
-  }, [loading, error, warnings, location.pathname])
+//     const kandidat = pilihKandidatToast(warnings, bacaDitampilkan())
+//     if (kandidat.length === 0) return
 
-  // Kepala antrean naik jadi toast aktif. Tanpa guard bawah `aktif`, kepala
-  // akan ditimpa setiap render — yang baru layak naik hanya saat tidak ada
-  // toast berjalan.
-  useEffect(() => {
-    if (aktif || antrean.length === 0) return
-    const [atas, ...sisa] = antrean
-    setAktif(atas ?? null)
-    setAntrean(sisa)
-  }, [aktif, antrean])
+//     tandaiDitampilkan(kandidat.map((w) => w.id))
 
-  const tutup = useCallback(() => setAktif(null), [])
+//     kandidat.forEach((item) => {
+//       const target = warningTarget(item)
+//       const Ikon = WARNING_TYPE_ICON[item.type]
 
-  // Auto-tutup per toast aktif. Efek ini dibangun ulang setiap `aktif` ganti,
-  // jadi timer milik toast ini saja dan dibersihkan saat pindah.
-  useEffect(() => {
-    if (!aktif) return
-    const timer = setTimeout(tutup, DURASI_TOAST)
-    return () => clearTimeout(timer)
-  }, [aktif, tutup])
-
-  // Esc menutup toast yang sedang aktif, polanya sama dengan dropdown lonceng.
-  useEffect(() => {
-    if (!aktif) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') tutup()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [aktif, tutup])
-
-  return { aktif, jumlahAntrean: antrean.length, tutup }
-}
+//       notifications.show({
+//         id: item.id,
+//         autoClose: DURASI_TOAST,
+//         withCloseButton: true,
+//         // Gunakan createElement alih-alih JSX
+//         icon: createElement(Ikon, { size: 16 }),
+//         color:
+//           item.severity === 'critical'
+//             ? 'red'
+//             : item.severity === 'attention'
+//               ? 'yellow'
+//               : 'blue',
+//         title: createElement(
+//           'div',
+//           { className: 'flex items-center gap-1.5 mb-1' },
+//           createElement(Badge, { size: 'xs', variant: 'filled' }, SEVERITY_META[item.severity].label),
+//           createElement('span', { className: 'text-[10px] font-medium uppercase text-muted' }, WARNING_TYPE_LABEL[item.type]),
+//           item.region ? createElement(Badge, { size: 'xs', variant: 'outline', color: 'gray' }, item.region) : null
+//         ),
+//         message: createElement(
+//           'div',
+//           null,
+//           createElement(
+//             Link,
+//             {
+//               to: target.to,
+//               search: target.search as never,
+//               onClick: () => notifications.hide(item.id),
+//               'aria-label': labelSingkat(item),
+//               className: 'font-semibold text-ink hover:underline block text-sm',
+//             },
+//             item.title
+//           ),
+//           item.description ? createElement('p', { className: 'text-xs text-muted mt-0.5' }, item.description) : null
+//         ),
+//       })
+//     })
+//   }, [loading, error, warnings, location.pathname])
+// }

@@ -112,10 +112,6 @@ export function KunjunganRumahFormScene({ record }: Props) {
         title={editMode ? 'Edit Kunjungan Rumah' : 'Kunjungan Rumah'}
         description="Kunjungan Rumah — form fleksibel diatur Admin di Kelola. Tersimpan di database."
       />
-      <DetailHeader
-        title="Kunjungan Rumah — GERMAS 2024"
-        meta="Isi data keluarga & anggota, pilih 1 sasaran tiap anggota yang dinilai, lalu lengkapi penilaian. Periksa ulang sebelum menyimpan."
-      />
       <Stepper steps={steps} />
       <FillBar pct={fillPercent} />
 

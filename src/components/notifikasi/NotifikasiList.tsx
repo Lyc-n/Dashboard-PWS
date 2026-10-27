@@ -21,7 +21,7 @@ export interface NotifikasiListProps {
 
 /**
  * Daftar warning yang dipakai dua tempat: dropdown lonceng Topbar dan halaman
- * /notifikasi. Satu komponen supaya tampilan dan urutan tidak bisa berbeda antara
+ * notifikasi. Satu komponen supaya tampilan dan urutan tidak bisa berbeda antara
  * keduanya.
  *
  * Setiap baris adalah link ke data yang memicu warning itu — `warningTarget()`

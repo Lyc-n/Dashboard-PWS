@@ -58,7 +58,7 @@ export function KegiatanTrendChart({ data, loading }: KegiatanTrendChartProps) {
         data={data}
         dataKey="label"
         yAxisProps={{
-          domain: [0, maxKegiatan * 1.3],
+          domain: [0, maxKegiatan * 21000],
           tickFormatter: (v) =>
             v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}`,
         }}

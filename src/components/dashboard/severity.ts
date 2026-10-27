@@ -8,6 +8,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import type { PillVariant } from '@/lib/utils'
 import type { WarningSeverity, WarningType } from '@/lib/dashboard/warning'
+import type { MantineColor } from '@mantine/core'
 
 /**
  * Metadata tampilan untuk warning.
@@ -20,12 +21,12 @@ import type { WarningSeverity, WarningType } from '@/lib/dashboard/warning'
 /** Warna severity dipinjam dari palet status yang sudah dipakai Pill/StatusBadge. */
 export const SEVERITY_META: Record<
   WarningSeverity,
-  { label: string; variant: PillVariant }
+  { label: string; variant: PillVariant; color: MantineColor }
 > = {
-  critical: { label: 'Kritis', variant: 'belum' },
-  attention: { label: 'Perlu perhatian', variant: 'tindak' },
-  reminder: { label: 'Pengingat', variant: 'process' },
-  info: { label: 'Info', variant: 'pending' },
+  critical: { label: 'Kritis', variant: 'belum', color: 'red' },
+  attention: { label: 'Perlu perhatian', variant: 'tindak', color: 'orange' },
+  reminder: { label: 'Pengingat', variant: 'process', color: 'yellow' },
+  info: { label: 'Info', variant: 'pending', color: 'blue' },
 }
 
 /** Urutan tampil di halaman notifikasi: paling serius dulu. */
