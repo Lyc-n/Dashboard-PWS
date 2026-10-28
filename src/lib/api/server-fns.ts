@@ -99,6 +99,24 @@ import {
   SEMUA_TIPE_FIELD,
   TIPE_BUTUH_OPSI,
 } from '@/lib/service/form-builder/validasi'
+import type { MonthlyKegiatanStat } from '@/hooks/dashboard/use-kegiatan-trend'
+import { db } from '../server/db.server'
+import { surveyEntries } from '../schema/schema'
+
+const namaBulan = [
+  'Januari',
+  'Februari',
+  'Maret',
+  'April',
+  'Mei',
+  'Juni',
+  'Juli',
+  'Agustus',
+  'September',
+  'Oktober',
+  'November',
+  'Desember',
+]
 
 /* ALUR LOGIN
 1. cek sessionToken pake beforeLoad di /laporan (form)
@@ -533,68 +551,94 @@ export const listKegiatan = createServerFn({ method: 'GET' })
   .middleware([authSessionToken])
   .handler(async () => await listKegiatanV2())
 
-export const getKegiatanMonthlyStats = createServerFn({ method: 'GET' })
-  .middleware([authSessionToken])
-  .handler(async () => {
-    const kegiatan = await listKegiatanV2()
-    const now = new Date()
-    const months: Array<{ key: string; label: string }> = []
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const key = d.toISOString().slice(0, 7)
-      const label = d.toLocaleString('id-ID', {
-        month: 'short',
-        year: '2-digit',
-      })
-      months.push({ key, label })
+export const getKegiatanMonthlyStats = createServerFn({
+  method: 'GET',
+}).handler(async (): Promise<MonthlyKegiatanStat[]> => {
+  // Ambil data JSONB dari database
+  const rows = await db.select({
+      value: surveyEntries.value,
+    })
+    .from(surveyEntries)
+
+  const rekap = new Map<
+    string,
+    {
+      totalKegiatan: number
+      totalHadir: number
+      totalPeserta: number
+      byJenis: Map<string, number>
     }
-    const byMonth = new Map<
-      string,
-      {
-        totalKegiatan: number
-        totalHadir: number
-        totalPeserta: number
-        byJenis: Map<string, number>
-      }
-    >()
-    months.forEach((m) =>
-      byMonth.set(m.key, {
+  >()
+
+  for (const row of rows) {
+    const value = row.value as Record<string, any>
+
+    // Sesuaikan dengan struktur JSONB value yang sebenarnya.
+    const info = value.info
+
+    const tanggal = info?.tglPengumpulan
+    const jenis = info?.posyandu
+
+    // Abaikan data yang tidak memiliki tanggal kegiatan.
+    if (!tanggal) continue
+
+    const date = new Date(tanggal)
+
+    if (Number.isNaN(date.getTime())) continue
+
+    const month = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+    ].join('-')
+
+    if (!rekap.has(month)) {
+      rekap.set(month, {
         totalKegiatan: 0,
         totalHadir: 0,
         totalPeserta: 0,
         byJenis: new Map(),
-      }),
-    )
-    kegiatan.forEach((k) => {
-      const monthKey = k.tgl.slice(0, 7)
-      const bucket = byMonth.get(monthKey)
-      if (!bucket) return
-      bucket.totalKegiatan += 1
-      bucket.totalHadir += k.hadir
-      bucket.totalPeserta += k.total
-      const jenisCount = bucket.byJenis.get(k.jenis) ?? 0
-      bucket.byJenis.set(k.jenis, jenisCount + 1)
-    })
-    return months.map((m) => {
-      const b = byMonth.get(m.key)!
-      const pctHadir =
-        b.totalPeserta > 0
-          ? Math.round((b.totalHadir / b.totalPeserta) * 100)
-          : 0
-      return {
-        month: m.key,
-        label: m.label,
-        totalKegiatan: b.totalKegiatan,
-        totalHadir: b.totalHadir,
-        totalPeserta: b.totalPeserta,
-        pctHadir,
-        byJenis: Array.from(b.byJenis.entries()).map(([jenis, count]) => ({
+      })
+    }
+
+    const item = rekap.get(month)!
+
+    // Satu baris survey_entries dianggap satu kegiatan.
+    item.totalKegiatan += 1
+
+    // TODO: Ganti dengan field kehadiran dan peserta yang sebenarnya.
+    // Jangan menghitung keduanya dari jumlah baris jika struktur
+    // JSONB tidak menyatakan bahwa satu baris = satu peserta hadir.
+
+    if (jenis) {
+      item.byJenis.set(
+        jenis,
+        (item.byJenis.get(jenis) ?? 0) + 1,
+      )
+    }
+  }
+
+  return Array.from(rekap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, item]) => ({
+      month,
+      label: namaBulan[Number(month.slice(5, 7)) - 1] ?? 'Tidak Diketahui',
+      totalKegiatan: item.totalKegiatan,
+      totalHadir: item.totalHadir,
+      totalPeserta: item.totalPeserta,
+      pctHadir:
+        item.totalPeserta > 0
+          ? Math.round(
+              (item.totalHadir / item.totalPeserta) * 100,
+            )
+          : 0,
+      byJenis: Array.from(item.byJenis.entries()).map(
+        ([jenis, count]) => ({
           jenis,
           count,
-        })),
-      }
-    })
-  })
+        }),
+      ),
+    }))
+})
 
 export const saveKegiatan = createServerFn({ method: 'POST' })
   .middleware([authSessionToken])

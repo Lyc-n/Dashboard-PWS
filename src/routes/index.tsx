@@ -136,8 +136,8 @@ function Dashboard() {
       />
 
       <SectionCard
-        title="Trend Kegiatan Pemberdayaan (12 Bulan Terakhir)"
-        sub="Klik titik pada grafik untuk melihat laporan kegiatan bulan tersebut di halaman Laporan."
+        title="Trend Kunjungan Rumah (12 Bulan Terakhir)"
+        sub="Klik titik pada grafik untuk melihat laporan kunjungan bulan tersebut di halaman Laporan."
       >
         <KegiatanTrendChart data={trendData} loading={trendLoading} />
       </SectionCard>

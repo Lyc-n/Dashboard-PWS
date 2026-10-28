@@ -17,7 +17,7 @@ export function KegiatanTrendChart({ data, loading }: KegiatanTrendChartProps) {
       <Center h={280}>
         <Loader size="sm" type="dots" />
         <Text size="sm" c="dimmed" ml="xs">
-          Memuat trend kegiatan…
+          Memuat tren kunjungan rumah…
         </Text>
       </Center>
     )
@@ -27,14 +27,14 @@ export function KegiatanTrendChart({ data, loading }: KegiatanTrendChartProps) {
     return (
       <Center h={280}>
         <Text size="sm" c="dimmed">
-          Belum ada data kegiatan untuk 12 bulan terakhir
+          Belum ada data kunjungan rumah untuk 12 bulan terakhir
         </Text>
       </Center>
     )
   }
 
   const handleClick = (month: string) => {
-    navigate({ to: '/laporan', search: { period: month, section: 'kegiatan' } })
+    navigate({ to: '/laporan', search: { period: month, section: 'kunjungan' } })
   }
 
   const maxKegiatan = Math.max(...data.map((d) => d.totalKegiatan), 1)
@@ -58,14 +58,15 @@ export function KegiatanTrendChart({ data, loading }: KegiatanTrendChartProps) {
         data={data}
         dataKey="label"
         yAxisProps={{
-          domain: [0, maxKegiatan * 21000],
+          domain: [0, Math.max(maxKegiatan + 1, 5)],
+          allowDecimals: false,
           tickFormatter: (v) =>
             v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}`,
         }}
         series={[
           {
             name: 'totalKegiatan',
-            label: 'Kegiatan',
+            label: 'Total Kunjungan',
             color: 'var(--color-accent)',
           },
         ]}
