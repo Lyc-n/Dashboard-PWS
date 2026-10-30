@@ -49,21 +49,10 @@ import type {
   BarisWargaGabungan,
   RiwayatSasaran,
 } from '@/lib/server/sasaran.server'
-import {
-  keVisitRecord,
-  deriveJadwal,
-  deriveTindakLanjutDari,
-} from '@/lib/notifikasi/sumber-warning'
-import {
-  simpanPushSubscription,
-  hapusPushSubscription,
-  kirimPushKeSemua,
-} from '@/lib/server/notifikasi/push.server'
+import { simpanPushSubscription } from '@/lib/server/notifikasi/push.server'
 import type { NotifikasiData } from '@/lib/notifikasi/types'
-import {
-  kelurahanStatDari,
-  queryKelurahanStats,
-} from '@/lib/server/dashboard.server'
+import { ambilNotifikasiData } from '@/lib/server/notifikasi/data.server'
+import { kelurahanStatDari } from '@/lib/server/dashboard.server'
 import type { KelurahanStat } from '@/lib/server/dashboard.server'
 import {
   listKegiatan as listKegiatanV2,
@@ -340,27 +329,10 @@ export const getLaporanKunjunganRumah = createServerFn({ method: 'GET' })
  */
 export const getNotifikasiData = createServerFn({ method: 'GET' })
   .middleware([authSessionToken])
-  .handler(async (): Promise<NotifikasiData> => {
-    const [kelurahan, records] = await Promise.all([
-      queryKelurahanStats(),
-      // Diabaikan saat migrasi belum lengkap; lihat catatan di atas.
-      listKunjunganRumahRecords().catch(() => [] as Record<string, unknown>[]),
-    ])
-    const visits = keVisitRecord(records)
-    return {
-      regions: kelurahan.map((k) => ({
-        name: k.name,
-        total: k.total,
-        dikunjungi: k.dikunjungi,
-      })),
-      jadwal: deriveJadwal(visits),
-      tindakLanjut: deriveTindakLanjutDari(visits),
-      ringkasan: {
-        warga: kelurahan.reduce((a, k) => a + k.total, 0),
-        kunjungan: records.length,
-      },
-    }
-  })
+  // Query-nya di `data.server.ts`, dipakai bersama cron. Catatan di atas tetap
+  // berlaku: duplikasi query di dua tempat membuat lonceng dan push bisa beda
+  // angka, jadi sumbernya harus satu.
+  .handler(async (): Promise<NotifikasiData> => ambilNotifikasiData())
 
 export const simpanPushSubscriptionFn = createServerFn({ method: 'POST' })
   .middleware([authSessionToken])
@@ -375,50 +347,6 @@ export const simpanPushSubscriptionFn = createServerFn({ method: 'POST' })
     await simpanPushSubscription(data)
     return { ok: true }
   })
-
-export const hapusPushSubscriptionFn = createServerFn({ method: 'POST' })
-  .middleware([authSessionToken])
-  .validator((d: { endpoint: string }) => d)
-  .handler(async ({ data }) => {
-    await hapusPushSubscription(data.endpoint)
-    return { ok: true }
-  })
-
-export const jalankanPengirimanNotifikasiCron = createServerFn({
-  method: 'GET',
-}).handler(async () => {
-  const { getRequest } = await import('@tanstack/react-start/server')
-  const req = getRequest()
-  const url = new URL(req.url)
-  const secret = url.searchParams.get('secret') ?? ''
-  if (secret !== process.env.CRON_SECRET) {
-    throw new Error('secret tidak valid')
-  }
-  const [kelurahan, records] = await Promise.all([
-    queryKelurahanStats(),
-    listKunjunganRumahRecords().catch(() => [] as Record<string, unknown>[]),
-  ])
-  const visits = keVisitRecord(records)
-  const jadwal = deriveJadwal(visits)
-  const tindak = deriveTindakLanjutDari(visits)
-  const regions = kelurahan.map((k) => ({
-    name: k.name,
-    total: k.total,
-    dikunjungi: k.dikunjungi,
-  }))
-  const { buildWarnings } = await import('@/lib/dashboard/warning')
-  const warnings = buildWarnings(
-    { regions, jadwal, tindakLanjut: tindak },
-    { now: new Date() },
-  )
-  const kritis = warnings.filter((w) => w.severity === 'critical').length
-  const payload = {
-    title: 'Notifikasi Dashboard PWS',
-    body: `${warnings.length} peringatan (${kritis} kritis). Buka untuk detail.`,
-    url: '/',
-  }
-  return await kirimPushKeSemua(payload)
-})
 
 // ---- riwayat submit semua form ----
 // Dipisah dari laporan kunjungan: di sini yang penting form mana, bukan cakupan
