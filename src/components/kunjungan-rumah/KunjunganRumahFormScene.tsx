@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { AppShell } from '@/components/layout/AppShell'
-import { DetailHeader } from '@/components/shared/DetailHeader'
 import { DokumentasiPanel } from '@/components/shared/DokumentasiPanel'
 import { SuccessPanel } from '@/components/shared/SuccessPanel'
 import { SectionCard } from '@/components/ui/SectionCard'

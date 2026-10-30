@@ -3,7 +3,7 @@
   "framework": "tanstack-start",
   "crons": [
     {
-      "path": "/cron/notifikasi?secret=REPLACE_WITH_CRON_SECRET",
+      "path": "/cron/notifikasi",
       "schedule": "0 7 * * *"
     }
   ],

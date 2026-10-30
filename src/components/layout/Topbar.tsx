@@ -2,6 +2,7 @@ import { Menu } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { NotifikasiBell } from '@/components/notifikasi/NotifikasiBell'
 import { NotifikasiToast } from '@/components/notifikasi/NotifikasiToast'
+import { PushOtomatis } from '@/components/notifikasi/PushOtomatis'
 import ThemeToggle from '@/components/ui/ThemeToggle'
 
 export interface TopbarProps {
@@ -21,6 +22,7 @@ export function Topbar({ onToggleCollapse }: TopbarProps) {
         <Menu size={18} strokeWidth={1.8} />
       </Button>
       <div className="ml-auto flex items-center gap-4">
+        <PushOtomatis />
         <NotifikasiBell />
         <NotifikasiToast />
         <ThemeToggle />
