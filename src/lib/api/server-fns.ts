@@ -555,7 +555,8 @@ export const getKegiatanMonthlyStats = createServerFn({
   method: 'GET',
 }).handler(async (): Promise<MonthlyKegiatanStat[]> => {
   // Ambil data JSONB dari database
-  const rows = await db.select({
+  const rows = await db
+    .select({
       value: surveyEntries.value,
     })
     .from(surveyEntries)
@@ -610,10 +611,7 @@ export const getKegiatanMonthlyStats = createServerFn({
     // JSONB tidak menyatakan bahwa satu baris = satu peserta hadir.
 
     if (jenis) {
-      item.byJenis.set(
-        jenis,
-        (item.byJenis.get(jenis) ?? 0) + 1,
-      )
+      item.byJenis.set(jenis, (item.byJenis.get(jenis) ?? 0) + 1)
     }
   }
 
@@ -627,16 +625,12 @@ export const getKegiatanMonthlyStats = createServerFn({
       totalPeserta: item.totalPeserta,
       pctHadir:
         item.totalPeserta > 0
-          ? Math.round(
-              (item.totalHadir / item.totalPeserta) * 100,
-            )
+          ? Math.round((item.totalHadir / item.totalPeserta) * 100)
           : 0,
-      byJenis: Array.from(item.byJenis.entries()).map(
-        ([jenis, count]) => ({
-          jenis,
-          count,
-        }),
-      ),
+      byJenis: Array.from(item.byJenis.entries()).map(([jenis, count]) => ({
+        jenis,
+        count,
+      })),
     }))
 })
 

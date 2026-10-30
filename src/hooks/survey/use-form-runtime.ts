@@ -34,6 +34,16 @@ import type {
 } from '@/lib/server/survey/form-runtime.server'
 import type { SasaranSuggestion } from '@/lib/kunjungan-rumah/sasaran/warga-row'
 import { usePetugasOpsi } from '@/hooks/petugas/use-petugas-opsi'
+import {
+  terapkanAutofill,
+  evaluasiVisibilitas,
+} from '@/lib/form-builder/engine'
+import type {
+  RuleAutofill,
+  RuleVisibilitas,
+  KonteksAutofill,
+} from '@/lib/form-builder/engine/types'
+import { getNestedValue } from '@/lib/form-builder/engine/nested'
 
 /** Panjang ketikan minimum sebelum server mencari warga; 3 sudah cukup unik. */
 const MIN_KETIK_WARGA = 3
@@ -83,12 +93,16 @@ export interface UseFormRuntimeParams {
   definisi: DefinisiRuntime
   /** Dipanggil sekali setelah isian benar-benar tersimpan di server. */
   onSaved?: (hasil: HasilSimpanFormulir) => void
+  rulesAutofill?: RuleAutofill[]
+  rulesVisibilitas?: RuleVisibilitas[]
 }
 
 export function useFormRuntime({
   formVersionId,
   definisi,
   onSaved,
+  rulesAutofill = [],
+  rulesVisibilitas = [],
 }: UseFormRuntimeParams) {
   const { form, sections, version } = definisi
   const subjekWargaWajib = form.subjekWargaWajib
@@ -126,7 +140,7 @@ export function useFormRuntime({
   const terkirim = useMemo(() => {
     const peta = new Map<string, unknown>()
     for (const field of allFields) {
-      const value = answers[field.id]
+      const value = getNestedValue(answers, field.id)
       if (value !== undefined && !nilaiKosong(value)) peta.set(field.id, value)
     }
     return peta
@@ -136,7 +150,7 @@ export function useFormRuntime({
    * Section yang punya pertanyaan. Section kosong tidak dirender, jadi petugas
    * tidak lewat judul section yang tidak berisi apa pun.
    */
-  const visibleSections = useMemo<SectionRuntime[]>(() => {
+  const visibleSectionsBase = useMemo<SectionRuntime[]>(() => {
     if (sections.length === 0) return SECTION_KOSONG
     const hasil = sections
       .map((section) => ({
@@ -147,10 +161,145 @@ export function useFormRuntime({
     return hasil.length === 0 ? SECTION_KOSONG : hasil
   }, [sections])
 
+  // Bangun konteks autofill
+  const konteksAutofill: KonteksAutofill = useMemo(() => {
+    // Cari field group berisi anggota
+    const gf = allFields.find(
+      (f) => f.tipe === 'group' && /anggota/i.test(f.nama),
+    )
+    let anggotaKeluarga: Array<Record<string, unknown>> = []
+    if (gf) {
+      const v = getNestedValue(answers, gf.id)
+      if (Array.isArray(v)) {
+        anggotaKeluarga = v as Array<Record<string, unknown>>
+      }
+    }
+    return {
+      wargaTerpilih: warga as KonteksAutofill['wargaTerpilih'],
+      anggotaKeluarga,
+      riwayat: [],
+    }
+  }, [warga, allFields, answers])
+
+  // Auto-fill saat warga dipilih
+  useEffect(() => {
+    if (!rulesAutofill.length) return
+    if (!warga) return
+    const { answersBaru, changed } = terapkanAutofill({
+      answers,
+      rules: rulesAutofill,
+      konteks: konteksAutofill,
+    })
+    if (changed) {
+      setAnswers(answersBaru)
+    }
+  }, [warga, konteksAutofill]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Evaluasi visibilitas
+  const vis = useMemo(() => {
+    if (!rulesVisibilitas.length) {
+      return {
+        fieldAktif: new Set(allFields.map((f) => f.id)),
+        sectionAktif: new Set(sections.map((s) => s.id)),
+        toClearField: new Set<string>(),
+        toClearSection: new Set<string>(),
+      }
+    }
+    return evaluasiVisibilitas({
+      answers,
+      rules: rulesVisibilitas,
+      allFieldIds: allFields.map((f) => f.id),
+      allSectionIds: sections.map((s) => s.id),
+    })
+  }, [answers, rulesVisibilitas, allFields, sections])
+
+  // Auto-reset: bersihkan field/section yang disembunyikan
+  useEffect(() => {
+    if (vis.toClearField.size === 0 && vis.toClearSection.size === 0) return
+    setAnswers((prev) => {
+      let next = { ...prev }
+      // clear field tersembunyi
+      for (const fid of vis.toClearField) {
+        const parts = fid.split('.').filter((p) => p.length > 0)
+        if (parts.length === 0) continue
+        if (parts.length === 1) {
+          const first = parts[0]!
+          delete next[first]
+        } else {
+          next = deleteNestedPath(next, fid)
+        }
+      }
+      // clear field di section tersembunyi
+      if (vis.toClearSection.size > 0) {
+        for (const sec of sections) {
+          if (vis.toClearSection.has(sec.id)) {
+            for (const f of sec.fields) {
+              const parts = f.id.split('.').filter((p) => p.length > 0)
+              if (parts.length === 0) continue
+              if (parts.length === 1) {
+                const first = parts[0]!
+                delete next[first]
+              } else {
+                next = deleteNestedPath(next, f.id)
+              }
+            }
+          }
+        }
+      }
+      return next
+    })
+  }, [vis.toClearField, vis.toClearSection, sections])
+
+  function deleteNestedPath(
+    obj: Record<string, unknown>,
+    path: string,
+  ): Record<string, unknown> {
+    const parts = path.split('.').filter((p) => p.length > 0)
+    if (parts.length === 0) return obj
+    if (parts.length === 1) {
+      const result: Record<string, unknown> = { ...obj }
+      const first = parts[0]!
+      delete result[first]
+      return result
+    }
+    const result: Record<string, unknown> = { ...obj }
+    let current: Record<string, unknown> = result
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i]!
+      const existing = current[part]
+      if (
+        existing === null ||
+        existing === undefined ||
+        typeof existing !== 'object' ||
+        Array.isArray(existing)
+      ) {
+        return obj
+      }
+      current[part] = { ...(existing as Record<string, unknown>) }
+      current = current[part] as Record<string, unknown>
+    }
+    const lastPart = parts[parts.length - 1]!
+    delete current[lastPart]
+    return result
+  }
+
+  // Filter sections/fields berdasarkan visibilitas
+  const visibleSections = useMemo<SectionRuntime[]>(() => {
+    if (!rulesVisibilitas.length) return visibleSectionsBase
+    const filtered = sections
+      .filter((s) => vis.sectionAktif.has(s.id))
+      .map((s) => ({
+        ...s,
+        fields: s.fields.filter((f) => vis.fieldAktif.has(f.id) && f.aktif),
+      }))
+      .filter((section) => section.fields.length > 0)
+    return filtered.length === 0 ? SECTION_KOSONG : filtered
+  }, [sections, vis, rulesVisibilitas, visibleSectionsBase])
+
   /** Field wajib yang sedang terlihat. */
   const fieldsWajib = useMemo(
-    () => allFields.filter((f) => f.wajib),
-    [allFields],
+    () => allFields.filter((f) => f.wajib && vis.fieldAktif.has(f.id)),
+    [allFields, vis.fieldAktif],
   )
 
   const kosongWajib = useMemo(
@@ -161,7 +310,7 @@ export function useFormRuntime({
   /** Field wajib pertama yang masih kosong; scene memakainya untuk menggulir ke sana. */
   const firstMissingRequiredId = useMemo(() => {
     for (const field of fieldsWajib) {
-      if (nilaiKosong(answers[field.id])) return field.id
+      if (nilaiKosong(getNestedValue(answers, field.id))) return field.id
     }
     return null
   }, [fieldsWajib, answers])
@@ -174,7 +323,35 @@ export function useFormRuntime({
         )
 
   const setAnswer = useCallback((fieldId: string, value: unknown) => {
-    setAnswers((prev) => ({ ...prev, [fieldId]: value }))
+    setAnswers((prev) => {
+      const parts = fieldId.split('.').filter((p) => p.length > 0)
+      if (parts.length === 0) return prev
+      if (parts.length === 1) {
+        const first = parts[0]!
+        return { ...prev, [first]: value }
+      }
+      // Nested path
+      const result: Record<string, unknown> = { ...prev }
+      let current: Record<string, unknown> = result
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i]!
+        const existing = current[part]
+        if (
+          existing === null ||
+          existing === undefined ||
+          typeof existing !== 'object' ||
+          Array.isArray(existing)
+        ) {
+          current[part] = {}
+        } else {
+          current[part] = { ...(existing as Record<string, unknown>) }
+        }
+        current = current[part] as Record<string, unknown>
+      }
+      const lastPart = parts[parts.length - 1]!
+      current[lastPart] = value
+      return result
+    })
   }, [])
 
   // --- pencarian warga ------------------------------------------------------

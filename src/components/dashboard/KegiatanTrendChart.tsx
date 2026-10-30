@@ -34,7 +34,10 @@ export function KegiatanTrendChart({ data, loading }: KegiatanTrendChartProps) {
   }
 
   const handleClick = (month: string) => {
-    navigate({ to: '/laporan', search: { period: month, section: 'kunjungan' } })
+    navigate({
+      to: '/laporan',
+      search: { period: month, section: 'kunjungan' },
+    })
   }
 
   const maxKegiatan = Math.max(...data.map((d) => d.totalKegiatan), 1)

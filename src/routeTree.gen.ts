@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as FormRouteImport } from './routes/form'
+import { Route as FormDesignerRouteImport } from './routes/form-designer'
 import { Route as KegiatanRouteImport } from './routes/kegiatan'
 import { Route as KelolaRouteImport } from './routes/kelola'
 import { Route as KunjunganRumahRouteImport } from './routes/kunjungan-rumah'
@@ -32,6 +33,11 @@ const IndexRoute = IndexRouteImport.update({
 const FormRoute = FormRouteImport.update({
   id: '/form',
   path: '/form',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FormDesignerRoute = FormDesignerRouteImport.update({
+  id: '/form-designer',
+  path: '/form-designer',
   getParentRoute: () => rootRouteImport,
 } as any)
 const KegiatanRoute = KegiatanRouteImport.update({
@@ -98,6 +104,7 @@ const SasaranIdRoute = SasaranIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/form': typeof FormRoute
+  '/form-designer': typeof FormDesignerRoute
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
   '/kunjungan-rumah': typeof KunjunganRumahRouteWithChildren
@@ -114,6 +121,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/form': typeof FormRoute
+  '/form-designer': typeof FormDesignerRoute
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
   '/kunjungan-rumah': typeof KunjunganRumahRouteWithChildren
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/form': typeof FormRoute
+  '/form-designer': typeof FormDesignerRoute
   '/kegiatan': typeof KegiatanRoute
   '/kelola': typeof KelolaRoute
   '/kunjungan-rumah': typeof KunjunganRumahRouteWithChildren
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/form'
+    | '/form-designer'
     | '/kegiatan'
     | '/kelola'
     | '/kunjungan-rumah'
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/form'
+    | '/form-designer'
     | '/kegiatan'
     | '/kelola'
     | '/kunjungan-rumah'
@@ -179,6 +190,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/form'
+    | '/form-designer'
     | '/kegiatan'
     | '/kelola'
     | '/kunjungan-rumah'
@@ -196,6 +208,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   FormRoute: typeof FormRoute
+  FormDesignerRoute: typeof FormDesignerRoute
   KegiatanRoute: typeof KegiatanRoute
   KelolaRoute: typeof KelolaRoute
   KunjunganRumahRoute: typeof KunjunganRumahRouteWithChildren
@@ -221,6 +234,13 @@ declare module '@tanstack/react-router' {
       path: '/form'
       fullPath: '/form'
       preLoaderRoute: typeof FormRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/form-designer': {
+      id: '/form-designer'
+      path: '/form-designer'
+      fullPath: '/form-designer'
+      preLoaderRoute: typeof FormDesignerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/kegiatan': {
@@ -338,6 +358,7 @@ const SasaranRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   FormRoute: FormRoute,
+  FormDesignerRoute: FormDesignerRoute,
   KegiatanRoute: KegiatanRoute,
   KelolaRoute: KelolaRoute,
   KunjunganRumahRoute: KunjunganRumahRouteWithChildren,

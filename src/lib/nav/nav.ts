@@ -66,7 +66,12 @@ export function navItemsForUser(): NavItem[] {
 
 export function bottomNavItemsForUser(): NavItem[] {
   return navItemsForUser()
-    .filter((item) => item.label !== 'Formulir' && item.label !== 'Data Sasaran' && item.label !== 'Kelola')
+    .filter(
+      (item) =>
+        item.label !== 'Formulir' &&
+        item.label !== 'Data Sasaran' &&
+        item.label !== 'Kelola',
+    )
     .slice(0, 5)
     .map((item) => ({ ...item, children: undefined }))
 }

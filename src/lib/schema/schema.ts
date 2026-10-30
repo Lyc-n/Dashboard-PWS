@@ -430,3 +430,106 @@ export const pushSubscriptions = pgTable('push_subscriptions', {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   lastUsedAt: timestamp({ withTimezone: true }),
 })
+
+/**
+ * Aturan autofill dinamis untuk Form Builder.
+ * Menghubungkan field pemicu (biasanya field dengan optionSourceType 'cari_warga')
+ * ke field target dengan konfigurasi sumber data dan transformasi.
+ */
+export const formFieldAutofills = pgTable(
+  'form_field_autofills',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    formVersionId: uuid()
+      .notNull()
+      .references(() => formVersions.id, { onDelete: 'cascade' }),
+    // Field yang memicu autofill
+    triggerFieldId: uuid()
+      .notNull()
+      .references(() => formFields.id, { onDelete: 'cascade' }),
+    // Field yang diisi otomatis
+    targetFieldId: uuid()
+      .notNull()
+      .references(() => formFields.id, { onDelete: 'cascade' }),
+    // Sumber data untuk mengambil nilai
+    sumber: varchar({ length: 10 }).notNull(), // 'warga' | 'anggota' | 'riwayat'
+    // Key/kolom sumber
+    kolom: varchar({ length: 50 }).notNull(),
+    // Transformasi nilai sebelum diisi
+    transform: varchar({ length: 10 }).notNull().default('teks'), // 'teks'|'nik'|'tanggal'|'opsi'|'angka'
+    // Perilaku saat mengisi
+    mode: varchar({ length: 12 }).notNull().default('isi_kosong'), // 'isi_kosong'|'timpa'
+    urutan: integer().notNull().default(0),
+    aktif: boolean().notNull().default(true),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('form_field_autofills_form_version_idx').on(t.formVersionId),
+    index('form_field_autofills_trigger_idx').on(t.triggerFieldId),
+    index('form_field_autofills_target_idx').on(t.targetFieldId),
+    // Satu mapping per (trigger, target, sumber, kolom) biar tidak dobel
+    uniqueIndex('form_field_autofills_unique_idx').on(
+      t.triggerFieldId,
+      t.targetFieldId,
+      t.sumber,
+      t.kolom,
+    ),
+    check(
+      'form_field_autofills_sumber_check',
+      sql`${t.sumber} IN ('warga','anggota','riwayat')`,
+    ),
+    check(
+      'form_field_autofills_transform_check',
+      sql`${t.transform} IN ('teks','nik','tanggal','opsi','angka')`,
+    ),
+    check(
+      'form_field_autofills_mode_check',
+      sql`${t.mode} IN ('isi_kosong','timpa')`,
+    ),
+  ],
+)
+
+/**
+ * Aturan visibilitas kondisional untuk field atau section.
+ * Menentukan kapan suatu field/section muncul berdasarkan nilai field pemicu.
+ */
+export const formFieldVisibilityRules = pgTable(
+  'form_field_visibility_rules',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    formVersionId: uuid()
+      .notNull()
+      .references(() => formVersions.id, { onDelete: 'cascade' }),
+    // Target yang dikontrol
+    targetType: varchar({ length: 8 }).notNull(), // 'field' | 'section'
+    targetId: uuid().notNull(),
+    // Field pemicu
+    triggerFieldId: uuid()
+      .notNull()
+      .references(() => formFields.id, { onDelete: 'cascade' }),
+    // Operator evaluasi
+    operator: varchar({ length: 12 }).notNull(), // 'eq'|'neq'|'in'|'nin'|'kosong'|'tidak_kosong'
+    // Nilai acuan (bisa string/number/array). Pakai jsonb biar fleksibel
+    nilaiAcuan: jsonb()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    aktif: boolean().notNull().default(true),
+    urutan: integer().notNull().default(0),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('form_field_vis_form_version_idx').on(t.formVersionId),
+    index('form_field_vis_target_idx').on(t.targetType, t.targetId),
+    index('form_field_vis_trigger_idx').on(t.triggerFieldId),
+    check(
+      'form_field_vis_target_type_check',
+      sql`${t.targetType} IN ('field','section')`,
+    ),
+    check(
+      'form_field_vis_operator_check',
+      sql`${t.operator} IN ('eq','neq','in','nin','kosong','tidak_kosong')`,
+    ),
+  ],
+)

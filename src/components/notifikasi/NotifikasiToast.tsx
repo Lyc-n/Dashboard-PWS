@@ -52,9 +52,9 @@ export function NotifikasiToast() {
               : 'blue',
         title: (
           <div className="mb-1 flex items-center gap-1.5">
-            <Badge 
-              size="xs" 
-              variant="light" 
+            <Badge
+              size="xs"
+              variant="light"
               color={SEVERITY_META[item.severity].color}
             >
               {SEVERITY_META[item.severity].label}

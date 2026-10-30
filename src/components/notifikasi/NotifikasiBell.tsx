@@ -66,15 +66,15 @@ export function NotifikasiBell() {
         offset={3}
         inline
         classNames={{
-            indicator: '!text-[10px] !font-semibold', // <-- Pakai '!' agar menimpa style bawaan
-          }}
+          indicator: '!text-[10px] !font-semibold', // <-- Pakai '!' agar menimpa style bawaan
+        }}
       >
         <ActionIcon
           aria-label={total > 0 ? `Notifikasi, ${total} aktif` : 'Notifikasi'}
           aria-expanded={open}
           aria-haspopup="menu"
           onClick={() => setOpen((o) => !o)}
-          color='var(--color-accent)'
+          color="var(--color-accent)"
           variant="light"
           size="lg"
           radius="xl"

@@ -28,7 +28,9 @@ export function KegiatanTooltip({
       )}
     >
       {/* Header Bulan */}
-      <div className="font-semibold text-ink text-xs mb-2 pb-1 border-b border-line">{label} </div>
+      <div className="font-semibold text-ink text-xs mb-2 pb-1 border-b border-line">
+        {label}{' '}
+      </div>
 
       {/* Total Kunjungan */}
       <div className="flex justify-between items-center text-[12px] mb-2 font-medium">
